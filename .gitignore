@@ -22,8 +22,11 @@ dist-test/
 media/screenshots.png
 media/screenshots-2.png
 
-# Plans stay on disk and out of git. The live library under `.chronos/plans` is
-# already covered above; these are the design plans written before the code was
-# built, kept as a personal record rather than as anything the repo builds from.
-docs/PLAN.md
-docs/*-PLAN.md
+# Plans stay on disk and never go to GitHub. Three places they land:
+# `.chronos/plans` (covered above), `docs/` — which holds nothing but the design
+# plans and the prompt text the scheduler runs — and wherever
+# `chronos.libraryPath` is pointed, so any `plans/` folder at any depth counts.
+# This is deliberately whole-folder rather than a list of filenames, so a plan
+# written tomorrow is ignored without anyone remembering to add it.
+docs/
+plans/

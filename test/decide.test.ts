@@ -169,6 +169,58 @@ describe('decide — the enabled and spent flags', () => {
   });
 });
 
+describe('decide — a plan waiting its turn in a chain', () => {
+  const link = { after: 'series-1', delayMinutes: 0, stopOnFailure: true };
+
+  it('should_not_fire_a_plan_still_waiting_on_the_one_before_it', () => {
+    const head = series({ id: 'series-1', nextRunAt: new Date(NOW + 60 * MINUTE).toISOString() });
+    const next = series({ id: 'next', spent: true, chain: link });
+
+    const actions = act({ series: [head, next] });
+
+    assert.deepEqual(actions, []);
+  });
+
+  it('should_arm_and_start_a_follower_in_the_same_tick', () => {
+    // The arming runs before due occurrences are turned into runs, so a plan
+    // whose turn came does not wait another thirty seconds for the next tick.
+    const head = series({ id: 'series-1', spent: true, nextRunAt: new Date(NOW - 60 * MINUTE).toISOString() });
+    const next = series({ id: 'next', spent: true, chain: link });
+    const done = run({
+      seriesId: 'series-1',
+      status: 'completed',
+      scheduledAt: new Date(NOW - 60 * MINUTE).toISOString(),
+      finishedAt: new Date(NOW - MINUTE).toISOString()
+    });
+
+    const actions = act({ series: [head, next], runs: [done] });
+
+    const started = starts(actions);
+    assert.equal(started.length, 1);
+    assert.equal(started[0].kind === 'start' && started[0].series.id, 'next');
+  });
+
+  it('should_park_a_follower_again_once_it_has_run', () => {
+    // Nothing extra does this: a chained plan is a one-shot, and a fired
+    // one-shot is marked spent — which is the waiting state it started in.
+    const head = series({ id: 'series-1', spent: true, nextRunAt: new Date(NOW - 60 * MINUTE).toISOString() });
+    const next = series({ id: 'next', spent: true, chain: link });
+    const done = run({
+      seriesId: 'series-1',
+      status: 'completed',
+      scheduledAt: new Date(NOW - 60 * MINUTE).toISOString(),
+      finishedAt: new Date(NOW - MINUTE).toISOString()
+    });
+
+    const actions = act({ series: [head, next], runs: [done] });
+
+    assert.ok(
+      seriesPatch(actions, 'next').some((p) => p.spent === true),
+      'the follower goes back to waiting'
+    );
+  });
+});
+
 describe('decide — concurrency and overlap', () => {
   it('should_start_both_tasks_due_in_the_same_tick_when_slots_allow', () => {
     const a = series({ id: 'a', nextRunAt: new Date(NOW - MINUTE).toISOString() });

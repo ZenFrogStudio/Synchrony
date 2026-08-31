@@ -1,7 +1,7 @@
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Ouroboros dragon, matching media/icon.png. currentColor throughout: the
        activity bar masks this to a single theme colour, so anything relying on
-       the teal-and-sodium split of the full mark is lost here and the whole
+       teal-and-violet scaling of the full mark is lost here and the whole
        thing has to work as one silhouette.
 
        Drawn at 24px but read at 16px, which is what the proportions are for: a

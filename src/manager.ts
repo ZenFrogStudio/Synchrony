@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { buildActivity } from './activity';
 import { AGENTS, DEFAULT_AGENT } from './agents';
+import { chainPatches } from './chain';
 import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
 import * as library from './library';
@@ -13,7 +14,7 @@ import { Scheduler } from './scheduler';
 import { createSeries, SeriesDefaults } from './series';
 import { coerceSetting, SettingGroup, settingGroups } from './settings';
 import { Store } from './store';
-import { AgentId, TaskSeries } from './types';
+import { AgentId, MAX_CHAIN_DELAY_MINUTES, TaskSeries } from './types';
 
 /** Messages the webview may send. Anything else is logged and ignored. */
 type Inbound =
@@ -29,6 +30,13 @@ type Inbound =
   | { type: 'importPlan' }
   | { type: 'revealLibrary' }
   | { type: 'schedulePlan'; name: string }
+  | {
+      type: 'chainPlans';
+      names: string[];
+      startIso: string;
+      gapMinutes: number;
+      stopOnFailure: boolean;
+    }
   | { type: 'updateSeries'; id: string; patch: Partial<TaskSeries> }
   | { type: 'browseCwd'; id: string }
   | { type: 'runNow'; seriesId: string; dismissRunId?: string }
@@ -394,6 +402,9 @@ export class Manager implements vscode.Disposable {
         return;
       }
 
+      case 'chainPlans':
+        return this.chainPlans(dir, message);
+
       case 'updateSeries': {
         const { patch, rejected } = seriesEdit(message.patch);
         if (rejected.length) {
@@ -546,6 +557,89 @@ export class Manager implements vscode.Disposable {
       default:
         log.warn(`unhandled manager message: ${JSON.stringify(message)}`);
     }
+  }
+
+  /**
+   * Puts several plans in a row: the first starts at the time you picked, and
+   * each of the rest is armed when the one before it finishes. See `chain.ts`
+   * for the arming rule.
+   *
+   * A plan already on the schedule keeps its series — its working directory,
+   * permissions and run history — and only its timing is rewritten. Minting a
+   * second series against the same file would run the plan twice.
+   */
+  private async chainPlans(
+    dir: string,
+    message: Extract<Inbound, { type: 'chainPlans' }>
+  ): Promise<void> {
+    const names = (Array.isArray(message.names) ? message.names : []).filter(
+      (n): n is string => typeof n === 'string'
+    );
+    const start = Date.parse(message.startIso);
+
+    // The webview already enforces all of this; it is checked again here because
+    // this is the side of the boundary where it counts.
+    if (names.length < 2) {
+      this.notify('A chain needs at least two plans.');
+      return;
+    }
+    // One plan twice would link it to itself, and a plan waiting on itself waits
+    // forever — a loop nothing announces, because nothing has failed.
+    if (new Set(names).size !== names.length) {
+      this.notify('A plan can only be in a chain once.');
+      return;
+    }
+    if (Number.isNaN(start)) {
+      this.notify('That start time is not a date.');
+      return;
+    }
+    if (
+      !Number.isInteger(message.gapMinutes) ||
+      message.gapMinutes < 0 ||
+      message.gapMinutes > MAX_CHAIN_DELAY_MINUTES
+    ) {
+      this.notify(`The gap between plans must be 0 to ${MAX_CHAIN_DELAY_MINUTES} minutes.`);
+      return;
+    }
+
+    // Every plan gets its series first, so the links below can name real ids.
+    const ids: string[] = [];
+    for (const name of names) {
+      const filePath = library.planPath(dir, name);
+      if (!fs.existsSync(filePath)) {
+        this.notify(`${library.titleOf(name)} is no longer in the library.`);
+        return;
+      }
+      const existing = this.store
+        .getSeries()
+        .find((s) => library.samePath(s.filePath, filePath));
+      if (existing) {
+        ids.push(existing.id);
+        continue;
+      }
+      const series = createSeries(filePath, seriesDefaults(filePath));
+      await this.store.addSeries(series);
+      ids.push(series.id);
+    }
+
+    for (const { id, patch } of chainPatches(
+      ids,
+      new Date(start).toISOString(),
+      message.gapMinutes,
+      message.stopOnFailure === true
+    )) {
+      await this.store.updateSeries(id, patch);
+    }
+
+    log.info(
+      `chained ${names.length} plans from ${new Date(start).toISOString()}, ` +
+        `${message.gapMinutes}m apart (${names.join(' → ')})`
+    );
+    this.post();
+    this.notify(
+      `Chained ${names.length} plans. ${library.titleOf(names[0])} starts it off; ` +
+        `each plan after it runs ${message.gapMinutes} minute(s) after the one before finishes.`
+    );
   }
 
   /**

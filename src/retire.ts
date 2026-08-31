@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { downstream } from './chain';
 import * as library from './library';
 import { TaskRun, TaskSeries } from './types';
 
@@ -52,6 +53,10 @@ export interface RetirementReport {
  * completed runs behind it were made under a rule it no longer has, so counting
  * them would archive it the moment Repeat was switched to Once — with the
  * one-shot occurrence the user just set still waiting to fire.
+ *
+ * A chain retires as a unit, once every link is done. Otherwise its plans would
+ * leave the library one at a time as the chain worked through them, with the
+ * plans still to run naming a predecessor no longer in the list.
  */
 export function retirable(
   series: readonly TaskSeries[],
@@ -65,7 +70,32 @@ export function retirable(
     if (own.some((r) => r.status === 'pending' || r.status === 'running')) {
       return false;
     }
+    if (chainStillRunning(series, runs, s)) {
+      return false;
+    }
     return own.some((r) => r.status === 'completed' && ranSinceItStoppedRepeating(s, r));
+  });
+}
+
+/**
+ * Whether anything behind this plan in a chain has yet to have its turn. A link
+ * switched off does not count: a chain stopped by a failure is not going to
+ * reach it, so the plans that did run are free to leave.
+ */
+function chainStillRunning(
+  series: readonly TaskSeries[],
+  runs: readonly TaskRun[],
+  s: TaskSeries
+): boolean {
+  return downstream(series, s.id).some((follower) => {
+    if (!follower.enabled) {
+      return false;
+    }
+    const own = runs.filter((r) => r.seriesId === follower.id);
+    return (
+      own.some((r) => r.status === 'pending' || r.status === 'running') ||
+      !own.some((r) => r.status === 'completed')
+    );
   });
 }
 

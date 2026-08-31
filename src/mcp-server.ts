@@ -3,6 +3,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
+import { wouldCycle } from './chain';
 import * as library from './library';
 import { readLock } from './lock';
 import {
@@ -270,6 +271,11 @@ function describeSeries(series: TaskSeries) {
     recurrence: series.recurrence,
     enabled: series.enabled,
     spent: series.spent ?? false,
+    // Without this a plan waiting its turn in a chain reads as unscheduled and
+    // spent — which is what it looks like from the fields above, and is wrong.
+    runsAfter: series.chain
+      ? { seriesId: series.chain.after, delayMinutes: series.chain.delayMinutes }
+      : undefined,
     engine: series.agent ?? 'claude',
     model: series.model ?? '(account default)',
     permissionMode: series.permissionMode,
@@ -658,6 +664,21 @@ tool(fullSurface,
     const verdict = planSeriesUpdate(patch, series);
     if (!verdict.ok) {
       return refuse(verdict.reason);
+    }
+
+    // A chain link is the one field an agent can set that says something about
+    // another task, so it is the one that can be self-defeating: a link onto a
+    // task that is not there, or into a loop, parks both ends forever waiting
+    // for a run that never comes.
+    if (verdict.value.chain) {
+      const scheduled = state().series;
+      const after = verdict.value.chain.after;
+      if (!scheduled.some((s) => s.id === after)) {
+        return refuse('No scheduled task has that id, so nothing can run after it.');
+      }
+      if (wouldCycle(scheduled, args.id, after)) {
+        return refuse('That would make a loop — the two tasks would each be waiting on the other.');
+      }
     }
 
     let updated: TaskSeries | undefined;

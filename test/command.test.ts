@@ -278,6 +278,32 @@ describe('validateCommand — reschedule', () => {
   });
 });
 
+describe('validateCommand — a plan that runs as part of a chain', () => {
+  it('should_refuse_to_move_a_chained_plans_time', () => {
+    // It has no time of its own to move: the plan before it finishing is what
+    // sets one. Accepting this would write a time the next tick overwrites.
+    const chained = series({ chain: { after: 'other', delayMinutes: 15, stopOnFailure: true } });
+
+    const verdict = check(
+      { kind: 'reschedule', payload: { nextRunAt: new Date(NOW + HOUR).toISOString() } },
+      { series: [chained] }
+    );
+
+    assert.equal(verdict.ok, false);
+    assert.match(verdict.ok === false ? verdict.reason : '', /Unlink/);
+  });
+
+  it('should_still_let_the_phone_pause_or_run_one', () => {
+    const chained = series({ chain: { after: 'other', delayMinutes: 15, stopOnFailure: true } });
+
+    assert.equal(check({ kind: 'runNow' }, { series: [chained] }).ok, true);
+    assert.equal(
+      check({ kind: 'setEnabled', payload: { enabled: false } }, { series: [chained] }).ok,
+      true
+    );
+  });
+});
+
 describe('validateCommand — setRepeat', () => {
   it('should_turn_a_recurring_series_into_a_one_shot', () => {
     const patch = patchOf(check({ kind: 'setRepeat', payload: { repeat: 'once' } }));

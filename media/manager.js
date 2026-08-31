@@ -76,6 +76,21 @@
   let manualEditorHeight = /** @type {number|null} */ (null);
   /** Whether the detail pane is showing Settings instead of a plan. */
   let showSettings = false;
+  /** Whether it is showing the chain builder instead. Never both at once. */
+  let showChain = false;
+  /** The chain being built: plan names, in the order they will run. Held here
+   *  rather than in the DOM for the same reason as everything else on this list —
+   *  the pane is rebuilt on every state message, and a half-built chain must
+   *  survive that. Deliberately not saved with the view state: an unfinished
+   *  chain restored days later would be a puzzle, not a convenience. */
+  let chainNames = /** @type {string[]} */ ([]);
+  /** When the first plan in the chain runs. ISO 8601, null until the page opens. */
+  let chainStart = /** @type {string|null} */ (null);
+  /** Minutes between one plan finishing and the next starting. */
+  let chainGap = 15;
+  let chainStop = true;
+  /** Which row is being dragged, or -1. */
+  let chainDragFrom = -1;
   /** A plan is addressed by name alone — no path from here ever reaches the
    *  filesystem, which is what lets the host resolve every read and write
    *  through the one library guard. */
@@ -216,6 +231,15 @@
     return `${Math.round(hours / 24)}d ago`;
   }
 
+  /** An hour out, rounded up to the next quarter hour — the same first guess the
+   *  host makes for a newly scheduled plan in series.ts. */
+  function defaultStartIso() {
+    const at = new Date(Date.now() + 60 * 60_000);
+    at.setSeconds(0, 0);
+    at.setMinutes(at.getMinutes() + ((15 - (at.getMinutes() % 15)) % 15));
+    return at.toISOString();
+  }
+
   const planByName = (name) => state.plans.find((p) => p.name === name);
   const seriesForPlan = (plan) =>
     plan ? state.series.find((s) => samePath(s.filePath, plan.filePath)) : undefined;
@@ -225,6 +249,15 @@
   function planForSeries(id) {
     const series = seriesById(id);
     return series ? state.plans.find((p) => samePath(p.filePath, series.filePath)) : undefined;
+  }
+
+  /** What to call a series on screen. The plan's own title when its file is
+   *  still in the library, and the file name when it has been archived. */
+  function titleOfSeries(id) {
+    const plan = planForSeries(id);
+    if (plan) return plan.title;
+    const series = seriesById(id);
+    return series ? series.fileName.replace(/\.md$/i, '') : 'a plan that is gone';
   }
 
   const repeatOf = (s) =>
@@ -300,9 +333,19 @@
     return `once · ${formatWhen(s.nextRunAt)}`;
   }
 
+  /** How a chained plan's turn is described, in the two places that say it. */
+  const chainWait = (s) =>
+    `After ${titleOfSeries(s.chain.after)}${s.chain.delayMinutes ? ` · +${s.chain.delayMinutes}m` : ''}`;
+
   /** The one line that answers "when does this run next?". */
   function headStatus(s) {
     if (!s) return '<p class="head-status">Not scheduled</p>';
+    // Before the two below: a plan waiting its turn is spent and not running,
+    // and neither of those is what is actually going on.
+    if (s.chain && s.enabled && s.spent) {
+      return `<p class="head-status">Waiting &middot; ${esc(chainWait(s))}</p>`;
+    }
+    if (s.chain && !s.enabled) return '<p class="head-status">Chain stopped</p>';
     if (s.spent) return '<p class="head-status">Ran once</p>';
     if (!s.enabled) return '<p class="head-status">Not scheduled</p>';
     if (isRunning(s)) return '<p class="head-status"><span class="head-count">running now</span></p>';
@@ -472,6 +515,10 @@
     if (!series) {
       return plan.modifiedMs ? `Edited ${formatAge(plan.modifiedMs)}` : 'Not scheduled';
     }
+    // A plan in a chain has no time of its own until its turn comes — and once
+    // it has been armed, it has a real time and reads like any other plan.
+    if (series.chain && !series.enabled) return 'Chain stopped';
+    if (series.chain && series.spent) return chainWait(series);
     if (!series.spent) {
       return series.enabled ? formatWhen(series.nextRunAt) : 'Not scheduled';
     }
@@ -549,8 +596,12 @@
   }
 
   function renderDetail() {
-    // Before the plan lookup: the settings page has no plan and no series behind
-    // it, and every helper below assumes one.
+    // Before the plan lookup: neither of these pages has a plan or a series
+    // behind it, and every helper below assumes one.
+    if (showChain) {
+      detailEl.innerHTML = chainPage();
+      return;
+    }
     if (showSettings) {
       detailEl.innerHTML = settingsPage();
       return;
@@ -586,6 +637,121 @@
     `;
 
     mountEditor(plan);
+  }
+
+  // ---------- the chain builder ----------
+
+  /**
+   * Several plans in a row, each started by the one before it finishing. The
+   * page holds the order, the start time and the gap; nothing is written until
+   * Create chain, so building one and thinking better of it costs nothing.
+   */
+  function chainPage() {
+    const rows = chainNames
+      .map((name, index) => chainRow(planByName(name), name, index))
+      .join('');
+
+    const rest = state.plans.filter((p) => !chainNames.includes(p.name));
+
+    return `
+      <div class="detail-head">
+        <div class="head-text">
+          <div class="head-title-row">
+            <h2 class="detail-title">Chain plans</h2>
+          </div>
+          <p class="head-status">Each plan starts when the one before it has finished.</p>
+          <p class="detail-path">The first plan is the only one with a time of its own.</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">In order</h3>
+        ${
+          chainNames.length
+            ? `<ol class="chain-list">${rows}</ol>`
+            : '<p class="plan-meta">Nothing in the chain yet — add two or more plans below.</p>'
+        }
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">Add a plan</h3>
+        ${
+          rest.length
+            ? `<div class="chain-add">${rest
+                .map(
+                  (p) =>
+                    `<button class="button is-quiet" type="button" data-action="chain-add"
+                      data-name="${esc(p.name)}">${esc(p.title)}</button>`
+                )
+                .join('')}</div>`
+            : '<p class="plan-meta">Every plan in the library is already in the chain.</p>'
+        }
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">When</h3>
+        <div class="grid">
+          <div class="field">
+            <span class="field-label">Start</span>
+            ${whenPicker(chainStart || defaultStartIso())}
+          </div>
+          <label class="field">
+            <span class="field-label">Gap between plans</span>
+            <input class="field-input" type="number" min="0" max="1440" step="1"
+              data-field="chainGap" data-focus-key="chain-gap" value="${chainGap}" />
+            <p class="field-help">Minutes to wait after one plan finishes before the next starts.</p>
+          </label>
+        </div>
+        <div class="field is-spaced">
+          <label class="field-check">
+            <input type="checkbox" data-field="chainStop" data-focus-key="chain-stop-all"
+              ${chainStop ? 'checked' : ''} />
+            <span class="field-label">Stop the chain if a plan fails</span>
+          </label>
+          <p class="field-help">Retries happen first either way — the chain only stops once a
+            plan has run out of them.</p>
+        </div>
+        <div class="actions">
+          <button class="button" type="button" data-action="chain-create"
+            ${chainNames.length < 2 ? 'disabled' : ''}>Create chain</button>
+          <button class="button is-quiet" type="button" data-action="chain-cancel">Cancel</button>
+        </div>
+      </div>`;
+  }
+
+  function chainRow(plan, name, index) {
+    const title = plan ? plan.title : name;
+    const when =
+      index === 0
+        ? `starts ${formatWhen(chainStart || defaultStartIso())}`
+        : chainGap > 0
+          ? `+${chainGap}m after the one before`
+          : 'as soon as the one before finishes';
+
+    // The grip is a real button so the order can be changed from the keyboard as
+    // well as by dragging — arrow keys on it move the row, handled below.
+    return `<li class="chain-row" draggable="true" data-index="${index}">
+      <button class="chain-grip" type="button" data-action="chain-grip" data-index="${index}"
+        data-focus-key="chain-grip-${index}"
+        title="Drag to reorder, or use the up and down arrows"
+        aria-label="Move ${esc(title)}"><i class="codicon codicon-gripper"></i></button>
+      <span class="chain-order">${index + 1}</span>
+      <span class="chain-name">${esc(title)}</span>
+      <span class="chain-when">${esc(when)}</span>
+      <button class="plan-action is-danger" type="button" data-action="chain-remove"
+        data-index="${index}" title="Take out of the chain"
+        aria-label="Remove ${esc(title)} from the chain">&#10005;</button>
+    </li>`;
+  }
+
+  /** Moves a row, clamped rather than wrapped — the ends are landmarks. */
+  function moveChainRow(from, to) {
+    if (from < 0 || from >= chainNames.length) return;
+    const target = Math.max(0, Math.min(to, chainNames.length - 1));
+    if (target === from) return;
+    const [name] = chainNames.splice(from, 1);
+    chainNames.splice(target, 0, name);
+    return target;
   }
 
   // ---------- settings ----------
@@ -725,16 +891,7 @@
     return `<div class="section">
       <h3 class="section-title">Schedule</h3>
       <div class="grid">
-        ${whenField(s)}
-
-        <label class="field">
-          <span class="field-label">Repeat</span>
-          <select class="field-input" data-field="repeat" data-focus-key="repeat">
-            ${['once', 'daily', 'weekly', 'monthly']
-              .map((v) => `<option value="${v}" ${v === repeat ? 'selected' : ''}>${v[0].toUpperCase() + v.slice(1)}</option>`)
-              .join('')}
-          </select>
-        </label>
+        ${s.chain ? chainField(s) : whenField(s) + repeatField(s, repeat)}
 
         ${permissionField(s)}
         ${engineField(s)}
@@ -757,6 +914,41 @@
     </div>`;
   }
 
+  function repeatField(s, repeat) {
+    return `<label class="field">
+      <span class="field-label">Repeat</span>
+      <select class="field-input" data-field="repeat" data-focus-key="repeat">
+        ${['once', 'daily', 'weekly', 'monthly']
+          .map((v) => `<option value="${v}" ${v === repeat ? 'selected' : ''}>${v[0].toUpperCase() + v.slice(1)}</option>`)
+          .join('')}
+      </select>
+    </label>`;
+  }
+
+  /**
+   * What replaces When and Repeat on a plan that runs as part of a chain. There
+   * is no time to pick and no rule to set: the plan before it finishing is what
+   * starts this one, and Unlink is how you take it back off the chain.
+   */
+  function chainField(s) {
+    return `<div class="field is-wide">
+      <span class="field-label">Runs after</span>
+      <div class="field-row">
+        <span class="path-value">${esc(titleOfSeries(s.chain.after))}${
+          s.chain.delayMinutes
+            ? `, ${s.chain.delayMinutes} minute${s.chain.delayMinutes === 1 ? '' : 's'} later`
+            : ', straight away'
+        }</span>
+        <button class="button is-quiet" type="button" data-action="chain-unlink">Unlink</button>
+      </div>
+      <label class="field-check">
+        <input type="checkbox" data-field="chainStopOnFailure" data-focus-key="chain-stop"
+          ${s.chain.stopOnFailure ? 'checked' : ''} />
+        <span class="field-label">Stop the chain if that plan fails</span>
+      </label>
+    </div>`;
+  }
+
   /**
    * When this runs. A native `datetime-local` asked you to type into six
    * segments, and opened a calendar drawn by the browser that no selector here
@@ -767,19 +959,29 @@
   function whenField(s) {
     return `<div class="field">
       <span class="field-label">When</span>
-      <div class="when-picker">
-        <button class="when-trigger" type="button" data-action="picker-toggle"
-          data-focus-key="when" aria-expanded="${pickerOpen}">
-          <span>${esc(formatWhen(s.nextRunAt))}</span>
-          <i class="codicon codicon-calendar" aria-hidden="true"></i>
-        </button>
-        ${pickerOpen ? pickerPopover(s) : ''}
-      </div>
+      ${whenPicker(s.nextRunAt)}
     </div>`;
   }
 
-  function pickerPopover(s) {
-    const at = new Date(s.nextRunAt);
+  /**
+   * The trigger and its popover, given the instant being edited. Shared with the
+   * chain builder's Start field: one calendar, one set of arrow keys, one place
+   * for a bug in either to be fixed. What a pick *means* is `commitPicker`'s
+   * business, not this markup's.
+   */
+  function whenPicker(iso) {
+    return `<div class="when-picker">
+      <button class="when-trigger" type="button" data-action="picker-toggle"
+        data-focus-key="when" aria-expanded="${pickerOpen}">
+        <span>${esc(formatWhen(iso))}</span>
+        <i class="codicon codicon-calendar" aria-hidden="true"></i>
+      </button>
+      ${pickerOpen ? pickerPopover(iso) : ''}
+    </div>`;
+  }
+
+  function pickerPopover(iso) {
+    const at = new Date(iso);
     // The month on screen is derived from the day the calendar is sitting on,
     // never held separately.
     const view = pickerFocus || at;
@@ -1391,6 +1593,104 @@
     return patch(series.id, series.enabled ? { enabled: false } : { enabled: true, spent: false });
   }
 
+  /**
+   * The instant the calendar is editing: the chain's start on the builder page,
+   * and the selected plan's next run otherwise. Null when there is nothing to
+   * pick — no plan, or a plan whose turn comes from the chain rather than a
+   * clock. One anchor, so the popover, the arrow keys and Enter cannot disagree.
+   */
+  function pickerAnchorIso() {
+    if (showChain) return chainStart || defaultStartIso();
+    const series = seriesForPlan(planByName(selected));
+    return series && !series.chain ? series.nextRunAt : null;
+  }
+
+  /** And where a picked instant goes. */
+  function commitPicker(iso) {
+    if (showChain) {
+      chainStart = iso;
+      return render();
+    }
+    const series = seriesForPlan(planByName(selected));
+    if (series) patch(series.id, whenPatch(series, iso));
+  }
+
+  /** Returns whether it handled the click, so the caller can go on to its own. */
+  function pickerClick(action, el) {
+    const anchor = pickerAnchorIso();
+    if (!anchor) return false;
+
+    if (action === 'picker-toggle') {
+      pickerOpen = !pickerOpen;
+      pickerFocus = pickerOpen ? new Date(anchor) : null;
+      render();
+      // Arrow-ready however it was opened. Harmless for a mouse click:
+      // :focus-visible draws no ring for one.
+      if (pickerOpen) focusKey('picker-day');
+      return true;
+    }
+
+    // Browsing months carries the highlight with it, so what the arrows move
+    // next is always on the month you are looking at. Nothing is committed until
+    // a day is clicked or Enter is pressed, so paging back through last year
+    // still changes nothing.
+    if (action === 'picker-prev' || action === 'picker-next') {
+      pickerFocus = addMonths(pickerFocus || new Date(anchor), action === 'picker-next' ? 1 : -1);
+      render();
+      return true;
+    }
+
+    // The day changes; the time of day is whatever was already set.
+    if (action === 'picker-day') {
+      const [year, month, day] = /** @type {HTMLElement} */ (el).dataset.date.split('-').map(Number);
+      const at = new Date(anchor);
+      commitPicker(toUtcIso(localStr(year, month - 1, day, at.getHours(), at.getMinutes())));
+      return true;
+    }
+
+    return false;
+  }
+
+  /** The chain builder's buttons. Nothing here writes anything to the store
+   *  except Create chain, which is the whole point of the page. */
+  function chainClick(action, el) {
+    const index = Number(/** @type {HTMLElement} */ (el).dataset.index);
+
+    if (action === 'chain-add') {
+      const name = /** @type {HTMLElement} */ (el).dataset.name;
+      if (name && !chainNames.includes(name)) chainNames.push(name);
+      return render();
+    }
+
+    if (action === 'chain-remove') {
+      chainNames.splice(index, 1);
+      return render();
+    }
+
+    if (action === 'chain-create') {
+      if (chainNames.length < 2) return showNotice('A chain needs at least two plans.');
+      send({
+        type: 'chainPlans',
+        names: chainNames.slice(),
+        startIso: chainStart || defaultStartIso(),
+        gapMinutes: chainGap,
+        stopOnFailure: chainStop
+      });
+      // Straight to the plan that starts it, which is where the schedule now is.
+      const first = chainNames[0];
+      chainNames = [];
+      closePicker();
+      return selectPlan(first);
+    }
+
+    if (action === 'chain-cancel') {
+      chainNames = [];
+      showChain = false;
+      closePicker();
+      return render();
+    }
+  }
+
   detailEl.addEventListener('click', (e) => {
     const el = /** @type {HTMLElement} */ (e.target).closest('[data-action]');
     if (!el) return;
@@ -1400,6 +1700,12 @@
     // Before the plan guard: the settings page has no plan behind it, and the
     // guard would swallow its one button.
     if (action === 'native-settings') return send({ type: 'openNativeSettings' });
+
+    // Both before it too. The calendar belongs to whichever field opened it —
+    // a plan's When, or the chain builder's Start — and the builder has no plan
+    // behind it at all.
+    if (pickerClick(action, el)) return;
+    if (showChain) return chainClick(action, el);
 
     const plan = planByName(selected);
     if (!plan) return;
@@ -1414,31 +1720,16 @@
 
     if (action === 'browse-cwd') return send({ type: 'browseCwd', id: series.id });
 
-    if (action === 'picker-toggle') {
-      pickerOpen = !pickerOpen;
-      pickerFocus = pickerOpen ? new Date(series.nextRunAt) : null;
-      render();
-      // Arrow-ready however it was opened. Harmless for a mouse click:
-      // :focus-visible draws no ring for one.
-      if (pickerOpen) focusKey('picker-day');
-      return;
-    }
-
-    // Browsing months carries the highlight with it, so what the arrows move
-    // next is always on the month you are looking at. Nothing is scheduled until
-    // a day is clicked or Enter is pressed, so paging back through last year
-    // still patches nothing.
-    if (action === 'picker-prev' || action === 'picker-next') {
-      pickerFocus = addMonths(pickerFocus || new Date(series.nextRunAt), action === 'picker-next' ? 1 : -1);
-      return render();
-    }
-
-    // The day changes; the time of day is whatever the series already runs at.
-    if (action === 'picker-day') {
-      const [year, month, day] = /** @type {HTMLElement} */ (el).dataset.date.split('-').map(Number);
-      const at = new Date(series.nextRunAt);
-      const local = localStr(year, month - 1, day, at.getHours(), at.getMinutes());
-      return patch(series.id, whenPatch(series, toUtcIso(local)));
+    // Off the chain, and left switched off with a fresh time rather than put
+    // straight back on the schedule: the plan was running on someone else's
+    // trigger, and what it should run on now is the user's call.
+    if (action === 'chain-unlink') {
+      return patch(series.id, {
+        chain: null,
+        enabled: false,
+        spent: false,
+        nextRunAt: defaultStartIso()
+      });
     }
 
     if (action === 'day') {
@@ -1483,18 +1774,42 @@
     const field = el.dataset ? el.dataset.field : undefined;
     if (!field || field === 'editor') return;
 
+    // The three time dropdowns are one value between them, so any of them
+    // changing reads all three. The date is whatever was already set. Before the
+    // two branches below, because the calendar is shared with the chain builder,
+    // which has no plan and no series behind it.
+    if (field === 'pickerHour' || field === 'pickerMinute' || field === 'pickerAmpm') {
+      const anchor = pickerAnchorIso();
+      if (!anchor) return;
+      const read = (name) =>
+        /** @type {HTMLSelectElement} */ (detailEl.querySelector(`[data-field="${name}"]`)).value;
+      const at = new Date(anchor);
+      const hour = from12(Number(read('pickerHour')), read('pickerAmpm'));
+      const local = localStr(at.getFullYear(), at.getMonth(), at.getDate(), hour, Number(read('pickerMinute')));
+      return commitPicker(toUtcIso(local));
+    }
+
+    if (showChain) {
+      if (field === 'chainGap') {
+        // An emptied box is not a value, and Number('') is 0 — which would
+        // silently mean "no gap at all". The field snaps back instead.
+        const value = Number(/** @type {HTMLInputElement} */ (el).value);
+        if (Number.isInteger(value) && value >= 0 && value <= 1440) chainGap = value;
+        return render();
+      }
+      if (field === 'chainStop') {
+        chainStop = /** @type {HTMLInputElement} */ (el).checked;
+      }
+      return;
+    }
+
     const series = seriesForPlan(planByName(selected));
     if (!series) return;
 
-    // The three time dropdowns are one value between them, so any of them
-    // changing reads all three. The date is whatever the series already runs on.
-    if (field === 'pickerHour' || field === 'pickerMinute' || field === 'pickerAmpm') {
-      const read = (name) =>
-        /** @type {HTMLSelectElement} */ (detailEl.querySelector(`[data-field="${name}"]`)).value;
-      const at = new Date(series.nextRunAt);
-      const hour = from12(Number(read('pickerHour')), read('pickerAmpm'));
-      const local = localStr(at.getFullYear(), at.getMonth(), at.getDate(), hour, Number(read('pickerMinute')));
-      return patch(series.id, whenPatch(series, toUtcIso(local)));
+    if (field === 'chainStopOnFailure') {
+      return patch(series.id, {
+        chain: { ...series.chain, stopOnFailure: /** @type {HTMLInputElement} */ (el).checked }
+      });
     }
 
     if (field === 'repeat') {
@@ -1538,6 +1853,67 @@
     }
 
     if (field === 'customModel') return patch(series.id, { model: el.value.trim() || undefined });
+  });
+
+  /**
+   * Reordering the chain by dragging. Rows only ever move within the one list,
+   * which is why this needs no drop zones and no placeholder — the row under the
+   * pointer is the destination. `stopPropagation` keeps the document-level file
+   * drop handler out of it; it would ignore this drag anyway, since a row
+   * carries no files.
+   */
+  detailEl.addEventListener('dragstart', (e) => {
+    const row = /** @type {HTMLElement} */ (e.target).closest('.chain-row');
+    if (!row) return;
+    chainDragFrom = Number(/** @type {HTMLElement} */ (row).dataset.index);
+    row.classList.add('is-dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      // Firefox and Chrome both refuse to start a drag with an empty payload.
+      e.dataTransfer.setData('text/plain', String(chainDragFrom));
+    }
+  });
+
+  detailEl.addEventListener('dragover', (e) => {
+    if (chainDragFrom < 0) return;
+    if (!(/** @type {HTMLElement} */ (e.target).closest('.chain-row'))) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  });
+
+  detailEl.addEventListener('drop', (e) => {
+    if (chainDragFrom < 0) return;
+    const row = /** @type {HTMLElement} */ (e.target).closest('.chain-row');
+    if (!row) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveChainRow(chainDragFrom, Number(/** @type {HTMLElement} */ (row).dataset.index));
+    chainDragFrom = -1;
+    render();
+  });
+
+  // Guarded, because a text drag inside the plan editor ends here too and must
+  // not rebuild the pane out from under it.
+  detailEl.addEventListener('dragend', () => {
+    if (chainDragFrom < 0) return;
+    chainDragFrom = -1;
+    render();
+  });
+
+  /** The same move from the keyboard, so the order is not mouse-only. Focus
+   *  follows the row, which is what the grip's indexed focus key is for. */
+  detailEl.addEventListener('keydown', (e) => {
+    const grip = /** @type {HTMLElement} */ (e.target).closest('.chain-grip');
+    if (!grip) return;
+    const from = Number(/** @type {HTMLElement} */ (grip).dataset.index);
+    const to = e.key === 'ArrowUp' ? from - 1 : e.key === 'ArrowDown' ? from + 1 : null;
+    if (to === null) return;
+    e.preventDefault();
+    const landed = moveChainRow(from, to);
+    if (landed === undefined) return;
+    render();
+    focusKey(`chain-grip-${landed}`);
   });
 
   // Blur-save, so switching away never loses an edit.
@@ -1584,6 +1960,7 @@
     { keys: ['↓'], where: 'Search box', what: 'Drop into the filtered list' },
     { keys: ['F6', 'Shift+F6'], where: 'Anywhere', what: 'Move between library, plan and Runs' },
     { keys: ['↑', '↓', '←', '→'], where: 'When calendar', what: 'Move a day, or a week' },
+    { keys: ['↑', '↓'], where: 'Chain builder', what: 'Move a plan up or down the order, from its grip' },
     { keys: ['PageUp', 'PageDown'], where: 'When calendar', what: 'Previous / next month' },
     { keys: ['Enter'], where: 'When calendar', what: 'Set this date' },
     { keys: ['Esc'], where: 'When calendar / search', what: 'Close, change nothing, go back to the list' }
@@ -1703,11 +2080,14 @@
         break;
       case 'd':
       case 'D':
-        if (series) {
+        // Not on a chained plan: its turn comes from the plan before it, so
+        // there is no date of its own to open.
+        if (series && !series.chain) {
           // Leaves the Settings page for the same reason clicking a plan does:
           // the calendar is in the detail pane, and there is nothing to open on
           // a page that is not showing the plan.
           showSettings = false;
+          showChain = false;
           pickerOpen = true;
           pickerFocus = new Date(series.nextRunAt);
           render();
@@ -1754,18 +2134,18 @@
     // from the keyboard. Arrows there change the time, not the day.
     if (el.closest('.picker-time')) return;
 
-    const series = seriesForPlan(planByName(selected));
-    if (!series) return;
-    const view = pickerFocus || new Date(series.nextRunAt);
+    const anchor = pickerAnchorIso();
+    if (!anchor) return;
+    const view = pickerFocus || new Date(anchor);
 
     if (e.key === 'Enter') {
-      // The highlighted day, at whatever time of day the series already runs —
-      // the identical commit clicking a day makes.
+      // The highlighted day, at whatever time of day was already set — the
+      // identical commit clicking a day makes.
       e.preventDefault();
-      const at = new Date(series.nextRunAt);
+      const at = new Date(anchor);
       const local = localStr(view.getFullYear(), view.getMonth(), view.getDate(), at.getHours(), at.getMinutes());
       closePicker();
-      patch(series.id, whenPatch(series, toUtcIso(local)));
+      commitPicker(toUtcIso(local));
       // Closed now rather than when the host's new state lands, so the popover
       // never lingers over a date it no longer holds.
       render();
@@ -1902,6 +2282,23 @@
   document.getElementById('open-settings').addEventListener('click', () => {
     saveNow();
     showSettings = !showSettings;
+    showChain = false;
+    render();
+  });
+
+  // Seeded with the plan you were looking at: chaining usually starts from one
+  // you have in mind, and it is one click to take it back out again.
+  document.getElementById('chain-plans').addEventListener('click', () => {
+    saveNow();
+    showChain = !showChain;
+    showSettings = false;
+    closePicker();
+    if (showChain) {
+      if (!chainNames.length && selected) chainNames = [selected];
+      // Refreshed rather than kept: a start left over from an hour ago would
+      // put the chain on the schedule already overdue.
+      if (!chainStart || Date.parse(chainStart) <= Date.now()) chainStart = defaultStartIso();
+    }
     render();
   });
 
@@ -1943,6 +2340,7 @@
       closePicker();
     }
     showSettings = false;
+    showChain = false;
     selected = name;
     render();
   }
@@ -2036,6 +2434,10 @@
 
     if (message.type === 'state') {
       state = message;
+      // A plan archived or deleted while the builder is open — or the whole
+      // library changing under a folder switch — must not leave a row naming
+      // something that is not there to be chained.
+      if (chainNames.length) chainNames = chainNames.filter((name) => planByName(name));
       if (selected && !planByName(selected)) selected = null;
       if (!selected && state.plans.length) selected = state.plans[0].name;
       render();

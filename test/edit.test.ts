@@ -54,6 +54,57 @@ describe('edit — fields that must never be settable', () => {
   });
 });
 
+describe('edit — a chain link', () => {
+  const link = { after: 'series-1', delayMinutes: 15, stopOnFailure: true };
+
+  it('should_accept_a_well_formed_link', () => {
+    assert.deepEqual(seriesEdit({ chain: link }).patch, { chain: link });
+  });
+
+  it('should_treat_null_as_taking_the_plan_off_the_chain', () => {
+    // Unlink. A rejection here would leave the plan on a chain it was told to
+    // leave, which is worse than a field quietly ignored.
+    const { patch, rejected } = seriesEdit({ chain: null });
+
+    assert.deepEqual(patch, { chain: undefined });
+    assert.deepEqual(rejected, []);
+  });
+
+  it('should_accept_a_gap_of_nothing_at_all', () => {
+    const straightAway = { ...link, delayMinutes: 0 };
+
+    assert.deepEqual(seriesEdit({ chain: straightAway }).patch, { chain: straightAway });
+  });
+
+  it('should_refuse_a_gap_longer_than_a_day', () => {
+    // Past that it is a clock time, not a chain.
+    assert.deepEqual(seriesEdit({ chain: { ...link, delayMinutes: 1441 } }).rejected, ['chain']);
+  });
+
+  it('should_refuse_a_gap_that_is_not_a_whole_number_of_minutes', () => {
+    assert.deepEqual(seriesEdit({ chain: { ...link, delayMinutes: -1 } }).rejected, ['chain']);
+    assert.deepEqual(seriesEdit({ chain: { ...link, delayMinutes: 1.5 } }).rejected, ['chain']);
+    assert.deepEqual(seriesEdit({ chain: { ...link, delayMinutes: '15' } }).rejected, ['chain']);
+  });
+
+  it('should_refuse_a_link_that_names_no_plan', () => {
+    assert.deepEqual(seriesEdit({ chain: { ...link, after: '' } }).rejected, ['chain']);
+    assert.deepEqual(seriesEdit({ chain: { delayMinutes: 15, stopOnFailure: true } }).rejected, ['chain']);
+  });
+
+  it('should_refuse_a_link_that_does_not_say_what_a_failure_means', () => {
+    // The arming rule reads it on every tick; an absent flag would read as
+    // "carry on", which is the more surprising of the two answers.
+    assert.deepEqual(seriesEdit({ chain: { after: 'series-1', delayMinutes: 15 } }).rejected, ['chain']);
+  });
+
+  it('should_keep_nothing_but_the_three_fields_a_link_has', () => {
+    const { patch } = seriesEdit({ chain: { ...link, armed: true } });
+
+    assert.deepEqual(patch, { chain: link });
+  });
+});
+
 describe('edit — the model argument', () => {
   it('should_accept_a_pinned_model_id', () => {
     assert.deepEqual(seriesEdit({ model: 'claude-opus-5' }).patch, { model: 'claude-opus-5' });

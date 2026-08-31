@@ -1,5 +1,12 @@
 import { isAgentId } from './agents';
-import { AgentId, PermissionMode, Recurrence, TaskSeries } from './types';
+import {
+  AgentId,
+  ChainLink,
+  MAX_CHAIN_DELAY_MINUTES,
+  PermissionMode,
+  Recurrence,
+  TaskSeries
+} from './types';
 
 /**
  * What the manager is allowed to change about a scheduled series.
@@ -93,6 +100,24 @@ export function seriesEdit(raw: unknown): SeriesEdit {
         break;
       }
 
+      case 'chain': {
+        // Null clears the link — that is Unlink, and it is a real edit rather
+        // than a rejection. Shape only: whether the plan it names still exists,
+        // and whether the link would make a loop, are questions this module has
+        // no series list to answer. `chain.ts` answers them for the caller.
+        if (value === null || value === undefined) {
+          patch.chain = undefined;
+        } else {
+          const link = validChainLink(value);
+          if (link) {
+            patch.chain = link;
+          } else {
+            rejected.push(key);
+          }
+        }
+        break;
+      }
+
       case 'enabled':
       case 'spent': {
         if (typeof value === 'boolean') {
@@ -161,6 +186,38 @@ export function seriesEdit(raw: unknown): SeriesEdit {
   }
 
   return { patch, rejected };
+}
+
+/**
+ * A chain link, checked the same way a recurrence is: a malformed one would sit
+ * in the store and be read by the arming rule on every tick. The gap is capped
+ * at a day — a longer wait is a clock time, not a chain.
+ */
+function validChainLink(value: unknown): ChainLink | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const candidate = value as Partial<ChainLink>;
+
+  if (typeof candidate.after !== 'string' || !candidate.after.trim()) {
+    return undefined;
+  }
+  if (
+    !Number.isInteger(candidate.delayMinutes) ||
+    (candidate.delayMinutes as number) < 0 ||
+    (candidate.delayMinutes as number) > MAX_CHAIN_DELAY_MINUTES
+  ) {
+    return undefined;
+  }
+  if (typeof candidate.stopOnFailure !== 'boolean') {
+    return undefined;
+  }
+
+  return {
+    after: candidate.after,
+    delayMinutes: candidate.delayMinutes as number,
+    stopOnFailure: candidate.stopOnFailure
+  };
 }
 
 /**

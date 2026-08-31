@@ -1,3 +1,4 @@
+import { armings } from './chain';
 import { advancePast, computeNextRun } from './recurrence';
 import { MissedReason, TaskRun, TaskSeries } from './types';
 
@@ -59,7 +60,17 @@ export function decide(input: DecideInput): Action[] {
   const { now, graceMs, reason } = input;
   const nowIso = new Date(now).toISOString();
   const actions: Action[] = [];
-  const seriesById = new Map(input.series.map((s) => [s.id, s]));
+
+  // ---- 0. Arm the plans whose turn in a chain has come ----
+
+  // Folded into a local copy of the list rather than only reported, so a plan
+  // armed on this tick is due on this tick — the same reason a run materialised
+  // below can start without waiting for the next one.
+  const armed = armings(input.series, input.runs, now);
+  actions.push(...armed);
+  const current = applyPatches(input.series, armed);
+
+  const seriesById = new Map(current.map((s) => [s.id, s]));
 
   let missedCount = 0;
 
@@ -69,7 +80,7 @@ export function decide(input: DecideInput): Action[] {
 
   // ---- 1. Turn due occurrences into runs ----
 
-  for (const series of input.series) {
+  for (const series of current) {
     // `spent` retires a fired one-shot; `enabled` is the user's pause. Both
     // stop new occurrences, and only the second stops queued ones (below).
     if (!series.enabled || series.spent) {
@@ -167,6 +178,21 @@ export function decide(input: DecideInput): Action[] {
   }
 
   return actions;
+}
+
+/**
+ * The list as the rest of the tick should see it, with the arming patches from
+ * step 0 folded in. Copies rather than edits: the input is the store's own
+ * snapshot, and every change to it belongs in an action.
+ */
+function applyPatches(series: readonly TaskSeries[], actions: readonly Action[]): TaskSeries[] {
+  const patches = new Map<string, Partial<TaskSeries>>();
+  for (const action of actions) {
+    if (action.kind === 'updateSeries') {
+      patches.set(action.id, { ...patches.get(action.id), ...action.patch });
+    }
+  }
+  return patches.size ? series.map((s) => ({ ...s, ...patches.get(s.id) })) : [...series];
 }
 
 /** Where a series goes after its current occurrence is consumed. */

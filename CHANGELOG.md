@@ -27,6 +27,48 @@ logic out; one of the moves also narrowed a guard.
 
 ### Added
 
+- **Chained plans: several plans in a row, each started by the one before it
+  finishing.** Scheduling five plans for one evening meant opening each one and
+  picking five times by hand, and guessing how long each would take. Guess short
+  and they collide — and with `chronos.maxConcurrent` at its default of `1`, a
+  collision is deferred or marked missed. There was no way to say "run these in
+  order".
+
+  **Chain**, beside Import in the library header, opens a builder in the detail
+  pane: add plans, drag them into the order you want, give the first one a start
+  day and time, and set the gap between them. The first plan is the only one with
+  a time of its own; each of the rest is armed when the plan before it finishes,
+  plus the gap. A chain is sequential by construction, so `maxConcurrent: 1`
+  stops being a constraint rather than being worked around.
+
+  The arming rule (`src/chain.ts`) is declarative — it reads the current
+  schedule on every tick and works out what should be armed, rather than hanging
+  off a "run finished" event. That is what makes a chain survive a closed window:
+  if the plan before it finished while VS Code was shut, the next tick notices
+  and carries on, instead of the rest of the chain waiting forever for an event
+  that already happened. It also never arms into the past, because the trigger is
+  a plan finishing rather than a time of day — a chain whose first plan completed
+  overnight resumes when the window reopens instead of being declared missed.
+
+  Chains are one-shot, and **Run now** on any plan in one re-runs everything
+  behind it. A plan waiting its turn shows *After &lt;plan&gt; · +15m* in the
+  library rather than a time it does not have, and **Unlink** on its row takes it
+  back off the chain.
+
+  What happens when a plan in a chain fails is a per-chain choice. Ticked —
+  the default — the plans behind it are switched off and one notification names
+  where it stopped; switching them off is also what makes that notification fire
+  once rather than every thirty seconds. Unticked, the chain carries on to the
+  next plan whatever the outcome. Retries happen first either way: the chain
+  waits for a failed plan to run out of attempts before it decides.
+
+  Deleting or archiving a plan mid-chain closes the gap rather than stranding
+  what was behind it, and a chain leaves the library as a unit once every plan in
+  it is done. `list_schedule` reports the link, so an agent does not read a plan
+  waiting its turn as an unscheduled one; `update_schedule` refuses a link that
+  would make a loop; and a phone may not move a chained plan's time, since the
+  chain is what sets it.
+
 - **A landing page for Chronos, in `site/`.** Until now the only public-facing
   description of the extension was `README.md`. `site/` is a hand-written static
   page — plain HTML and one stylesheet, no build step, no dependencies and no

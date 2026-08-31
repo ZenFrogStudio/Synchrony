@@ -45,6 +45,24 @@ export interface Recurrence {
   dayOfMonth?: number;
 }
 
+/**
+ * What arms a plan that has no clock time of its own: the plan before it in a
+ * chain finishing. Optional and additive on `TaskSeries`, like `AgentId` and
+ * `dayOfMonth` above — every series stored before chains existed still parses,
+ * so this needed no migration and no SCHEMA_VERSION bump.
+ */
+export interface ChainLink {
+  /** The series whose finished run arms this one. */
+  after: string;
+  /** Minutes to wait after that run finishes. 0 = straight away. */
+  delayMinutes: number;
+  /** Stop rather than carry on when that run fails, is cancelled or is missed. */
+  stopOnFailure: boolean;
+}
+
+/** Longest gap a chain link may hold: a day. Beyond that, use a clock time. */
+export const MAX_CHAIN_DELAY_MINUTES = 1440;
+
 /** The definition: what you create when you drop a file. */
 export interface TaskSeries {
   id: string;
@@ -67,11 +85,19 @@ export interface TaskSeries {
    */
   enabled: boolean;
   /**
-   * A one-shot that has already fired or been missed. Distinct from `enabled`
-   * on purpose: conflating "spent" with "paused" strands a materialised run
-   * that has not found a concurrency slot yet.
+   * No occurrence is pending: a one-shot that has already fired or been missed,
+   * or a chained plan parked until the one before it finishes. Distinct from
+   * `enabled` on purpose: conflating "spent" with "paused" strands a
+   * materialised run that has not found a concurrency slot yet — and a parked
+   * follower must not look like a task the user switched off.
    */
   spent?: boolean;
+  /**
+   * Armed by another series finishing rather than by the clock. Absent for
+   * every ordinary plan, including the first one in a chain — the head keeps a
+   * real `nextRunAt` and is what starts the whole thing. See `chain.ts`.
+   */
+  chain?: ChainLink;
   /**
    * When this series last had its repeat rule removed, ISO 8601 UTC. Absent
    * means it has never repeated, or repeats now. Read only by `retire.ts`: a

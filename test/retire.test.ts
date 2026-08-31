@@ -248,6 +248,67 @@ describe('retire — plans that must stay put', () => {
   });
 });
 
+describe('retire — a chain still working through itself', () => {
+  const link = (after: string) => ({ after, delayMinutes: 15, stopOnFailure: true });
+
+  it('should_keep_a_finished_plan_while_the_chain_behind_it_is_still_going', async () => {
+    // Otherwise the plans leave the library one at a time as the chain works
+    // through them, and the ones still to run name a plan no longer in the list.
+    const first = createPlan(dir, 'Audit');
+    const second = createPlan(dir, 'Review');
+    const store = new FakeStore(
+      [
+        series('a', first.filePath, { spent: true }),
+        series('b', second.filePath, { spent: true, chain: link('a') })
+      ],
+      [run('r1', 'a', 'completed')]
+    );
+
+    const report = await retireCompletedPlans(store, dir, archive);
+
+    assert.deepEqual(report.archived, []);
+    assert.equal(fs.existsSync(first.filePath), true);
+  });
+
+  it('should_archive_the_whole_chain_once_every_plan_in_it_is_done', async () => {
+    const first = createPlan(dir, 'Audit');
+    const second = createPlan(dir, 'Review');
+    const store = new FakeStore(
+      [
+        series('a', first.filePath, { spent: true }),
+        series('b', second.filePath, { spent: true, chain: link('a') })
+      ],
+      [run('r1', 'a', 'completed'), run('r2', 'b', 'completed')]
+    );
+
+    const report = await retireCompletedPlans(store, dir, archive);
+
+    assert.deepEqual(
+      report.archived.map((a) => a.planName).sort(),
+      ['audit.md', 'review.md']
+    );
+  });
+
+  it('should_release_a_finished_plan_once_the_chain_has_stopped', async () => {
+    // A link switched off by a failure is not going to run. Waiting on it would
+    // hold the plans that did run in the library for good.
+    const first = createPlan(dir, 'Audit');
+    const second = createPlan(dir, 'Review');
+    const store = new FakeStore(
+      [
+        series('a', first.filePath, { spent: true }),
+        series('b', second.filePath, { spent: true, enabled: false, chain: link('a') })
+      ],
+      [run('r1', 'a', 'completed')]
+    );
+
+    const report = await retireCompletedPlans(store, dir, archive);
+
+    assert.deepEqual(report.archived, [{ planName: 'audit.md', archivedAs: 'audit.md' }]);
+    assert.equal(fs.existsSync(second.filePath), true, 'the plan that never ran stays');
+  });
+});
+
 describe('retire — a plan two series share', () => {
   it('should_leave_a_plan_two_series_share_when_only_one_is_done', async () => {
     // Moving it would leave the unfinished schedule pointing at nothing, and

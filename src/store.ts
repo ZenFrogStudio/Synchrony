@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { spliceChain } from './chain';
 import { pruneRuns } from './history';
 import { log } from './log';
 import { newId, stampRepeatEnd } from './series';
@@ -113,8 +114,17 @@ export class Store {
   /** Removes the series and its run history together. */
   async removeSeries(id: string): Promise<void> {
     await this.persist((state) => {
+      // Before the removal, while the link being closed up is still readable.
+      // Anything waiting on this series would otherwise wait forever.
+      const splices = spliceChain(state.series, id);
       state.series = state.series.filter((s) => s.id !== id);
       state.runs = state.runs.filter((r) => r.seriesId !== id);
+      for (const { id: followerId, patch } of splices) {
+        const follower = state.series.find((s) => s.id === followerId);
+        if (follower) {
+          Object.assign(follower, patch);
+        }
+      }
     });
   }
 

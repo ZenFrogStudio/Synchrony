@@ -124,6 +124,13 @@ function setEnabled(series: TaskSeries, payload: unknown): CommandVerdict {
  * is the one on the machine that runs the job.
  */
 function reschedule(series: TaskSeries, payload: unknown, now: number): CommandVerdict {
+  // A chained plan has no time of its own to move: the arming rule writes one
+  // when the plan before it finishes, and would overwrite whatever was set from
+  // here. Refused out loud rather than accepted and quietly undone.
+  if (series.chain) {
+    return reject('That plan runs after another one. Unlink it in Chronos first.');
+  }
+
   const raw = field(payload, 'nextRunAt');
   const target = parseInstant(raw);
   if (target === undefined) {

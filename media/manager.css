@@ -615,6 +615,75 @@ select.field-input {
   gap: 8px;
 }
 
+/* --- The chain builder ---
+   An ordered list you can drag: the number is the order it runs in, the grip is
+   both the drag handle and the keyboard's way to move a row. */
+
+.chain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 560px;
+}
+
+.chain-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  background: var(--vscode-editor-background);
+}
+
+.chain-row.is-dragging {
+  opacity: 0.5;
+}
+
+.chain-grip {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--muted);
+  cursor: grab;
+}
+
+.chain-grip:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.chain-order {
+  min-width: 1.4em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.chain-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chain-when {
+  color: var(--muted);
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+/* Wraps, because a library of thirty plans is thirty buttons. */
+.chain-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 560px;
+}
+
 /* --- Keyboard shortcuts, at the foot of the Settings page ---
    Two columns: the keys, and what they do. Where each key works is folded into
    the description rather than given a third column, so a narrow detail pane
@@ -812,6 +881,13 @@ kbd {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* A field that carries a row of its own rather than a single control — the
+   chained plan's "runs after", which is a value, a button and a checkbox. */
+.field.is-wide {
+  grid-column: 1 / -1;
+  gap: 8px;
 }
 
 .path-value {

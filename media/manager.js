@@ -16,6 +16,8 @@
   const shellEl = /** @type {HTMLElement} */ (document.querySelector('.shell'));
   const librarySashEl = /** @type {HTMLElement} */ (document.getElementById('library-sash'));
   const activitySashEl = /** @type {HTMLElement} */ (document.getElementById('activity-sash'));
+  const MARK_URI = /** @type {HTMLMetaElement} */ (
+    document.querySelector('meta[name="chronos-mark"]')).content;
 
   const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -356,19 +358,21 @@
   }
 
   /**
-   * Future time, cyclical. The arc fills as the current interval elapses. A live
-   * run replaces it with a sweep; a one-shot gets an outline and no arc, which is
-   * honest rather than inventing a progress figure.
+   * Future time, cyclical. The arc fills as the current interval elapses; a
+   * one-shot gets an outline and no arc, which is honest rather than inventing
+   * a progress figure. A live run swaps the whole clock for the Chronos mark,
+   * spinning for as long as the run lasts.
    */
   function ringMarkup(s) {
+    if (isRunning(s)) {
+      return `<img class="head-mark" src="${MARK_URI}" alt="" aria-hidden="true">`;
+    }
     const track = '<circle class="ring-track" cx="20" cy="20" r="16" />';
     const interval = intervalMs(s);
     const live = s && s.enabled && !s.spent;
 
     let inner = '';
-    if (isRunning(s)) {
-      inner = '<circle class="ring-sweep" cx="20" cy="20" r="16" />';
-    } else if (live && interval) {
+    if (live && interval) {
       inner = `<circle class="ring-arc" cx="20" cy="20" r="16"
         data-ring-next="${esc(s.nextRunAt)}" data-ring-interval="${interval}"
         stroke-dasharray="${RING_C}" stroke-dashoffset="${ringOffset(s.nextRunAt, interval)}" />`;

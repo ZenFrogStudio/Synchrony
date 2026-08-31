@@ -454,6 +454,12 @@ logic out; one of the moves also narrowed a guard.
   It lives in `.claude/commands/`, which `.vscodeignore` now keeps out of the
   packaged extension.
 
+- **The Chronos mark turns while a plan runs.** The ring beside a plan's title
+  used to swap its countdown arc for a sweeping dash during a live run; the
+  sweep is now the ouroboros mark itself, spinning in the ring's place for as
+  long as the run lasts and handing the clock back the moment it ends. It
+  honours `prefers-reduced-motion` like the sweep it replaces.
+
 ### Fixed
 
 - **A failed MCP tool call now leaves a record.** Every handler in the server did

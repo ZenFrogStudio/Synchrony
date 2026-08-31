@@ -789,6 +789,7 @@ export class Manager implements vscode.Disposable {
       .replaceAll('{{cspSource}}', webview.cspSource)
       .replaceAll('{{styleUri}}', mediaUri('manager.css'))
       .replaceAll('{{codiconUri}}', mediaUri('codicon.css'))
+      .replaceAll('{{markUri}}', mediaUri('icon.png'))
       .replaceAll('{{scriptUri}}', mediaUri('manager.js'));
   }
 }

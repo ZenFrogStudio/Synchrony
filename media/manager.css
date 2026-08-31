@@ -523,6 +523,15 @@ body.is-resizing .activity {
   animation: sweep 2.4s linear infinite;
 }
 
+/* The Chronos mark takes the clock's place while a run is live, and turns
+   for as long as it lasts. */
+.head-mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  animation: sweep 2.4s linear infinite;
+}
+
 @keyframes sweep {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -1121,6 +1130,7 @@ kbd {
   .ring-arc,
   .activity { transition: none; }
   .ring-sweep,
+  .head-mark,
   .run-dot.is-running::after { animation: none; }
   /* animation-name, not the shorthand: codicon.css sets duration and easing
      !important, which the shorthand cannot beat. */
@@ -1401,7 +1411,8 @@ kbd {
     grid-template-columns: 1fr;
   }
 
-  .ring {
+  .ring,
+  .head-mark {
     width: 28px;
     height: 28px;
   }

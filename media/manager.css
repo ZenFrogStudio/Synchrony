@@ -1,8 +1,7 @@
 /* Chronos manager. The shell is derived from VS Code theme vars so it adapts to
-   any theme. Chronos owns two colours — sodium, spent only on liveness and
-   imminence, and teal, spent on the filled primary buttons and on every accent,
-   outline and link, so that emphasis reads as ours rather than as the editor's
-   stock blue. Global values only — no component tokens. */
+   any theme. Chronos owns a few global colours: sodium for liveness and
+   imminence, teal for actions and accents, and blue/purple for schedule type.
+   Global values only — no component tokens. */
 
 :root {
   --border: var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 18%, transparent));
@@ -10,6 +9,8 @@
   --sodium: #E0A458;
   --action: #0E8A8F;
   --action-hover: #12A3A9;
+  --recurring: var(--vscode-charts-blue, #3794FF);
+  --chained: var(--vscode-charts-purple, #B180D7);
   --ok: var(--vscode-charts-green, #3FB950);
   --muted: var(--vscode-descriptionForeground);
   --danger: var(--vscode-errorForeground);
@@ -25,6 +26,8 @@ body.vscode-light {
   --accent: #0A6E73;
   --action: #0A6E73;
   --action-hover: #0E8A8F;
+  --recurring: #0969DA;
+  --chained: #8250DF;
   --ok: #1A7F37;
 }
 
@@ -35,6 +38,8 @@ body.vscode-high-contrast {
   --accent: var(--vscode-focusBorder);
   --action: var(--vscode-button-background);
   --action-hover: var(--vscode-button-hoverBackground);
+  --recurring: var(--vscode-focusBorder);
+  --chained: var(--vscode-focusBorder);
 }
 
 * {
@@ -240,9 +245,8 @@ body.is-resizing .activity {
   outline-offset: 1px;
 }
 
-/* Centred, because the row mixes text buttons with taller icon ones. Wrapping
-   rather than shrinking: at a large editor font four controls do not fit 260px,
-   and a squashed "New plan" reads worse than a second row. */
+/* Wrapping rather than shrinking: compact actions should keep their hit targets
+   instead of squeezing together in a narrow library pane. */
 .library-actions {
   display: flex;
   align-items: center;
@@ -386,10 +390,12 @@ body.is-resizing .activity {
    with matching specificity, so selecting a row does not grey out its verdict. */
 .plan-item .plan-meta.is-live { color: var(--ok); }
 .plan-item .plan-meta.is-idle { color: var(--sodium); }
+.plan-item .plan-meta.is-recurring { color: var(--recurring); }
+.plan-item .plan-meta.is-chained { color: var(--chained); }
 .plan-item .plan-meta.is-missed { color: var(--danger); }
 
-/* Two rarely-used utility actions, reduced to codicons: they sit beside the
-   buttons that create plans, but stay muted so they do not compete with them. */
+/* Header actions stay muted until hover so the library title and search box keep
+   the visual weight. */
 .icon-action {
   display: flex;
   align-items: center;
@@ -495,7 +501,7 @@ body.is-resizing .activity {
 
 @keyframes sweep {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to { transform: rotate(-360deg); }
 }
 
 /* --- Sections --- */
@@ -525,6 +531,19 @@ body.is-resizing .activity {
 
 .section-head .section-title {
   margin: 0;
+}
+
+.plan-command-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.plan-command-when {
+  flex: 1 1 220px;
+  max-width: 300px;
 }
 
 .grid {
@@ -953,6 +972,15 @@ kbd {
 
 .button:hover {
   background: var(--action-hover);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button:disabled:hover {
+  background: var(--action);
 }
 
 .button.is-quiet {

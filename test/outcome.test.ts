@@ -37,6 +37,14 @@ const errorEvent = (message: string, statusCode?: number) =>
     error: { name: 'UnknownError', data: { message, statusCode } }
   });
 
+const codexThread = '{"type":"thread.started","thread_id":"thread_1"}';
+const codexMessage = (text: string) =>
+  JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text } });
+const codexTurnCompleted = (usage: Record<string, unknown> = {}) =>
+  JSON.stringify({ type: 'turn.completed', usage });
+const codexTurnFailed = (message: string, status?: number) =>
+  JSON.stringify({ type: 'turn.failed', error: { message, status } });
+
 /**
  * A stream folded exactly as `Runner.onStdout` folds it. The outcome is no
  * longer parsed out of stdout at the end, so the two modules are exercised
@@ -87,6 +95,21 @@ describe('resolveOutcome — happy path', () => {
     const outcome = resolveOutcome({ exitCode: 0, summary: summarise(stdout) });
 
     assert.equal(outcome.retryable, false);
+  });
+
+  it('should_report_a_codex_run_as_success_when_its_turn_completes', () => {
+    const stdout = [codexThread, codexMessage('Done.'), codexTurnCompleted()].join('\n');
+
+    const outcome = resolveOutcome({
+      exitCode: 0,
+      summary: summarise(stdout, 'codex'),
+      engine: 'Codex'
+    });
+
+    assert.equal(outcome.ok, true);
+    assert.equal(outcome.sessionId, 'thread_1');
+    assert.equal(outcome.numTurns, 1);
+    assert.equal(outcome.resultText, 'Done.');
   });
 });
 
@@ -139,6 +162,20 @@ describe('resolveOutcome — failure modes', () => {
     const outcome = resolveOutcome({ exitCode: null, summary: summarise(resultEvent()) });
 
     assert.equal(outcome.ok, false);
+  });
+
+  it('should_fail_when_codex_reports_a_failed_turn', () => {
+    const stdout = [codexThread, codexTurnFailed('Not authenticated.', 401)].join('\n');
+
+    const outcome = resolveOutcome({
+      exitCode: 0,
+      summary: summarise(stdout, 'codex'),
+      engine: 'Codex'
+    });
+
+    assert.equal(outcome.ok, false);
+    assert.equal(outcome.authFailure, true);
+    assert.equal(outcome.retryable, false);
   });
 });
 
@@ -237,6 +274,16 @@ describe('foldSummary — accumulating a stream', () => {
     );
 
     assert.equal(summary.resultText, 'Done — two tests fixed.');
+  });
+
+  it('should_count_each_completed_codex_turn', () => {
+    const summary = summarise(
+      [codexTurnCompleted({ cost_usd: 0.02 }), codexTurnCompleted({ cost_usd: 0.03 })].join('\n'),
+      'codex'
+    );
+
+    assert.equal(summary.numTurns, 2);
+    assert.ok(Math.abs((summary.costUsd ?? 0) - 0.05) < 1e-9, String(summary.costUsd));
   });
 
   it('should_carry_the_session_id_from_any_opencode_event', () => {

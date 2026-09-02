@@ -512,6 +512,29 @@ logic out; one of the moves also narrowed a guard.
   long as the run lasts and handing the clock back the moment it ends. It
   honours `prefers-reduced-motion` like the sweep it replaces.
 
+### Changed
+
+- **The manager plan pane puts scheduling controls first.** **Run now**,
+  **Schedule** / **Unschedule**, and the When picker now sit together in one
+  row under the selected plan's header. A plan that has never been scheduled can
+  pick its first time there before pressing **Schedule**, while existing
+  schedules keep the same picker and run settings without the old action row at
+  the bottom of the pane.
+
+- **Recurring and chained plans are easier to spot in the manager library.**
+  The coloured status line under each plan now uses blue for recurring series
+  and purple for chained series, including the first plan in a chain. Missed
+  occurrences still stay red because they need attention first.
+
+- **Codex is now a runnable engine.** The manager can offer Codex beside Claude
+  Code and opencode when `codex --version` succeeds, with its own executable
+  setting, model options, permission mapping, launch arguments and transcript
+  parser.
+
+- **Removed the manager header's New plan button.** Creating a plan already
+  belongs to the sidebar, so the manager keeps Import and Chain in its library
+  header without repeating the same action in two places.
+
 ### Security
 
 - **A connected agent can no longer point a scheduled run at any folder on the

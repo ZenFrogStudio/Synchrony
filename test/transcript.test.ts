@@ -216,6 +216,87 @@ describe('parseLine — opencode', () => {
   });
 });
 
+/**
+ * Captured from `codex --ask-for-approval never exec --json --sandbox read-only`.
+ * Codex reports a thread, completed items, and a turn summary rather than
+ * Claude's assistant/result pair.
+ */
+describe('parseLine — codex', () => {
+  it('should_ignore_a_truncated_codex_line', () => {
+    assert.deepEqual(parseLine('{"type":"item.comp', 'codex'), { events: [] });
+  });
+
+  it('should_read_the_thread_id_as_the_session', () => {
+    const line = '{"type":"thread.started","thread_id":"thread_1"}';
+
+    const { events, summary } = parseLine(line, 'codex');
+
+    assert.deepEqual(events, [{ kind: 'session', sessionId: 'thread_1', model: '' }]);
+    assert.equal(summary?.sessionId, 'thread_1');
+  });
+
+  it('should_read_completed_agent_messages_as_text', () => {
+    const line = JSON.stringify({
+      type: 'item.completed',
+      item: { id: 'item_0', type: 'agent_message', text: '  OK  ' }
+    });
+
+    const { events, summary } = parseLine(line, 'codex');
+
+    assert.deepEqual(events, [{ kind: 'text', text: 'OK' }]);
+    assert.equal(summary?.resultText, 'OK');
+  });
+
+  it('should_record_a_codex_command_execution', () => {
+    const line = JSON.stringify({
+      type: 'item.completed',
+      item: { id: 'item_1', type: 'command_execution', command: 'npm test' }
+    });
+
+    assert.deepEqual(parseLine(line, 'codex').events, [
+      { kind: 'tool', name: 'command_execution', detail: 'npm test' }
+    ]);
+  });
+
+  it('should_record_a_codex_file_change', () => {
+    const line = JSON.stringify({
+      type: 'item.completed',
+      item: { id: 'item_2', type: 'file_change', path: 'src/agents.ts' }
+    });
+
+    assert.deepEqual(parseLine(line, 'codex').events, [
+      { kind: 'tool', name: 'file_change', detail: 'src/agents.ts' }
+    ]);
+  });
+
+  it('should_mark_a_completed_turn_as_the_terminal_result', () => {
+    const line = JSON.stringify({
+      type: 'turn.completed',
+      usage: { input_tokens: 14600, output_tokens: 17 }
+    });
+
+    const { events, summary } = parseLine(line, 'codex');
+
+    assert.deepEqual(events, [{ kind: 'result', turns: 1, costUsd: undefined, denials: 0 }]);
+    assert.equal(summary?.numTurns, 1);
+    assert.equal(summary?.sawResult, true);
+  });
+
+  it('should_treat_a_failed_turn_as_a_terminal_failure', () => {
+    const line = JSON.stringify({
+      type: 'turn.failed',
+      error: { message: 'Not authenticated.', status: 401 }
+    });
+
+    const { summary } = parseLine(line, 'codex');
+
+    assert.equal(summary?.isError, true);
+    assert.equal(summary?.sawResult, true);
+    assert.equal(summary?.resultText, 'Not authenticated.');
+    assert.equal(summary?.apiErrorStatus, '401');
+  });
+});
+
 describe('toAnsi and toMarkdown — one parse, two renderings', () => {
   it('should_render_assistant_text_identically_in_both', () => {
     const event = { kind: 'text', text: 'Found three failures.' } as const;

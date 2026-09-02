@@ -150,6 +150,7 @@ describe('edit — the engine', () => {
   it('should_accept_an_engine_this_build_knows_about', () => {
     assert.deepEqual(seriesEdit({ agent: 'opencode' }).patch, { agent: 'opencode' });
     assert.deepEqual(seriesEdit({ agent: 'claude' }).patch, { agent: 'claude' });
+    assert.deepEqual(seriesEdit({ agent: 'codex' }).patch, { agent: 'codex' });
   });
 
   it('should_read_an_empty_engine_as_claude', () => {
@@ -162,7 +163,7 @@ describe('edit — the engine', () => {
   it('should_reject_an_engine_that_does_not_exist', () => {
     // `agent` chooses which executable gets spawned, so it is checked against a
     // closed list rather than by shape.
-    for (const hostile of ['codex', 'C:\\evil.exe', 'claude; calc', 1, {}]) {
+    for (const hostile of ['C:\\evil.exe', 'claude; calc', 1, {}]) {
       assert.deepEqual(seriesEdit({ agent: hostile }).rejected, ['agent'], String(hostile));
     }
   });

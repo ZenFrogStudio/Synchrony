@@ -7,7 +7,7 @@ import { AgentId } from './types';
  * a list, and every other module reads it by id. `claude` is first because it is
  * the default — a series with no `agent` is a Claude series.
  *
- * The model lists are curated rather than queried, because neither CLI can
+ * The model lists are curated rather than queried, because the CLIs cannot
  * enumerate what your account can reach: `claude --help` documents `--model` by
  * example only, and `opencode models` prints just the providers you have logged
  * into. A curated list therefore goes stale in one direction only — it can name
@@ -67,6 +67,17 @@ export const OPENCODE_MODELS: ModelChoice[] = [
   { value: 'opencode/north-mini-code-free', label: 'North Mini Code' }
 ];
 
+/**
+ * Codex CLI accepts any reachable model id through `--model`, but the manager
+ * only lists the current Codex family explicitly. Older Codex model aliases are
+ * deliberately left to **Custom...** so this list does not advertise deprecated
+ * choices as first-class options.
+ */
+export const CODEX_MODELS: ModelChoice[] = [
+  { value: '', label: 'Codex default' },
+  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' }
+];
+
 export const AGENTS: Agent[] = [
   {
     id: 'claude',
@@ -81,6 +92,13 @@ export const AGENTS: Agent[] = [
     pathSetting: 'opencodePath',
     exe: 'opencode',
     models: OPENCODE_MODELS
+  },
+  {
+    id: 'codex',
+    label: 'Codex',
+    pathSetting: 'codexPath',
+    exe: 'codex',
+    models: CODEX_MODELS
   }
 ];
 

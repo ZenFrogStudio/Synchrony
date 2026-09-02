@@ -29,7 +29,7 @@ type Inbound =
   | { type: 'openInEditor'; name: string }
   | { type: 'importPlan' }
   | { type: 'revealLibrary' }
-  | { type: 'schedulePlan'; name: string }
+  | { type: 'schedulePlan'; name: string; nextRunAt?: string }
   | {
       type: 'chainPlans';
       names: string[];
@@ -396,7 +396,13 @@ export class Manager implements vscode.Disposable {
 
       case 'schedulePlan': {
         const filePath = library.planPath(dir, message.name);
-        const series = createSeries(filePath, seriesDefaults(filePath));
+        const { patch, rejected } = message.nextRunAt
+          ? seriesEdit({ nextRunAt: message.nextRunAt })
+          : { patch: {}, rejected: [] };
+        if (rejected.length) {
+          log.warn(`schedulePlan: ignored ${rejected.join(', ')}`);
+        }
+        const series = createSeries(filePath, seriesDefaults(filePath), patch);
         await this.store.addSeries(series);
         log.info(`scheduled ${series.fileName} for ${series.nextRunAt}`);
         return;

@@ -25,7 +25,14 @@ const OPENCODE_AUTO_MODES: readonly PermissionMode[] = [
 ];
 
 export function buildArgs(series: Runnable): string[] {
-  return series.agent === 'opencode' ? opencodeArgs(series) : claudeArgs(series);
+  switch (series.agent) {
+    case 'opencode':
+      return opencodeArgs(series);
+    case 'codex':
+      return codexArgs(series);
+    default:
+      return claudeArgs(series);
+  }
 }
 
 function claudeArgs(series: Runnable): string[] {
@@ -67,6 +74,35 @@ function opencodeArgs(series: Runnable): string[] {
     args.push('-m', series.model);
   }
   return args;
+}
+
+function codexArgs(series: Runnable): string[] {
+  const exec = ['exec', '--json', '--cd', series.cwd];
+
+  switch (series.permissionMode) {
+    case 'bypassPermissions':
+      exec.splice(1, 0, '--dangerously-bypass-approvals-and-sandbox');
+      break;
+    case 'auto':
+    case 'dontAsk':
+      exec.push('--sandbox', 'workspace-write');
+      exec.unshift('--ask-for-approval', 'never');
+      break;
+    case 'acceptEdits':
+      exec.push('--sandbox', 'workspace-write');
+      exec.unshift('--ask-for-approval', 'on-request');
+      break;
+    case 'manual':
+    case 'plan':
+      exec.push('--sandbox', 'read-only');
+      exec.unshift('--ask-for-approval', 'on-request');
+      break;
+  }
+
+  if (series.model) {
+    exec.push('--model', series.model);
+  }
+  return exec;
 }
 
 /** The three argument-quoting rules that exist among the shells VS Code opens. */
@@ -213,6 +249,29 @@ export interface GenerateOptions {
    * always has, and every argument below is exactly what it was.
    */
   askConfigPath?: string;
+  /**
+   * Split the approved work into a run of stage plans rather than writing one.
+   * Terminal only: `submit_plan` delivers exactly one plan, so a routed session
+   * has nowhere to put the rest of a series, and `askConfigPath` wins here.
+   */
+  series?: boolean;
+}
+
+/**
+ * The enabled steps as an English list, or '' when nothing is enabled. Each one
+ * completes "a closing step that ...".
+ */
+function stepList(steps: PlanStepId[]): string {
+  // Filtered against the table rather than mapped over the argument, so the
+  // order the caller happened to pass them in cannot leak into the sentence.
+  const phrases = PLAN_STEPS.filter((step) => steps.includes(step.id)).map((step) => step.phrase);
+  if (!phrases.length) {
+    return '';
+  }
+
+  return phrases.length === 1
+    ? phrases[0]
+    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`;
 }
 
 /**
@@ -223,22 +282,40 @@ export interface GenerateOptions {
  * instead of writing the step into the plan it is meant to produce.
  */
 function closingSentence(steps: PlanStepId[]): string {
-  // Filtered against the table rather than mapped over the argument, so the
-  // order the caller happened to pass them in cannot leak into the sentence.
-  const phrases = PLAN_STEPS.filter((step) => steps.includes(step.id)).map((step) => step.phrase);
-  if (!phrases.length) {
+  const list = stepList(steps);
+  if (!list) {
     return '';
   }
-
-  const list =
-    phrases.length === 1
-      ? phrases[0]
-      : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`;
 
   return (
     ` Finish the plan with a closing step that ${list}. ` +
     'This step belongs in the plan you write, not something you do now.'
   );
+}
+
+/**
+ * The same steps, placed for a chain rather than for one plan.
+ *
+ * The two kinds of step want different homes. A chained run leaves the repo dirty
+ * for the next link, so committing belongs at the end of *every* plan; bumping the
+ * version, writing the changelog entry and rebuilding describe the finished work,
+ * so they belong at the end of the last one only. Doing either everywhere would
+ * mean five version bumps for one change, or a stage handing the next one an
+ * uncommitted tree.
+ */
+function seriesClosingSentence(steps: PlanStepId[]): string {
+  const everyPlan = steps.includes('commit')
+    ? ' Finish every plan in the series with a closing step that commits the result to ' +
+      'git, so the next plan in the series starts from a clean tree.'
+    : '';
+
+  const rest = stepList(steps.filter((step) => step !== 'commit'));
+  const lastPlan = rest
+    ? ` Finish the last plan in the series with a closing step that ${rest}. ` +
+      'These steps belong in the plans you write, not something you do now.'
+    : '';
+
+  return everyPlan + lastPlan;
 }
 
 /**
@@ -270,6 +347,51 @@ function terminalInstruction(
     'nobody watching, and change nothing else.' +
     (destDir ? naming : '') +
     closingSentence(steps)
+  );
+}
+
+/**
+ * The file a series session writes last, and what Chronos watches for.
+ *
+ * Exported so the instruction and the watcher in `tasks.ts` cannot drift apart.
+ * Deliberately not a `.md`, so `library.listPlans` cannot mistake it for one of
+ * the stage plans — the same trick `mcp.json` already relies on in that folder.
+ */
+export const SERIES_MANIFEST = 'series.txt';
+
+/**
+ * The instruction for a session that splits one task into a run of plans.
+ *
+ * A single-plan session is finished the moment a `.md` lands. A series has no
+ * such moment — the files arrive one at a time with the model thinking in
+ * between — so the session is asked to write the manifest last, and that file is
+ * both the completion signal and the authoritative running order.
+ *
+ * The two digit number in each name is not decoration either: if the tab closes
+ * before the manifest is written, file-name order is the only order left, and
+ * the number is what makes it the right one.
+ *
+ * Same two rules as every instruction in this file: plain ASCII with no shell
+ * metacharacter, and the instruction ahead of every flag.
+ */
+function seriesInstruction(sourcePath: string, destDir: string, steps: PlanStepId[]): string {
+  return (
+    `Read the file at ${sourcePath}. Treat what it says as the request, ` +
+    'work out how to carry it out, and ask me anything you need to first. ' +
+    'When I approve, split the work into as many separate plans as it naturally ' +
+    'needs, each one a stage that can be carried out and finished on its own, in ' +
+    `the order they must run. Save each stage as its own .md file in ${destDir}, ` +
+    'written as instructions for an agent that will carry it out later with ' +
+    'nobody watching, and change nothing else. Name each file with a two digit ' +
+    'number for its position, then a three word description of the outcome that ' +
+    'stage produces, in lower case with hyphens instead of spaces, ending in .md, ' +
+    'for example 01-add-monthly-repeat.md. Use exactly three words after the ' +
+    'number and do not just repeat the words of the request. When every stage ' +
+    `file is written, and only then, write one last file called ${SERIES_MANIFEST} ` +
+    'in that same folder listing the stage file names in run order, one per line ' +
+    'and nothing else. Chronos reads that file as the signal that the series is ' +
+    'finished.' +
+    seriesClosingSentence(steps)
   );
 }
 
@@ -340,9 +462,13 @@ export function generateCommand(options: GenerateOptions): string {
   const { exe, sourcePath, destDir, allowDir, model, shell, steps = [], askConfigPath } = options;
   const q = (value: string) => quote(shell, value);
 
+  // A series needs somewhere to write several files, so without a staging folder
+  // it is not a series — it falls back to the ordinary one-plan instruction.
   const instruction = askConfigPath
     ? routedInstruction(sourcePath, steps)
-    : terminalInstruction(sourcePath, destDir, steps);
+    : options.series && destDir
+      ? seriesInstruction(sourcePath, destDir, steps)
+      : terminalInstruction(sourcePath, destDir, steps);
 
   // PowerShell reads a quoted string at the start of a line as a value, not a
   // command; & is what makes it run.

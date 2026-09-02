@@ -283,10 +283,10 @@ describe('mcp schedule timing', () => {
 describe('mcp schedule overrides', () => {
   it('should_pass_a_valid_patch_through_series_edit_intact', () => {
     const patch = valueOf(
-      planSeriesOverrides({ agent: 'opencode', model: 'opencode/big-pickle', maxRetries: 0 })
+      planSeriesOverrides({ agent: 'codex', model: 'gpt-5.3-codex', maxRetries: 0 })
     );
 
-    assert.deepEqual(patch, { agent: 'opencode', model: 'opencode/big-pickle', maxRetries: 0 });
+    assert.deepEqual(patch, { agent: 'codex', model: 'gpt-5.3-codex', maxRetries: 0 });
   });
 
   it('should_refuse_an_engine_this_build_does_not_know_about', () => {

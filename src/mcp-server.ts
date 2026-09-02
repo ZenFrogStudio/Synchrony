@@ -564,7 +564,7 @@ tool(fullSurface,
         .max(31)
         .optional()
         .describe('Monthly rules only. Defaults to the day `at` falls on.'),
-      agent: z.enum(['claude', 'opencode']).optional().describe('Engine. Default claude.'),
+      agent: z.enum(['claude', 'opencode', 'codex']).optional().describe('Engine. Default claude.'),
       model: z.string().optional().describe('Model id. Omit for the account default.'),
       cwd: z
         .string()
@@ -654,7 +654,7 @@ tool(fullSurface,
       daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
       dayOfMonth: z.number().int().min(1).max(31).optional(),
       enabled: z.boolean().optional().describe('False pauses the series, including queued retries'),
-      agent: z.enum(['claude', 'opencode']).optional(),
+      agent: z.enum(['claude', 'opencode', 'codex']).optional(),
       model: z.string().optional(),
       cwd: z
         .string()

@@ -1,6 +1,6 @@
 # Chronos
 
-A precise scheduling system for Claude Code tasks, integrated within VS Code.
+A precise scheduling system for coding-agent tasks, integrated within VS Code.
 
 Chronos translates Markdown plans into automated, scheduled executions. It unifies task capture, planning, and execution into a single, coherent workflow. One system. No fragmentation.
 
@@ -40,7 +40,7 @@ The file system is the database. Plans reside as `.md` files in `.chronos/plans`
 
 ## Execution and Documentation
 
-Plans are piped directly to the Claude Code CLI via standard input. This eliminates argument length limits, shell escaping issues, and pathing errors.
+Plans are piped directly to the selected coding-agent CLI via standard input. Chronos currently supports Claude Code, opencode, and Codex. This eliminates argument length limits, shell escaping issues, and pathing errors.
 
 **Transcripts**
 Every execution generates a permanent Markdown record in `.chronos/results`. This document details the execution conditions, tool calls, agent narration, and final outcome (cost, duration, status). It is the definitive, auditable record of the system's action.
@@ -68,7 +68,9 @@ Parameters are explicit and minimal.
 
 | Setting | Default | Function |
 | :--- | :--- | :--- |
-| `chronos.claudePath` | `claude` | Path to the CLI executable. |
+| `chronos.claudePath` | `claude` | Path to the Claude Code executable. |
+| `chronos.opencodePath` | `opencode` | Path to the opencode executable. |
+| `chronos.codexPath` | `codex` | Path to the Codex executable. |
 | `chronos.libraryPath` | `.chronos/plans` | Directory for plan files. |
 | `chronos.resultsPath` | `.chronos/results` | Directory for run transcripts. |
 | `chronos.maxConcurrent` | `1` | Parallel agents in one repository. |

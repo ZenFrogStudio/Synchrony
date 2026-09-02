@@ -1,8 +1,8 @@
 {
   "name": "chronos",
   "displayName": "Chronos",
-  "description": "Schedule Claude Code tasks from Markdown plan files.",
-  "version": "0.8.0-rc.74",
+  "description": "Schedule coding-agent tasks from Markdown plan files.",
+  "version": "0.8.0-rc.77",
   "publisher": "Z3n",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -14,6 +14,8 @@
   ],
   "keywords": [
     "claude",
+    "codex",
+    "opencode",
     "scheduler",
     "automation",
     "markdown"
@@ -124,6 +126,11 @@
           "type": "string",
           "default": "opencode",
           "markdownDescription": "Path to the `opencode` executable, for tasks whose engine is opencode."
+        },
+        "chronos.codexPath": {
+          "type": "string",
+          "default": "codex",
+          "markdownDescription": "Path to the `codex` executable, for tasks whose engine is Codex."
         },
         "chronos.libraryPath": {
           "type": "string",

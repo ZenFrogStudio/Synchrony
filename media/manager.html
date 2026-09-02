@@ -28,10 +28,15 @@
                Only shown when the workspace has more than one folder to pick. -->
           <select id="root-folder" class="root-folder" aria-label="Chronos folder" hidden></select>
           <div class="library-actions">
-            <button id="new-plan" class="button" type="button">New plan</button>
-            <button id="import-plan" class="button is-quiet" type="button" title="Copy existing .md files into the library">Import</button>
-            <button id="chain-plans" class="button is-quiet" type="button"
-              title="Run several plans in a row, each starting when the one before it finishes">Chain</button>
+            <button id="import-plan" class="icon-action" type="button"
+              title="Copy existing .md files into the library" aria-label="Import plans">
+              <i class="codicon codicon-cloud-download" aria-hidden="true"></i>
+            </button>
+            <button id="chain-plans" class="icon-action" type="button"
+              title="Run several plans in a row, each starting when the one before it finishes"
+              aria-label="Build plan chain">
+              <i class="codicon codicon-link" aria-hidden="true"></i>
+            </button>
             <button id="reveal-library" class="icon-action" type="button"
               title="Show library folder" aria-label="Show library folder">
               <i class="codicon codicon-library"></i>

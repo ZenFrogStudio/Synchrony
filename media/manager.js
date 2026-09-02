@@ -23,13 +23,13 @@
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   /**
-   * Approval settings, per engine. opencode has one control where Claude has
-   * six, so it is offered the two that mean something — approve everything, or
-   * plan only — rather than four more that would quietly map onto the same flag.
+   * Approval settings, per engine. Each CLI has its own permission vocabulary,
+   * so the dropdown offers only modes `buildArgs` maps deliberately.
    */
   const PERMISSION_MODES = {
     claude: ['acceptEdits', 'auto', 'dontAsk', 'plan', 'bypassPermissions'],
-    opencode: ['auto', 'plan']
+    opencode: ['auto', 'plan'],
+    codex: ['acceptEdits', 'auto', 'dontAsk', 'manual', 'plan', 'bypassPermissions']
   };
 
   /** Never a real model id: it starts with `_`, which the host's pattern rejects. */
@@ -114,6 +114,9 @@
    *  One variable rather than two, so the highlight can never be on a month you
    *  are not looking at. Null whenever the popover is closed. */
   let pickerFocus = /** @type {Date|null} */ (null);
+  /** Draft times for plans that have never had a series. Once scheduled, the
+   *  series owns the time and this value is ignored. */
+  const draftScheduleTimes = /** @type {Record<string, string>} */ ({});
 
   /** A dragged size must never leave the other pane unusable, and the window can
    *  shrink after the drag — so every read goes back through these. */
@@ -279,6 +282,8 @@
 
   const isRunning = (s) =>
     !!s && state.runs.some((r) => r.seriesId === s.id && r.status === 'running');
+  const isChained = (s) =>
+    !!s && (!!s.chain || state.series.some((next) => next.chain && next.chain.after === s.id));
 
   // ---------- the time axis ----------
 
@@ -480,16 +485,16 @@
   }
 
   /**
-   * The colour that line carries. A missed occurrence outranks everything else —
-   * it is the one thing in this list still waiting on a decision, and a recurring
-   * series has already advanced to a future time that would otherwise read as
-   * healthy. Neutral is deliberate for a finished plan or a run in flight: the row
-   * already says both another way.
+   * The colour that line carries. A missed occurrence outranks everything else:
+   * it is the one thing in this list still waiting on a decision. Chain heads
+   * have no `chain` field of their own, so `isChained` also looks for followers.
    */
   function metaState(series) {
     if (series && state.runs.some((r) => r.seriesId === series.id && r.status === 'missed')) {
       return 'is-missed';
     }
+    if (isChained(series)) return 'is-chained';
+    if (series && series.recurrence) return 'is-recurring';
     if (!series || !series.enabled) return 'is-idle';
     return series.spent ? '' : 'is-live';
   }
@@ -575,11 +580,12 @@
           <p class="detail-path">${esc(plan.filePath)}</p>
         </div>
       </div>
+      ${planCommandRow(plan, series)}
       ${editorSection()}
-      <div class="detail-lower">
-        ${series ? scheduleSection(series) : unscheduledSection(plan)}
-        ${series ? runsSection(series) : ''}
-      </div>
+      ${series ? `<div class="detail-lower">
+        ${scheduleSection(series)}
+        ${runsSection(series)}
+      </div>` : ''}
     `;
 
     mountEditor(plan);
@@ -791,7 +797,7 @@
         once, daily, or on set weekdays — and saves a transcript of every run.</p>
       <p>Two ways to add a plan:</p>
       <ul class="empty-ways">
-        <li><strong>New plan</strong> — create one in your library and edit it here.</li>
+        <li><strong>New plan</strong> in the sidebar — create one in your library and edit it here.</li>
         <li><strong>Drop a <code>.md</code> file</strong> anywhere on this window, or use
           <strong>Import</strong>, to schedule a plan you already have.</li>
       </ul>
@@ -812,13 +818,27 @@
       type="button" data-action="schedule-toggle" title="${esc(title)}">${label}</button>`;
   }
 
-  function unscheduledSection(plan) {
-    return `<div class="section">
-      <h3 class="section-title">Schedule</h3>
-      <p class="plan-meta">This plan is not scheduled.</p>
-      <div class="actions">
-        ${scheduleToggle(plan, null)}
-      </div>
+  function draftScheduleIso(plan) {
+    if (!draftScheduleTimes[plan.name]) draftScheduleTimes[plan.name] = defaultStartIso();
+    return draftScheduleTimes[plan.name];
+  }
+
+  function scheduleIsoFor(plan, series) {
+    return series ? series.nextRunAt : draftScheduleIso(plan);
+  }
+
+  function planCommandRow(plan, series) {
+    const canRun = !!series;
+    const runTitle = canRun ? 'Run this plan now' : 'Schedule this plan before running it';
+    const when = !series || !series.chain
+      ? `<div class="plan-command-when">${whenPicker(scheduleIsoFor(plan, series))}</div>`
+      : '';
+
+    return `<div class="plan-command-row">
+      <button class="button" type="button" data-action="run-now"
+        title="${esc(runTitle)}" ${canRun ? '' : 'disabled'}>Run now</button>
+      ${scheduleToggle(plan, series)}
+      ${when}
     </div>`;
   }
 
@@ -837,7 +857,7 @@
     return `<div class="section">
       <h3 class="section-title">Schedule</h3>
       <div class="grid">
-        ${s.chain ? chainField(s) : whenField(s) + repeatField(s, repeat)}
+        ${s.chain ? chainField(s) : repeatField(s, repeat)}
 
         ${permissionField(s)}
         ${engineField(s)}
@@ -853,10 +873,6 @@
         </div>
       </div>
 
-      <div class="actions">
-        <button class="button" type="button" data-action="run-now">Run now</button>
-        ${scheduleToggle(planByName(selected), s)}
-      </div>
     </div>`;
   }
 
@@ -892,20 +908,6 @@
           ${s.chain.stopOnFailure ? 'checked' : ''} />
         <span class="field-label">Stop the chain if that plan fails</span>
       </label>
-    </div>`;
-  }
-
-  /**
-   * When this runs. A native `datetime-local` asked you to type into six
-   * segments, and opened a calendar drawn by the browser that no selector here
-   * could reach. This one is a button and, once open, plain DOM: click a day,
-   * pick an hour. `pickerOpen` lives outside the DOM because every patch rebuilds
-   * the pane — the same reason the Model field's custom box does.
-   */
-  function whenField(s) {
-    return `<div class="field">
-      <span class="field-label">When</span>
-      ${whenPicker(s.nextRunAt)}
     </div>`;
   }
 
@@ -1530,20 +1532,24 @@
    * spent one-shot again has to clear `spent`, or it will never fire.
    */
   function toggleSchedule(plan, series) {
-    if (!series) return send({ type: 'schedulePlan', name: plan.name });
+    if (!series) {
+      return send({ type: 'schedulePlan', name: plan.name, nextRunAt: scheduleIsoFor(plan, series) });
+    }
     return patch(series.id, series.enabled ? { enabled: false } : { enabled: true, spent: false });
   }
 
   /**
    * The instant the calendar is editing: the chain's start on the builder page,
-   * and the selected plan's next run otherwise. Null when there is nothing to
-   * pick — no plan, or a plan whose turn comes from the chain rather than a
-   * clock. One anchor, so the popover, the arrow keys and Enter cannot disagree.
+   * the selected plan's next run when one exists, or the selected plan's draft
+   * first run otherwise. Null when there is no plan, or a plan whose turn comes
+   * from the chain rather than a clock. One anchor, so the popover, the arrow
+   * keys and Enter cannot disagree.
    */
   function pickerAnchorIso() {
     if (showChain) return chainStart || defaultStartIso();
-    const series = seriesForPlan(planByName(selected));
-    return series && !series.chain ? series.nextRunAt : null;
+    const plan = planByName(selected);
+    const series = seriesForPlan(plan);
+    return plan && (!series || !series.chain) ? scheduleIsoFor(plan, series) : null;
   }
 
   /** And where a picked instant goes. */
@@ -1553,7 +1559,15 @@
       return render();
     }
     const series = seriesForPlan(planByName(selected));
-    if (series) patch(series.id, whenPatch(series, iso));
+    if (series) {
+      patch(series.id, whenPatch(series, iso));
+      return;
+    }
+    const plan = planByName(selected);
+    if (plan) {
+      draftScheduleTimes[plan.name] = iso;
+      render();
+    }
   }
 
   /** Returns whether it handled the click, so the caller can go on to its own. */
@@ -2023,14 +2037,14 @@
       case 'D':
         // Not on a chained plan: its turn comes from the plan before it, so
         // there is no date of its own to open.
-        if (series && !series.chain) {
+        if (plan && (!series || !series.chain)) {
           // Leaves the Settings page for the same reason clicking a plan does:
           // the calendar is in the detail pane, and there is nothing to open on
           // a page that is not showing the plan.
           showSettings = false;
           showChain = false;
           pickerOpen = true;
-          pickerFocus = new Date(series.nextRunAt);
+          pickerFocus = new Date(scheduleIsoFor(plan, series));
           render();
           focusKey('picker-day');
         }
@@ -2210,8 +2224,6 @@
     if (activityHeight !== null) activityHeight = clampActivity(activityHeight);
     applySizes();
   });
-
-  document.getElementById('new-plan').addEventListener('click', () => send({ type: 'createPlan' }));
 
   document.getElementById('import-plan').addEventListener('click', () => send({ type: 'importPlan' }));
   document.getElementById('reveal-library').addEventListener('click', () => send({ type: 'revealLibrary' }));

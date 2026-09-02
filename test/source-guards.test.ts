@@ -233,6 +233,35 @@ describe('source guards', () => {
     assert.doesNotMatch(script, /chronos-\d+\.\d+\.\d+/, 'reinstall.js hardcodes a version');
   });
 
+  it('should_declare_every_engine_where_engine_choices_are_hardcoded', () => {
+    // The manager list itself is derived from src/agents.ts, but the surfaces
+    // that validate or map an engine still need explicit rows. Missing one is
+    // exactly how a runnable CLI vanishes from the UI or from MCP scheduling.
+    const agents = fs.readFileSync(path.join(SRC, 'agents.ts'), 'utf8');
+    const server = fs.readFileSync(path.join(SRC, 'mcp-server.ts'), 'utf8');
+    const manager = fs.readFileSync(path.join(MEDIA, 'manager.js'), 'utf8');
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+
+    const ids = [...agents.matchAll(/id: '([^']+)'/g)].map((match) => match[1]);
+    assert.deepEqual(ids, [...new Set(ids)], 'src/agents.ts declares a duplicate engine id');
+
+    const permissionTable = manager.match(/const PERMISSION_MODES = \{[\s\S]*?\n  \};/)?.[0] ?? '';
+    const agentSchemas = server.match(/agent: z\.enum\(\[[^\]]+\]\)/g) ?? [];
+    assert.equal(agentSchemas.length, 2, 'both MCP write tools must declare an agent enum');
+
+    for (const id of ids) {
+      assert.ok(permissionTable.includes(`${id}: [`), `media/manager.js has no permission row for ${id}`);
+      for (const schema of agentSchemas) {
+        assert.ok(schema.includes(`'${id}'`), `an MCP agent enum omits ${id}`);
+      }
+    }
+
+    for (const match of agents.matchAll(/pathSetting: '([^']+)'/g)) {
+      const key = `chronos.${match[1]}`;
+      assert.ok(manifest.contributes.configuration.properties[key], `package.json omits ${key}`);
+    }
+  });
+
   it('should_install_into_the_editor_this_project_is_developed_in', () => {
     // VSCodium and Microsoft's build keep separate extension folders, and the
     // `code` CLI on PATH is the latter. Installing with it succeeds, says so,

@@ -149,6 +149,77 @@ describe('buildArgs — opencode', () => {
   });
 });
 
+describe('buildArgs — codex', () => {
+  it('should_run_codex_exec_with_the_json_stream_the_transcript_is_parsed_from', () => {
+    const args = buildArgs(onEngine('codex'));
+
+    assert.deepEqual(args.slice(0, 4), ['--ask-for-approval', 'on-request', 'exec', '--json']);
+  });
+
+  it('should_name_the_working_directory_rather_than_relying_on_the_process_cwd', () => {
+    const args = buildArgs(onEngine('codex'));
+
+    assert.equal(args[args.indexOf('--cd') + 1], CWD);
+  });
+
+  it('should_never_emit_a_claude_or_opencode_flag', () => {
+    const args = buildArgs(onEngine('codex', 'auto', 'gpt-5.3-codex'));
+
+    for (const flag of ['-p', '--output-format', '--verbose', '--permission-mode', '--dir', '-m']) {
+      assert.ok(!args.includes(flag), `${flag} belongs to another engine`);
+    }
+  });
+
+  it('should_run_manual_and_plan_modes_read_only_with_approval_available', () => {
+    for (const mode of ['manual', 'plan'] as PermissionMode[]) {
+      const args = buildArgs(onEngine('codex', mode));
+
+      assert.equal(args[args.indexOf('--ask-for-approval') + 1], 'on-request');
+      assert.equal(args[args.indexOf('--sandbox') + 1], 'read-only');
+    }
+  });
+
+  it('should_allow_edits_but_keep_approval_available_for_accept_edits', () => {
+    const args = buildArgs(onEngine('codex', 'acceptEdits'));
+
+    assert.equal(args[args.indexOf('--ask-for-approval') + 1], 'on-request');
+    assert.equal(args[args.indexOf('--sandbox') + 1], 'workspace-write');
+  });
+
+  it('should_not_stop_to_ask_in_auto_and_dont_ask_modes', () => {
+    for (const mode of ['auto', 'dontAsk'] as PermissionMode[]) {
+      const args = buildArgs(onEngine('codex', mode));
+
+      assert.equal(args[args.indexOf('--ask-for-approval') + 1], 'never');
+      assert.equal(args[args.indexOf('--sandbox') + 1], 'workspace-write');
+    }
+  });
+
+  it('should_use_codexs_explicit_bypass_flag_only_for_bypass_permissions', () => {
+    const bypass = buildArgs(onEngine('codex', 'bypassPermissions'));
+    const normal = buildArgs(onEngine('codex', 'auto'));
+
+    assert.ok(bypass.includes('--dangerously-bypass-approvals-and-sandbox'));
+    assert.ok(!normal.includes('--dangerously-bypass-approvals-and-sandbox'));
+  });
+
+  it('should_pin_the_model_with_codexs_model_flag', () => {
+    const args = buildArgs(onEngine('codex', 'auto', 'gpt-5.3-codex'));
+
+    assert.equal(args[args.indexOf('--model') + 1], 'gpt-5.3-codex');
+  });
+
+  it('should_omit_the_model_flag_when_no_model_is_pinned', () => {
+    assert.ok(!buildArgs(onEngine('codex')).includes('--model'));
+  });
+
+  it('should_never_place_the_prompt_on_the_command_line', () => {
+    const args = buildArgs(onEngine('codex', 'auto', 'gpt-5.3-codex'));
+
+    assert.ok(!args.some((arg) => arg.includes(PLAN)));
+  });
+});
+
 const TASK = 'D:\\plans\\tasks\\refactor-the-auth-module.md';
 const LIBRARY = 'D:\\plans';
 const STAGING = 'D:\\plans\\.pending\\ab12cd';

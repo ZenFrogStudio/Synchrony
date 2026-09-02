@@ -77,7 +77,14 @@ export function parseLine(line: string, agent: AgentId = 'claude'): ParsedLine {
     return { events: [] };
   }
 
-  return agent === 'opencode' ? parseOpencodeLine(event) : parseClaudeLine(event);
+  switch (agent) {
+    case 'opencode':
+      return parseOpencodeLine(event);
+    case 'codex':
+      return parseCodexLine(event);
+    default:
+      return parseClaudeLine(event);
+  }
 }
 
 /** `claude -p --output-format stream-json --verbose`. */
@@ -189,6 +196,64 @@ function parseOpencodeLine(event: any): ParsedLine {
   return { events: [], summary };
 }
 
+/** `codex --ask-for-approval ... exec --json`. */
+function parseCodexLine(event: any): ParsedLine {
+  if (event.type === 'thread.started') {
+    return {
+      events: [
+        { kind: 'session', sessionId: String(event.thread_id ?? ''), model: String(event.model ?? '') }
+      ],
+      summary: { sessionId: text(event.thread_id) }
+    };
+  }
+
+  if (event.type === 'item.completed') {
+    const item = event.item ?? {};
+    if (item.type === 'agent_message') {
+      const body = String(item.text ?? '').trim();
+      return body
+        ? { events: [{ kind: 'text', text: body }], summary: { resultText: body } }
+        : { events: [] };
+    }
+
+    const tool = codexToolEvent(item);
+    return tool ? { events: [tool] } : { events: [] };
+  }
+
+  if (event.type === 'turn.completed') {
+    const usage = event.usage ?? {};
+    return {
+      events: [
+        {
+          kind: 'result',
+          turns: 1,
+          costUsd: costOf(usage),
+          denials: 0
+        }
+      ],
+      summary: {
+        numTurns: 1,
+        costUsd: costOf(usage),
+        sawResult: true
+      }
+    };
+  }
+
+  if (event.type === 'turn.failed' || event.type === 'error') {
+    return {
+      events: [],
+      summary: {
+        resultText: String(event.error?.message ?? event.error ?? event.message ?? 'Codex reported an error.'),
+        apiErrorStatus: text(event.error?.status ?? event.status),
+        sawResult: true,
+        isError: true
+      }
+    };
+  }
+
+  return { events: [] };
+}
+
 /** A non-empty string, or undefined — so `foldSummary` can skip it. */
 function text(value: unknown): string | undefined {
   const trimmed = value === undefined || value === null ? '' : String(value).trim();
@@ -207,6 +272,34 @@ function toolDetail(input: unknown): string | undefined {
     }
   }
   return undefined;
+}
+
+function codexToolEvent(item: any): TranscriptEvent | undefined {
+  const type = text(item.type);
+  if (!type) {
+    return undefined;
+  }
+
+  if (type === 'command_execution') {
+    return { kind: 'tool', name: 'command_execution', detail: toolDetail(item) };
+  }
+  if (type === 'file_change') {
+    return { kind: 'tool', name: 'file_change', detail: toolDetail(item) };
+  }
+  if (type === 'mcp_tool_call' || type === 'tool_call') {
+    const name = text(item.name ?? item.tool) ?? type;
+    return { kind: 'tool', name, detail: toolDetail(item.arguments ?? item.input ?? item) };
+  }
+
+  return undefined;
+}
+
+function costOf(usage: any): number | undefined {
+  return typeof usage?.cost_usd === 'number'
+    ? usage.cost_usd
+    : typeof usage?.total_cost_usd === 'number'
+      ? usage.total_cost_usd
+      : undefined;
 }
 
 // ---------- terminal ----------

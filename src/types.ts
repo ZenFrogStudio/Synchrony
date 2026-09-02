@@ -3,7 +3,7 @@
  * is what every series stored before engines existed meant — so adding this
  * needed no migration and no SCHEMA_VERSION bump.
  */
-export type AgentId = 'claude' | 'opencode';
+export type AgentId = 'claude' | 'opencode' | 'codex';
 
 /** Permission modes accepted by the `claude` CLI's --permission-mode flag. */
 export type PermissionMode =
@@ -213,6 +213,13 @@ export const MAX_RECENT_RUNS = 50;
  * one — but a pile ignored for months should not grow the store without bound.
  */
 export const MAX_MISSED_RUNS = 100;
+
+/**
+ * Spent one-shot series retained. A fired one-shot is invisible in the manager
+ * and read by nothing, but it is still rewritten on every change to the file, so
+ * the list is held to a hundred of them.
+ */
+export const MAX_SPENT_SERIES = 100;
 
 /** Error text stored per run. */
 export const ERROR_MAX_CHARS = 500;

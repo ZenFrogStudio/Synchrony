@@ -55,7 +55,7 @@ export const GROUPS: { title: string; note?: string; keys: string[] }[] = [
       'planStep.commit'
     ]
   },
-  { title: 'Engines', keys: ['claudePath', 'opencodePath'] },
+  { title: 'Engines', keys: ['claudePath', 'opencodePath', 'codexPath'] },
   { title: 'Locations', keys: ['libraryPath', 'resultsPath'] },
   {
     title: 'Running',

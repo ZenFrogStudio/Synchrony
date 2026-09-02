@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { chainPatches } from './chain';
 import { jobState } from './history';
 import {
   ASK_SERVER,
@@ -9,6 +10,7 @@ import {
   explainCommand,
   generateCommand,
   mcpClientConfig,
+  SERIES_MANIFEST,
   shellKind
 } from './launch';
 import * as library from './library';
@@ -16,7 +18,7 @@ import { log } from './log';
 import { createNonce, Manager } from './manager';
 import { ChronosPaths } from './roots';
 import { Scheduler } from './scheduler';
-import { createSeries } from './series';
+import { createSeries, defaultScheduledAt } from './series';
 import { Store } from './store';
 
 /**
@@ -72,6 +74,18 @@ import { Store } from './store';
  * by an agent through the MCP server usually needs reading before either is
  * worth doing. It opens a terminal that reads the task and talks, writes
  * nothing, and leaves the row exactly as it found it.
+ *
+ * **Series** is Generate plan for a task that is really several stages of work.
+ * The same interactive plan-mode session, but the approved work is split into as
+ * many stage plans as it needs, each written as its own file. A series has no
+ * single moment of completion the way one plan does, so the session writes a
+ * `series.txt` manifest last, and that file — not the first `.md` to land — is
+ * what Chronos waits for, and is the running order it adopts them in. The plans
+ * then go on the schedule as a chain: the first an hour out, each one after it
+ * armed fifteen minutes after the one before finishes, so there is time to read
+ * them and switch the chain off before any of it runs. Terminal only, like
+ * **Generate plan** — the routed session's `submit_plan` delivers exactly one
+ * plan, and widening it is separate work in `src/mcp-server.ts`.
  */
 
 /** A row in the inbox. `name` is the file name, which is its identity. */
@@ -88,6 +102,7 @@ type Inbound =
   | { type: 'editTask'; name: string; text: string }
   | { type: 'deleteTask'; name: string }
   | { type: 'generatePlan'; name: string }
+  | { type: 'generateSeries'; name: string }
   | { type: 'explainTask'; name: string }
   | { type: 'runTask'; name: string };
 
@@ -98,7 +113,17 @@ interface PendingPlan {
   watcher: vscode.FileSystemWatcher;
   /** The tab the session is being held in. Its closing is what ends the session. */
   terminal: vscode.Terminal;
+  /** A series session writes several stage files and a manifest; a plan session
+   *  writes one file, and that file is the whole signal. */
+  series: boolean;
 }
+
+/**
+ * The gap between one plan in a generated chain finishing and the next starting.
+ * The manager's own chain builder defaults to the same fifteen minutes, so a
+ * chain Chronos writes behaves like one built by hand.
+ */
+const SERIES_GAP_MINUTES = 15;
 
 export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = 'chronos.tasks';
@@ -303,6 +328,17 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         return;
       }
 
+      case 'generateSeries': {
+        const task = this.list().find((t) => t.name === message.name);
+        if (task) {
+          // Terminal only: a series cannot be routed.
+          await this.generatePlan(task, false, true);
+        }
+        // After, not before: this is what lights the row's dot amber.
+        this.post();
+        return;
+      }
+
       case 'explainTask': {
         const task = this.list().find((t) => t.name === message.name);
         if (task) {
@@ -376,10 +412,20 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    * row's button, which asks in the terminal and therefore runs in plan mode;
    * true is the palette command, which asks through this session's MCP server
    * and therefore cannot.
+   *
+   * `series` splits the approved work into a run of stage plans instead of one,
+   * which changes what the session is asked for and what ends it — the manifest
+   * rather than the first file to land — and nothing else about the session.
    */
-  private async generatePlan(task: InboxTask, routed: boolean): Promise<void> {
+  private async generatePlan(task: InboxTask, routed: boolean, series = false): Promise<void> {
     if (!fs.existsSync(task.filePath)) {
       void vscode.window.showWarningMessage('That task no longer exists.');
+      return;
+    }
+    if (routed && series) {
+      // Nothing asks for this: `submit_plan` delivers exactly one plan, so a
+      // routed series would have nowhere to put the rest of it.
+      log.warn('a routed planning session cannot produce a series; nothing was started');
       return;
     }
 
@@ -426,6 +472,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // Set means the session asks through Chronos rather than through this
       // terminal, and delivers its plan the same way.
       askConfigPath,
+      // Set means several stage plans and a manifest rather than one plan.
+      series,
       // One grant covers task, staging folder and library, since all three are
       // inside the folder's `.chronos` root.
       allowDir: paths.root,
@@ -438,16 +486,17 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     // Scoped to this session's folder, so a landed file needs no guessing about
     // which session produced it. Non-recursive; disposed the moment it fires.
+    // A series watches for its manifest instead: the stage files land one at a
+    // time, so the first of them means the session is part-way through, not done.
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(sessionDir, '*.md'),
+      new vscode.RelativePattern(sessionDir, series ? SERIES_MANIFEST : '*.md'),
       false,
       true,
       true
     );
     watcher.onDidCreate((uri) => {
-      this.onPlanLanded(sessionId, uri).catch((err) =>
-        log.error('adopting a generated plan failed', err)
-      );
+      const adopted = series ? this.onSeriesLanded(sessionId) : this.onPlanLanded(sessionId, uri);
+      adopted.catch((err) => log.error('adopting a generated plan failed', err));
     });
     // Before the map entry, so the entry can carry the terminal that ends the
     // session. Nothing is running until `sendText` below, so there is no window
@@ -455,16 +504,22 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     const terminal = vscode.window.createTerminal({
       // Named apart, because the two sessions behave differently and a tab
       // strip holding both should say which is which.
-      name: `Chronos: plan ${routed ? '(remote) ' : ''}${firstLine(task.label).slice(0, 40)}`,
+      name: `Chronos: ${series ? 'series' : 'plan'} ${routed ? '(remote) ' : ''}${firstLine(task.label).slice(0, 40)}`,
       cwd,
       iconPath: new vscode.ThemeIcon('lightbulb')
     });
-    this.awaitingPlan.set(sessionId, { taskName: task.name, dir: sessionDir, watcher, terminal });
+    this.awaitingPlan.set(sessionId, {
+      taskName: task.name,
+      dir: sessionDir,
+      watcher,
+      terminal,
+      series
+    });
 
     // Focus, unlike a scheduled run: you pressed a button and are about to type.
     terminal.show();
     terminal.sendText(command);
-    log.info(`opened a planning session for task ${task.name} in ${cwd}`);
+    log.info(`opened a ${series ? 'series ' : ''}planning session for task ${task.name} in ${cwd}`);
   }
 
   /**
@@ -517,6 +572,10 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    *
    * A plan sitting in the staging folder means the session finished and the
    * watcher missed the event, so it is adopted exactly as it would have been.
+   * For a series that also covers the tab closing after the stage files landed
+   * but before the manifest did — `onSeriesLanded` falls back to file-name order,
+   * which is what the number leading each name is for.
+   *
    * Otherwise the session was backed out of: it is discarded, the task is left
    * untouched, and the whole of the notice is one log line, because closing a
    * terminal you meant to close is not news.
@@ -530,9 +589,10 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     const [landed] = library.listPlans(pending.dir);
     if (landed) {
-      this.onPlanLanded(sessionId, vscode.Uri.file(landed.filePath)).catch((err) =>
-        log.error('adopting a generated plan failed', err)
-      );
+      const adopted = pending.series
+        ? this.onSeriesLanded(sessionId)
+        : this.onPlanLanded(sessionId, vscode.Uri.file(landed.filePath));
+      adopted.catch((err) => log.error('adopting a generated plan failed', err));
       return;
     }
 
@@ -614,6 +674,153 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.post();
     this.manager.open();
     this.manager.reveal(plan.name);
+  }
+
+  ///////////////////////////*Series generation*////////////////////////////
+
+  /**
+   * The end of a series session. The manifest landing is the signal, because the
+   * stage files arrive one at a time with the model thinking in between — the
+   * first of them means the session is part-way through, not finished.
+   *
+   * Same shape as `onPlanLanded`, including the entry and the watcher going
+   * before the first `await`: that is what keeps the two ways a session can end
+   * free of any race.
+   */
+  private async onSeriesLanded(sessionId: string): Promise<void> {
+    const pending = this.awaitingPlan.get(sessionId);
+    if (!pending) {
+      return;
+    }
+    this.awaitingPlan.delete(sessionId);
+    pending.watcher.dispose();
+
+    await settled(path.join(pending.dir, SERIES_MANIFEST));
+
+    const order = this.stageOrder(pending.dir);
+    if (!order.length) {
+      log.warn(`the series session for task ${pending.taskName} produced no plans`);
+      void vscode.window.showWarningMessage(
+        'That planning session did not write any plans, so the task is unchanged.'
+      );
+      this.post();
+      return;
+    }
+
+    const paths = this.paths();
+    const plans: library.PlanFile[] = [];
+    try {
+      for (const name of order) {
+        const filePath = path.join(pending.dir, name);
+        await settled(filePath);
+        // Four words rather than the usual three: the position number counts as
+        // one, so three would clip `01-add-monthly-repeat` to `01-add-monthly`
+        // and lose the description the number is there to order.
+        plans.push(
+          library.importFile(paths.plans, filePath, library.firstWords(library.titleOf(name), 4))
+        );
+      }
+    } catch (err) {
+      // The plans exist in the staging folder, so leave both them and the task
+      // alone rather than clearing a task whose plans never reached the library.
+      log.error(`could not adopt the series from ${pending.dir}`, err);
+      void vscode.window.showWarningMessage(
+        `Chronos could not move the generated plans into your library. They are still in ${pending.dir}.`
+      );
+      return;
+    }
+    fs.rmSync(pending.dir, { recursive: true, force: true });
+
+    try {
+      library.removePlan(paths.tasks, pending.taskName);
+      log.info(`a series of ${plans.length} plans landed; cleared task ${pending.taskName}`);
+    } catch (err) {
+      // A task the user already deleted by hand must not turn this into an error.
+      log.warn(`could not clear task ${pending.taskName}: ${String(err)}`);
+    }
+
+    await this.chainAdopted(plans);
+
+    this.post();
+    this.manager.open();
+    this.manager.reveal(plans[0].name);
+  }
+
+  /**
+   * The stage files in the order they should run: the manifest's order when it
+   * can be read, and file-name order otherwise — which is the whole reason the
+   * session is asked to number the names.
+   *
+   * A manifest line is written by a model, so it is reduced to a bare file name
+   * and matched against what is actually in the folder: a line must never be able
+   * to address the filesystem, and one naming a file that has since been deleted
+   * is skipped rather than failing the rest of the series.
+   */
+  private stageOrder(dir: string): string[] {
+    const onDisk = new Set(library.listPlans(dir).map((plan) => plan.name));
+    const listed: string[] = [];
+
+    try {
+      for (const line of fs.readFileSync(path.join(dir, SERIES_MANIFEST), 'utf8').split(/\r?\n/)) {
+        const name = path.basename(line.trim());
+        if (onDisk.has(name) && !listed.includes(name)) {
+          listed.push(name);
+        }
+      }
+    } catch (err) {
+      log.warn(`could not read ${SERIES_MANIFEST} in ${dir}: ${String(err)}`);
+    }
+
+    // `listPlans` sorts newest-modified first, which says nothing about the order
+    // the stages must run in. The names do.
+    return listed.length ? listed : [...onDisk].sort();
+  }
+
+  /**
+   * Puts an adopted series on the schedule as a chain: the first plan at a clock
+   * time, each of the rest armed by the one before it finishing.
+   *
+   * The hour before the first one runs is the safety margin. The whole chain is
+   * scheduled the moment it is adopted, so it is on the schedule without anyone
+   * picking a time five times over — but nothing fires for an hour, which is time
+   * enough to read the plans and switch the chain off.
+   */
+  private async chainAdopted(plans: library.PlanFile[]): Promise<void> {
+    const config = vscode.workspace.getConfiguration('chronos');
+    // The folder the task was captured in is the folder its plans run against —
+    // the same rule `generatePlan` and `runTask` already use.
+    const defaults = {
+      cwd: this.paths().folder,
+      maxRetries: config.get<number>('maxRetries', 3)
+    };
+
+    // One clock reading for the whole chain, so the time in the notification is
+    // the time the head actually holds even if the loop crosses a quarter hour.
+    const startAt = defaultScheduledAt();
+
+    const ids: string[] = [];
+    for (const plan of plans) {
+      const series = createSeries(plan.filePath, defaults, { nextRunAt: startAt });
+      await this.store.addSeries(series);
+      ids.push(series.id);
+    }
+
+    if (ids.length > 1) {
+      // Stop on failure, because stage two is written assuming stage one landed.
+      for (const { id, patch } of chainPatches(ids, startAt, SERIES_GAP_MINUTES, true)) {
+        await this.store.updateSeries(id, patch);
+      }
+    }
+
+    log.info(`scheduled a series: ${plans.map((plan) => plan.name).join(' then ')}`);
+
+    const at = new Date(startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    void vscode.window.showInformationMessage(
+      ids.length > 1
+        ? `Chronos chained ${ids.length} plans. The first starts at ${at}, and each one after ` +
+            `it runs ${SERIES_GAP_MINUTES} minutes after the one before finishes.`
+        : `Chronos scheduled 1 plan, starting at ${at}.`
+    );
   }
 
   ///////////////////////////*Explaining a task*////////////////////////////

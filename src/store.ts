@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { spliceChain } from './chain';
-import { pruneRuns } from './history';
+import { pruneRuns, pruneSeries } from './history';
 import { log } from './log';
 import { newId, stampRepeatEnd } from './series';
 import { readState, updateState } from './state-file';
@@ -169,6 +169,7 @@ export class Store {
     this.state = updateState(this.file, (state) => {
       change(state);
       state.runs = pruneRuns(state.runs);
+      state.series = pruneSeries(state.series, state.runs);
     });
     this.emitter.fire();
   }

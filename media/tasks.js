@@ -8,6 +8,7 @@
   const addEl = /** @type {HTMLElement} */ (document.getElementById('add-task'));
   const barEl = /** @type {HTMLElement} */ (document.getElementById('action-bar'));
   const generateEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-plan'));
+  const seriesEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-series'));
   const runEl = /** @type {HTMLButtonElement} */ (document.getElementById('run-task'));
 
   /** @type {{tasks: {name: string, label: string, generating: boolean, running: boolean}[]}} */
@@ -54,11 +55,12 @@
       }
     }
 
-    // A task that is generating or running is busy for both buttons.
+    // A task that is generating or running is busy for all three buttons.
     const task = state.tasks.find((t) => t.name === selected);
     const busy = !task || task.generating || task.running;
     barEl.hidden = state.tasks.length === 0;
     generateEl.disabled = busy;
+    seriesEl.disabled = busy;
     runEl.disabled = busy;
 
     generateEl.title = !task
@@ -66,6 +68,11 @@
       : task.generating
         ? 'A planning session is already open for this task'
         : `Generate a plan from "${firstLine(task.label)}"`;
+    seriesEl.title = !task
+      ? 'Select a task first'
+      : task.generating
+        ? 'A planning session is already open for this task'
+        : `Generate a series of plans from "${firstLine(task.label)}"`;
     runEl.title = !task
       ? 'Select a task first'
       : task.generating
@@ -241,6 +248,12 @@
           send({ type: 'generatePlan', name: task.name });
         }
         break;
+      case 's':
+      case 'S':
+        if (task && !task.generating && !task.running) {
+          send({ type: 'generateSeries', name: task.name });
+        }
+        break;
       // `R` rather than Ctrl+Enter, for consistency with the manager, where R is
       // already Run now on a plan row.
       case 'r':
@@ -283,6 +296,12 @@
   generateEl.addEventListener('click', () => {
     if (selected) {
       send({ type: 'generatePlan', name: selected });
+    }
+  });
+
+  seriesEl.addEventListener('click', () => {
+    if (selected) {
+      send({ type: 'generateSeries', name: selected });
     }
   });
 

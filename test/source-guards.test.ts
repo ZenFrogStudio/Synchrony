@@ -580,6 +580,33 @@ describe('source guards', () => {
     }
   });
 
+  it('should_keep_the_header_mark_wired_from_the_host_to_the_page', () => {
+    // The mark reaches the page through three string literals in three files —
+    // the filename in manager.ts, the {{markUri}} meta tag in manager.html, and
+    // the lookup in manager.js. Break any one and the plan panel's header
+    // renders an empty 40px box: nothing throws, nothing else fails, and the
+    // countdown ring that used to stand there most of the time is gone, so
+    // there is no longer anything covering for it.
+    assert.ok(fs.existsSync(path.join(MEDIA, 'icon.png')), 'media/icon.png is missing');
+
+    const manager = fs.readFileSync(path.join(SRC, 'manager.ts'), 'utf8');
+    const html = fs.readFileSync(path.join(MEDIA, 'manager.html'), 'utf8');
+    const js = fs.readFileSync(path.join(MEDIA, 'manager.js'), 'utf8');
+
+    assert.ok(manager.includes("'{{markUri}}'"), 'src/manager.ts no longer replaces {{markUri}}');
+    assert.ok(
+      manager.includes("mediaUri('icon.png')"),
+      'src/manager.ts no longer points {{markUri}} at media/icon.png'
+    );
+    assert.ok(html.includes('name="chronos-mark"'), 'media/manager.html has no chronos-mark meta');
+    assert.ok(html.includes('{{markUri}}'), 'media/manager.html never carries the mark URI');
+    assert.ok(
+      js.includes('meta[name="chronos-mark"]'),
+      'media/manager.js no longer reads the mark URI out of the page'
+    );
+    assert.ok(js.includes('class="head-mark'), 'media/manager.js never renders the header mark');
+  });
+
   it('should_keep_the_plan_text_box_flexing_with_its_pane', () => {
     // The box fills the detail pane by CSS alone, driven by classes written into
     // a template string. Renaming either side reverts it to a fixed-height box

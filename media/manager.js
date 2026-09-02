@@ -282,43 +282,6 @@
 
   // ---------- the time axis ----------
 
-  /** Circumference of the ring's r=16 circle, in user units. */
-  const RING_C = 100.53;
-
-  /**
-   * How long the current interval is, so the ring knows what fraction of it has
-   * elapsed. A one-shot has no interval — there is nothing to be a fraction of.
-   */
-  function intervalMs(s) {
-    if (!s || !s.recurrence) return null;
-
-    // Monthly, before the day rules below: its `daysOfWeek` is empty. The ring
-    // is cosmetic, so the real length of the preceding month is close enough.
-    if (s.recurrence.dayOfMonth) {
-      const next = new Date(s.nextRunAt);
-      const prev = new Date(next);
-      prev.setMonth(prev.getMonth() - 1);
-      return next.getTime() - prev.getTime();
-    }
-
-    const days = s.recurrence.daysOfWeek;
-    if (!days.length) return null;
-    if (days.length === 7) return 86400000;
-
-    // Weekly: the gap back to whichever scheduled day precedes the next run.
-    const next = new Date(s.nextRunAt).getDay();
-    const earlier = days.filter((d) => d !== next);
-    if (!earlier.length) return 7 * 86400000;
-    return Math.min(...earlier.map((d) => (next - d + 7) % 7)) * 86400000;
-  }
-
-  /** Dash offset for a full circumference dasharray: full ring at 0% elapsed. */
-  function ringOffset(iso, interval) {
-    const left = new Date(iso).getTime() - Date.now();
-    const done = Math.min(1, Math.max(0, (interval - left) / interval));
-    return (RING_C * (1 - done)).toFixed(2);
-  }
-
   const countdownText = (iso) => {
     const left = new Date(iso).getTime() - Date.now();
     return left > 0 ? `in ${formatDuration(left)}` : 'due now';
@@ -358,35 +321,15 @@
   }
 
   /**
-   * Future time, cyclical. The arc fills as the current interval elapses; a
-   * one-shot gets an outline and no arc, which is honest rather than inventing
-   * a progress figure. A live run swaps the whole clock for the Chronos mark,
-   * spinning for as long as the run lasts.
+   * The Chronos mark, standing where the countdown clock used to. It turns while
+   * a run is live and is still the rest of the time, which makes it the header's
+   * only moving part — `headStatus` beneath it carries the actual words, both
+   * for a reader and for a screen reader, so the mark stays decorative.
    */
-  function ringMarkup(s) {
-    if (isRunning(s)) {
-      return `<img class="head-mark" src="${MARK_URI}" alt="" aria-hidden="true">`;
-    }
-    const track = '<circle class="ring-track" cx="20" cy="20" r="16" />';
-    const interval = intervalMs(s);
-    const live = s && s.enabled && !s.spent;
-
-    let inner = '';
-    if (live && interval) {
-      inner = `<circle class="ring-arc" cx="20" cy="20" r="16"
-        data-ring-next="${esc(s.nextRunAt)}" data-ring-interval="${interval}"
-        stroke-dasharray="${RING_C}" stroke-dashoffset="${ringOffset(s.nextRunAt, interval)}" />`;
-    }
-
-    return `<svg class="ring" viewBox="0 0 40 40" aria-hidden="true">${track}${inner}</svg>`;
+  function markMarkup(s) {
+    return `<img class="head-mark${isRunning(s) ? ' is-running' : ''}"
+      src="${MARK_URI}" alt="" aria-hidden="true">`;
   }
-
-  /** The title's own "working now" marker. The ring beside it belongs to the
-   *  clock; this belongs to the run. Decorative — `headStatus` already says
-   *  "running now" in text, so screen readers are covered. */
-  const runSpinner = () =>
-    '<i class="codicon codicon-loading codicon-modifier-spin head-spinner" ' +
-    'title="A run is in progress" aria-hidden="true"></i>';
 
   // ---------- render ----------
 
@@ -623,11 +566,10 @@
     const series = seriesForPlan(plan);
     detailEl.innerHTML = `
       <div class="detail-head">
-        ${ringMarkup(series)}
+        ${markMarkup(series)}
         <div class="head-text">
           <div class="head-title-row">
             <h2 class="detail-title">${esc(plan.title)}</h2>
-            ${isRunning(series) ? runSpinner() : ''}
           </div>
           ${headStatus(series)}
           <p class="detail-path">${esc(plan.filePath)}</p>
@@ -1441,12 +1383,12 @@
   }
 
   /** Drives everything on screen that moves with the clock: the elapsed timer of
-   *  a live run, the head countdown, the ring's arc, and the Runs panel. Scoped
-   *  to the document rather than the detail pane, because the panel is outside
-   *  it and its countdowns must tick too. */
+   *  a live run, the head countdown, and the Runs panel. Scoped to the document
+   *  rather than the detail pane, because the panel is outside it and its
+   *  countdowns must tick too. */
   function startTicker() {
     clearInterval(elapsedTimer);
-    if (!document.querySelector('[data-started], [data-countdown], [data-ring-next]')) return;
+    if (!document.querySelector('[data-started], [data-countdown]')) return;
 
     const tick = () => {
       document.querySelectorAll('[data-started]').forEach((el) => {
@@ -1454,14 +1396,6 @@
       });
       document.querySelectorAll('[data-countdown]').forEach((el) => {
         el.textContent = countdownText(el.dataset.countdown);
-      });
-      // CSP forbids inline styles, so the ring moves via its SVG presentation
-      // attribute rather than el.style.
-      document.querySelectorAll('[data-ring-next]').forEach((el) => {
-        el.setAttribute(
-          'stroke-dashoffset',
-          ringOffset(el.dataset.ringNext, Number(el.dataset.ringInterval))
-        );
       });
     };
 

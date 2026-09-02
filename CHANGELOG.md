@@ -740,6 +740,23 @@ logic out; one of the moves also narrowed a guard.
 
 ### Changed
 
+- **The Chronos mark now sits at the head of the plan panel (0.8.0-rc.74).** The
+  header's top-left slot used to hold a countdown ring — a 40px circle whose arc
+  crept round as the wait for the next run elapsed — and swapped it for the
+  Chronos mark, the ouroboros dragon, only while a run was live. So the same slot
+  showed two different pictures depending on the moment, and the thing that
+  identifies the product was only ever on screen when something was working.
+
+  The mark is now there all the time, and turns while a run is live. The
+  countdown arc is gone rather than being redrawn around the mark: the line
+  directly beneath it already spells out `in 2h 15m · daily 09:00` in words, and
+  `running now` when a run is going, which is both more precise than an arc and
+  the version a screen reader can actually read. That line is now the whole of
+  what the header says about timing.
+
+  The small spinner beside the plan's title goes with it. With the mark turning
+  two inches away, it was a second spinner saying the same thing.
+
 - **Every setting now says what it does in one line (0.8.0-rc.61).** The manager's
   **Settings** page printed a paragraph of help under each control, taken straight
   from the configuration schema in `package.json`. Several ran past 400

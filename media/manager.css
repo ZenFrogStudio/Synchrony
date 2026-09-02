@@ -462,14 +462,6 @@ body.is-resizing .activity {
   white-space: nowrap;
 }
 
-/* The title's run marker. `flex: none` so the title ellipsizes into it rather
-   than squashing it — .detail-title already has overflow:hidden, which is what
-   lets it shrink inside the flex row. */
-.head-spinner {
-  flex: none;
-  color: var(--sodium);
-}
-
 .head-status {
   margin: 2px 0 0;
   font-size: 0.82em;
@@ -488,47 +480,16 @@ body.is-resizing .activity {
   overflow-wrap: anywhere;
 }
 
-/* --- Countdown ring: future time, cyclical --- */
-
-.ring {
-  flex: none;
-  width: 40px;
-  height: 40px;
-}
-
-.ring-track,
-.ring-arc,
-.ring-sweep {
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.ring-track {
-  stroke: var(--border);
-}
-
-.ring-arc {
-  stroke: var(--sodium);
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 50% 50%;
-  transition: stroke-dashoffset 900ms linear;
-}
-
-.ring-sweep {
-  stroke: var(--sodium);
-  stroke-linecap: round;
-  stroke-dasharray: 14 87;
-  transform-origin: 50% 50%;
-  animation: sweep 2.4s linear infinite;
-}
-
-/* The Chronos mark takes the clock's place while a run is live, and turns
-   for as long as it lasts. */
+/* The Chronos mark stands where the countdown clock used to. It is the header's
+   only moving part now, so the turn has to carry "a run is live" on its own —
+   which is why it is a modifier here rather than baked into .head-mark. */
 .head-mark {
   flex: none;
   width: 40px;
   height: 40px;
+}
+
+.head-mark.is-running {
   animation: sweep 2.4s linear infinite;
 }
 
@@ -1127,14 +1088,9 @@ kbd {
 .badge.is-bad { border-color: var(--danger); color: var(--danger); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring-arc,
   .activity { transition: none; }
-  .ring-sweep,
   .head-mark,
   .run-dot.is-running::after { animation: none; }
-  /* animation-name, not the shorthand: codicon.css sets duration and easing
-     !important, which the shorthand cannot beat. */
-  .head-spinner.codicon-modifier-spin { animation-name: none; }
 }
 
 .days {
@@ -1411,7 +1367,6 @@ kbd {
     grid-template-columns: 1fr;
   }
 
-  .ring,
   .head-mark {
     width: 28px;
     height: 28px;

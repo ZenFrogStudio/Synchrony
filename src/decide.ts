@@ -1,5 +1,6 @@
 import { armings } from './chain';
 import { advancePast, computeNextRun } from './recurrence';
+import { nextTopOfHour } from './retry';
 import { MissedReason, TaskRun, TaskSeries } from './types';
 
 /**
@@ -144,6 +145,20 @@ export function decide(input: DecideInput): Action[] {
     }
 
     if (overdue > graceMs && !input.wasDeferred(run.id)) {
+      // A recovery retry is holding a chain open, so being late is not a reason
+      // to give up on it — the window was simply shut when its hour came round.
+      // Marked missed it would read as the predecessor's final outcome and stop
+      // the chain, which is the thing it exists to prevent. Moved to the next
+      // hour instead, still pending, still parking everything behind it.
+      if (run.chainRecovery) {
+        actions.push({
+          kind: 'updateRun',
+          id: run.id,
+          patch: { scheduledAt: nextTopOfHour(now) }
+        });
+        continue;
+      }
+
       actions.push({
         kind: 'updateRun',
         id: run.id,

@@ -8,6 +8,7 @@ import * as library from './library';
 import { readLock } from './lock';
 import {
   planAnswers,
+  planCwd,
   planQuestion,
   planSeriesOverrides,
   planSeriesUpdate,
@@ -61,6 +62,9 @@ import { ChronosState, TaskRun, TaskSeries } from './types';
  * - **A plan is addressed by name, never by path.** Every name is resolved
  *   through `library.planPath`, which throws on anything escaping the library —
  *   so `schedule_plan` cannot be aimed at an arbitrary file on this disk.
+ * - **A run is pointed inside `--folder`, never outside it.** `cwd` is the one
+ *   path an agent can still name, and it is what a run can actually reach, so
+ *   `planCwd` holds it to this project the way `planPath` holds the plan.
  * - **Writes stay under `--folder`'s `.chronos`,** and the tree is created on
  *   the first write rather than at start-up, so an agent merely listing an
  *   unconfigured project does not litter it.
@@ -257,6 +261,18 @@ function resolvePlan(dir: string, name: string): { filePath: string } | { reason
     return { reason: `There is no plan called "${name}". Call list_plans to see what there is.` };
   }
   return { filePath };
+}
+
+/**
+ * Checks a `cwd` argument against the folder this server speaks for, or
+ * undefined when the caller did not send one — which is the common case, and
+ * means the series keeps the default.
+ *
+ * The undefined return is what lets both write tools spell the check as one
+ * `if`, rather than each repeating "only when it was given" around the call.
+ */
+function whereToRun(cwd: string | undefined) {
+  return cwd === undefined ? undefined : planCwd(cwd, FOLDER);
 }
 
 const state = (): ChronosState => readState(paths().state).state;
@@ -550,7 +566,13 @@ tool(fullSurface,
         .describe('Monthly rules only. Defaults to the day `at` falls on.'),
       agent: z.enum(['claude', 'opencode']).optional().describe('Engine. Default claude.'),
       model: z.string().optional().describe('Model id. Omit for the account default.'),
-      cwd: z.string().optional().describe('Working directory for the run. Defaults to this project.'),
+      cwd: z
+        .string()
+        .optional()
+        .describe(
+          'Working directory for the run, which must be this project folder or one inside it. ' +
+            'Defaults to this project.'
+        ),
       maxRetries: z.number().int().min(0).max(10).optional(),
       permissionMode: permissionModeArg
     })
@@ -564,6 +586,11 @@ tool(fullSurface,
       return refuse(found.reason);
     }
 
+    const where = whereToRun(args.cwd);
+    if (where && !where.ok) {
+      return refuse(where.reason);
+    }
+
     const timing = planTiming(args as ScheduleWhen);
     if (!timing.ok) {
       return refuse(timing.reason);
@@ -571,8 +598,11 @@ tool(fullSurface,
 
     // Only the fields an agent may set are forwarded, so a stray argument is
     // never silently written; `planSeriesOverrides` refuses anything else.
+    // `cwd` comes from `whereToRun` rather than from `pick`, so the value that
+    // is stored is the contained, resolved one.
     const overrides = planSeriesOverrides({
-      ...pick(args, ['agent', 'model', 'cwd', 'maxRetries', 'permissionMode']),
+      ...pick(args, ['agent', 'model', 'maxRetries', 'permissionMode']),
+      ...(where?.ok ? { cwd: where.value } : {}),
       ...timing.value
     });
     if (!overrides.ok) {
@@ -626,7 +656,10 @@ tool(fullSurface,
       enabled: z.boolean().optional().describe('False pauses the series, including queued retries'),
       agent: z.enum(['claude', 'opencode']).optional(),
       model: z.string().optional(),
-      cwd: z.string().optional(),
+      cwd: z
+        .string()
+        .optional()
+        .describe('Must be this project folder or one inside it.'),
       maxRetries: z.number().int().min(0).max(10).optional(),
       permissionMode: permissionModeArg
     })
@@ -636,14 +669,15 @@ tool(fullSurface,
     // refused does not leave a `.chronos` tree behind in an unconfigured folder.
     const series = state().series.find((s) => s.id === args.id);
 
-    const patch: Record<string, unknown> = pick(args, [
-      'enabled',
-      'agent',
-      'model',
-      'cwd',
-      'maxRetries',
-      'permissionMode'
-    ]);
+    const where = whereToRun(args.cwd);
+    if (where && !where.ok) {
+      return refuse(where.reason);
+    }
+
+    const patch: Record<string, unknown> = {
+      ...pick(args, ['enabled', 'agent', 'model', 'maxRetries', 'permissionMode']),
+      ...(where?.ok ? { cwd: where.value } : {})
+    };
 
     // Timing is only recomputed when the caller said something about it —
     // otherwise pausing a task would silently move when it next runs. The same

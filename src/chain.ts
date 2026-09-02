@@ -186,6 +186,18 @@ export function spliceChain(series: readonly TaskSeries[], removedId: string): S
     }));
 }
 
+/**
+ * Whether this plan is part of a chain at all — as a follower, which carries the
+ * link, or as the head, which does not and is only identifiable by something
+ * else waiting on it.
+ *
+ * Read by `retry.ts`: a failure inside a chain stops more than itself, so it is
+ * worth more attempts than a plan that fails alone.
+ */
+export function isInChain(series: readonly TaskSeries[], id: string): boolean {
+  return series.some((s) => (s.id === id && s.chain) || s.chain?.after === id);
+}
+
 /** Every series behind this one in the chain, however far back. */
 export function downstream(series: readonly TaskSeries[], id: string): TaskSeries[] {
   const found: TaskSeries[] = [];

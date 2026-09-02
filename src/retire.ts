@@ -186,7 +186,11 @@ export async function retireCompletedPlans(
         // The plan is leaving the library, so any occurrence it has not taken
         // yet must be consumed with it. Left live it would fire out of the
         // archive folder later, with no row anywhere to show for it.
-        spent: true
+        spent: true,
+        // A retired plan is not waiting its turn — it has had it. Left linked,
+        // the arming rule in `chain.ts` would re-arm it out of the archive the
+        // next time the plan before it produced a finished run.
+        chain: undefined
       });
     }
 

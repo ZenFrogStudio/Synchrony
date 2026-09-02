@@ -289,6 +289,28 @@ describe('retire — a chain still working through itself', () => {
     );
   });
 
+  it('should_take_the_link_off_a_follower_it_retires', async () => {
+    // `spent` is how a follower waits its turn, so a retired one still reads as
+    // parked. Left linked as well, the arming rule would re-arm it out of the
+    // archive the next time the plan before it produced a finished run — which
+    // pressing Re-run on the head is enough to do.
+    const first = createPlan(dir, 'Audit');
+    const second = createPlan(dir, 'Review');
+    const store = new FakeStore(
+      [
+        series('a', first.filePath, { spent: true }),
+        series('b', second.filePath, { spent: true, chain: link('a') })
+      ],
+      [run('r1', 'a', 'completed'), run('r2', 'b', 'completed')]
+    );
+
+    await retireCompletedPlans(store, dir, archive);
+
+    assert.equal(store.byId('b')?.chain, undefined, 'the follower must come back unlinked');
+    assert.equal(store.byId('b')?.spent, true);
+    assert.equal(store.byId('a')?.chain, undefined, 'the head never had a link to lose');
+  });
+
   it('should_release_a_finished_plan_once_the_chain_has_stopped', async () => {
     // A link switched off by a failure is not going to run. Waiting on it would
     // hold the plans that did run in the library for good.

@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { seriesEdit } from './edit';
 import type { Answer, AskedQuestion, QuestionFile } from './questions';
 import { computeNextRun } from './recurrence';
@@ -21,7 +22,10 @@ import { DAILY, LOCK_STALE_MS, Recurrence, TaskSeries } from './types';
  *
  * Pure — no `vscode`, no `fs`, no process — so every rejection below is a unit
  * test rather than something we hope is right. `mcp-server.ts` does the reading
- * and writing and applies the verdicts; this decides.
+ * and writing and applies the verdicts; this decides. `path` is the one import
+ * that touches the filesystem's vocabulary, and it is arithmetic on strings
+ * rather than access: `planCwd` has to compare two paths, and nothing else here
+ * can answer that question.
  */
 
 ///////////////////////////*What comes off the wire*////////////////////////////
@@ -227,6 +231,51 @@ export function planSeriesOverrides(raw: unknown): Verdict<Partial<TaskSeries>> 
     return refuse(`Cannot set: ${rejected.join(', ')}.`);
   }
   return { ok: true, value: patch };
+}
+
+///////////////////////////*Where a run may be pointed*////////////////////////////
+
+/**
+ * Contains the working directory a scheduled run is given.
+ *
+ * `library.planPath` contains *which file* a run is handed, and that rule is
+ * already load-bearing. This is the other half: the directory it is handed that
+ * file *in*, which is what actually decides how far the run can reach. A new
+ * task runs in `auto` mode — it edits without stopping to ask, with nobody
+ * watching — so an unchecked `cwd` hands an agent that can already write a plan
+ * an unattended coding agent pointed at any folder on the disk. That is the same
+ * grant `permissionMode` is refused for, arrived at from the other side, and it
+ * has to be refused the same way.
+ *
+ * The project folder itself is the default and is allowed; so is anything under
+ * it, because a package inside a monorepo is a real reason to want a
+ * sub-directory. Anything outside is not a folder this server speaks for.
+ *
+ * A relative path is resolved against the project folder rather than refused —
+ * `packages/api` is the obvious way to ask for the case above, and resolving it
+ * here means the stored `cwd` is always absolute, which is what `runner.ts`
+ * spawns with.
+ */
+export function planCwd(raw: unknown, folder: string): Verdict<string> {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return refuse('`cwd` must be a path inside this project.');
+  }
+
+  const root = path.resolve(folder);
+  const target = path.resolve(root, raw);
+  const rel = path.relative(root, target);
+
+  // '' is the project folder itself. A leading '..' or an absolute answer both
+  // mean the target sits outside it — the second happens on Windows when the
+  // two paths are on different drives, where there is no relative form at all.
+  if (rel !== '' && (rel.startsWith('..') || path.isAbsolute(rel))) {
+    return refuse(
+      `\`cwd\` must be inside ${root}. This server speaks for one project, and a run ` +
+        'cannot be aimed at another folder from here.'
+    );
+  }
+
+  return { ok: true, value: target };
 }
 
 ///////////////////////////*Is anything there to run it*////////////////////////////

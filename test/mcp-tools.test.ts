@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import {
   PERMISSION_REFUSAL,
   planAnswers,
+  planCwd,
   planQuestion,
   planSeriesOverrides,
   planSeriesUpdate,
@@ -87,6 +89,61 @@ describe('mcp permission mode', () => {
     );
 
     assert.equal(reasonOf(verdict), PERMISSION_REFUSAL);
+  });
+});
+
+describe('mcp working directory', () => {
+  /**
+   * The companion to the `permissionMode` block above, and refused for the same
+   * reason. A run starts in `auto` mode with nobody watching, so the folder it
+   * starts in is the whole of what it can reach — an agent that could name any
+   * folder would have talked its way to the grant `permissionMode` denies it.
+   *
+   * POSIX paths throughout: `path.resolve` is platform-specific, and these have
+   * to assert the same thing on the machine that runs CI as on Windows.
+   */
+  const ROOT = path.resolve('/repo');
+
+  it('should_keep_the_project_folder_itself', () => {
+    // The default every series is born with. Refusing it would refuse the
+    // ordinary case in the name of the exceptional one.
+    assert.equal(valueOf(planCwd(ROOT, ROOT)), ROOT);
+  });
+
+  it('should_keep_a_folder_inside_the_project', () => {
+    // A package in a monorepo is the real reason to want this argument at all.
+    const inside = path.join(ROOT, 'packages', 'api');
+
+    assert.equal(valueOf(planCwd(inside, ROOT)), inside);
+  });
+
+  it('should_resolve_a_relative_path_against_the_project_folder', () => {
+    // `runner.ts` spawns with whatever is stored, so the stored value has to be
+    // absolute however the agent chose to spell it.
+    assert.equal(valueOf(planCwd('packages/api', ROOT)), path.join(ROOT, 'packages', 'api'));
+  });
+
+  it('should_refuse_a_folder_outside_the_project', () => {
+    assert.match(reasonOf(planCwd(path.resolve('/somewhere-else'), ROOT)), /must be inside/);
+  });
+
+  it('should_refuse_a_traversal_that_climbs_out', () => {
+    // The spelling that looks contained and is not — and the one an argument
+    // check that only rejected absolute paths would wave straight through.
+    assert.match(reasonOf(planCwd('../../etc', ROOT)), /must be inside/);
+  });
+
+  it('should_refuse_a_sibling_that_merely_starts_with_the_same_letters', () => {
+    // `/repo-evil` is not inside `/repo`, though a `startsWith` check on the
+    // string would say it is. This is why the comparison goes through
+    // `path.relative` rather than through prefix matching.
+    assert.match(reasonOf(planCwd(`${ROOT}-evil`, ROOT)), /must be inside/);
+  });
+
+  it('should_refuse_anything_that_is_not_a_path', () => {
+    for (const bad of ['', '   ', undefined, null, 42, {}]) {
+      assert.ok(!planCwd(bad, ROOT).ok, `${JSON.stringify(bad)} was accepted as a cwd`);
+    }
   });
 });
 

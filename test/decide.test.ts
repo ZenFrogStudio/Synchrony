@@ -312,6 +312,30 @@ describe('decide — the grace window', () => {
     assert.deepEqual(starts(actions), []);
   });
 
+  it('should_move_a_stale_recovery_retry_to_the_next_hour_rather_than_miss_it', () => {
+    // The hourly retry holding a chain open came round while the window was
+    // shut. Marked missed it becomes the predecessor's final outcome and stops
+    // the chain — the one thing it exists to prevent. It waits another hour.
+    const s = series({ spent: true });
+    const stale = run({
+      scheduledAt: new Date(NOW - 3 * 60 * MINUTE).toISOString(),
+      attempt: 5,
+      chainRecovery: true
+    });
+
+    const actions = act({ series: [s], runs: [stale], reason: 'sleep' });
+
+    const patch = actions.find((a) => a.kind === 'updateRun');
+    assert.ok(patch && patch.kind === 'updateRun');
+    assert.equal(patch.patch.status, undefined);
+    assert.equal(patch.patch.scheduledAt, '2026-07-26T13:00:00.000Z');
+    assert.deepEqual(starts(actions), []);
+    assert.deepEqual(
+      actions.filter((a) => a.kind === 'announceMissed'),
+      []
+    );
+  });
+
   it('should_announce_missed_occurrences_once_per_tick', () => {
     const a = series({ id: 'a', nextRunAt: new Date(NOW - 3 * 60 * MINUTE).toISOString() });
     const b = series({ id: 'b', nextRunAt: new Date(NOW - 4 * 60 * MINUTE).toISOString() });

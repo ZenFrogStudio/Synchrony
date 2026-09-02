@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { armings, chainPatches, downstream, spliceChain, wouldCycle } from '../src/chain';
+import { armings, chainPatches, downstream, isInChain, spliceChain, wouldCycle } from '../src/chain';
 import { Action } from '../src/decide';
 import { TaskRun, TaskSeries } from '../src/types';
 
@@ -146,6 +146,18 @@ describe('chain — arming the next plan', () => {
   it('should_leave_an_ordinary_plan_alone', () => {
     assert.deepEqual(armings([series()], [run()], NOW), []);
   });
+
+  it('should_never_arm_a_parked_plan_that_carries_no_link', () => {
+    // What makes clearing `chain` on retirement enough on its own. A retired
+    // plan keeps `spent: true` and `enabled: true` — spent is how a follower
+    // waits — so the link is the only thing left saying it is still in a chain.
+    // Without it, nothing the plan before it does can arm it out of the archive.
+    const retired = follower({ chain: undefined });
+
+    for (const outcome of [run(), run({ status: 'failed' }), run({ status: 'cancelled' })]) {
+      assert.deepEqual(armings([series(), retired], [outcome], NOW), []);
+    }
+  });
 });
 
 describe('chain — a plan that does not finish cleanly', () => {
@@ -204,6 +216,38 @@ describe('chain — a plan that does not finish cleanly', () => {
     assert.ok(announced.kind === 'announceBroken');
     assert.equal(announced.fileName, 'review.md');
     assert.match(announced.problem, /audit\.md/);
+  });
+
+  it('should_keep_waiting_while_an_hourly_recovery_retry_is_queued', () => {
+    // The plan before it ran out of ordinary attempts and is now retrying on the
+    // hour until the outage passes. Reading that exhausted failure as the
+    // outcome is exactly what used to take the rest of the night down with it.
+    const failed = run({ status: 'failed', attempt: 4 });
+    const recovery = run({
+      id: 'run-2',
+      status: 'pending',
+      attempt: 5,
+      chainRecovery: true,
+      scheduledAt: new Date(NOW + 40 * MINUTE).toISOString(),
+      finishedAt: undefined
+    });
+
+    assert.deepEqual(armings([series(), follower()], [failed, recovery], NOW), []);
+  });
+
+  it('should_carry_on_once_a_recovery_retry_finally_completes', () => {
+    const failed = run({ status: 'failed', attempt: 4 });
+    const recovered = run({
+      id: 'run-2',
+      attempt: 5,
+      chainRecovery: true,
+      finishedAt: new Date(NOW - 5 * MINUTE).toISOString()
+    });
+
+    const patches = patchFor(armings([series(), follower()], [failed, recovered], NOW), 'next');
+
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].spent, false);
   });
 
   it('should_switch_off_a_follower_whose_predecessor_is_gone', () => {
@@ -286,6 +330,15 @@ describe('chain — walking it', () => {
       downstream([a, b, c, loose], 'a').map((s) => s.id),
       ['b', 'c']
     );
+  });
+
+  it('should_recognise_a_chain_from_either_end', () => {
+    // The head carries no link of its own, so the only sign it is in a chain is
+    // that something else waits on it. `retry.ts` reads this to decide whether a
+    // failure is worth retrying past `maxRetries`.
+    assert.equal(isInChain([a, b, c, loose], 'a'), true);
+    assert.equal(isInChain([a, b, c, loose], 'b'), true);
+    assert.equal(isInChain([a, b, c, loose], 'loose'), false);
   });
 
   it('should_refuse_a_link_that_would_make_a_loop', () => {

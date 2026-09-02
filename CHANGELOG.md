@@ -60,7 +60,8 @@ logic out; one of the moves also narrowed a guard.
   where it stopped; switching them off is also what makes that notification fire
   once rather than every thirty seconds. Unticked, the chain carries on to the
   next plan whatever the outcome. Retries happen first either way: the chain
-  waits for a failed plan to run out of attempts before it decides.
+  waits for a failed plan to run out of attempts before it decides — and for a
+  temporary failure it never runs out, see the next entry.
 
   Deleting or archiving a plan mid-chain closes the gap rather than stranding
   what was behind it, and a chain leaves the library as a unit once every plan in
@@ -68,6 +69,34 @@ logic out; one of the moves also narrowed a guard.
   waiting its turn as an unscheduled one; `update_schedule` refuses a link that
   would make a loop; and a phone may not move a chained plan's time, since the
   chain is what sets it.
+
+- **A plan in a chain that fails for a temporary reason now retries every hour
+  on the hour until it works, instead of taking the rest of the chain down with
+  it.** `chronos.maxRetries` defaults to three attempts an hour apart, which is
+  the right answer for a plan that fails alone and the wrong one for the failure
+  that actually happens overnight: credits run out, or a session limit is hit,
+  and three hours later it is still the same. The chain then read that exhausted
+  failure as the plan's outcome and — with the default "stop the chain if a plan
+  fails" — switched off every plan behind it. One temporary outage at 2am cost
+  the whole night's work, and the morning's fix was to re-arm each plan by hand.
+
+  Past its ordinary attempts, a plan that is part of a chain now queues another
+  retry at the next top of the hour, and keeps doing so until it completes.
+  Everything behind it stays parked meanwhile — a queued retry is already what
+  the arming rule waits for — and the moment it completes the chain carries on
+  from where it stopped, with no change to how the next plan is armed.
+
+  Only *retryable* failures recover. A cancelled run, a missing plan file, a bad
+  working directory or rejected credentials fail identically forever, so those
+  still stop and report exactly as before; `outcome.ts` already drew that line.
+  A plan outside a chain is unchanged too — nothing is waiting on it, so an
+  endless retry would only be an endless failure nobody asked to keep watching.
+  The recovery retry also survives a closed window: if its hour came round while
+  VS Code was shut it moves to the next one rather than being marked missed,
+  which would have become the final outcome the chain stops on. Recovery retries
+  are labelled *chain recovery — hourly* in the run history, so they do not read
+  as a plan nobody is going to fix. The policy is a pure function in the new
+  `src/retry.ts`, tested without a clock or an editor.
 
 - **A landing page for Chronos, in `site/`.** Until now the only public-facing
   description of the extension was `README.md`. `site/` is a hand-written static
@@ -460,7 +489,49 @@ logic out; one of the moves also narrowed a guard.
   long as the run lasts and handing the clock back the moment it ends. It
   honours `prefers-reduced-motion` like the sweep it replaces.
 
+### Security
+
+- **A connected agent can no longer point a scheduled run at any folder on the
+  disk.** `schedule_plan` and `update_schedule` both accept a `cwd`, and it was
+  written through to the store unchecked — `seriesEdit` only asked that it be a
+  non-empty string. The plan a run is handed has always been contained, by
+  `library.planPath`, but the directory it is handed that plan *in* is the thing
+  that decides how far the run can actually reach. Since a new task runs in
+  `auto` mode, unattended, an agent that could already write a plan could
+  schedule an unsupervised coding agent against any folder on the machine —
+  the same grant `permissionMode` is refused for, reached from the other side.
+
+  A new `planCwd` in `src/mcp-tools.ts` holds `cwd` to the folder the server was
+  started with: the project folder itself, or anything under it, so a package
+  inside a monorepo still works. A relative path resolves against the project
+  rather than being refused, which also means the stored value is always the
+  absolute one `runner.ts` spawns with. The comparison goes through
+  `path.relative`, so a sibling folder that merely shares a prefix
+  (`/repo-evil` against `/repo`) is refused rather than mistaken for a child.
+
+  This changes nothing about the manager, where `cwd` is picked by a person from
+  a folder dialog and may still point anywhere they choose.
+
 ### Fixed
+
+- **Re-running a retired plan no longer restarts the whole chain behind it out
+  of the archive.** When a chain finishes, every plan in it moves to
+  `.chronos/archive/plans` and is marked spent, so no untaken occurrence can fire
+  from there. But `spent` is also how a plan waiting its turn in a chain waits —
+  that is the design — and retirement left the link itself in place. Press
+  **Re-run** on the head of a finished chain from the Runs panel and the arming
+  rule saw exactly what it looks for: a fresh finished run, and followers behind
+  it that are parked, enabled and linked. It armed all of them on the next tick.
+  They then ran unattended, from the archive folder, spending money on plans the
+  user believed were retired and cannot see in the library, with no row anywhere
+  to show for it. The button's own warning says it runs the plan as it stands
+  now — not that it runs everything that used to follow it.
+
+  Retirement now ends the link as well as the occurrence: an archived plan comes
+  back with no `chain`, so nothing the plan before it does can reach it again.
+  Re-run runs the one plan you pressed it on. Nothing else changed — the arming
+  rule still knows nothing about the filesystem, and `enabled` is still only ever
+  the user's own pause, never written by the sweep.
 
 - **A failed MCP tool call now leaves a record.** Every handler in the server did
   real work on the filesystem — a full disk, a file removed between the check and

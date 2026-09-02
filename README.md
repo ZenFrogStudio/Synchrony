@@ -60,7 +60,7 @@ Unattended execution requires strict boundaries. Good design is honest about its
 
 1.  **Permissions:** Tasks default to `auto`. Elevated permissions (`bypassPermissions`) require explicit, manual approval to prevent unrestricted autonomous action.
 2.  **Resource Awareness:** Executions incur computational costs. The interface displays a rolling 7-day total to maintain constant visibility.
-3.  **Graceful Degradation:** Missed executions are not forced. They are marked and await user decision. Failed runs retry logically; unrecoverable errors halt immediately. Daylight Saving Time transitions are handled via local wall-clock rules, preventing temporal drift.
+3.  **Graceful Degradation:** Missed executions are not forced. They are marked and await user decision. Failed runs retry logically; a plan in a chain that fails for a temporary reason keeps retrying every hour on the hour, so one outage does not take the rest of the chain down with it; unrecoverable errors halt immediately. Daylight Saving Time transitions are handled via local wall-clock rules, preventing temporal drift.
 
 ## Configuration
 

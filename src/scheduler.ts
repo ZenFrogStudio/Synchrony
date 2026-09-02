@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { Action, decide, newRun } from './decide';
 import { holdLock, releaseLock } from './lock';
 import { log } from './log';
+import { retryPlan } from './retry';
 import { RunFinished, Runner } from './runner';
 import { newId, Store } from './store';
 import { nowUtc } from './time';
@@ -274,7 +275,7 @@ export class Scheduler implements vscode.Disposable {
     await this.retirePlans();
   }
 
-  /** Retry, or give up and report. */
+  /** Retry, keep a chain alive, or give up and report. See `retry.ts`. */
   private async afterTerminalOutcome(run: TaskRun, retryable: boolean): Promise<void> {
     const series = this.store.getSeriesById(run.seriesId);
     if (!series) {
@@ -282,17 +283,25 @@ export class Scheduler implements vscode.Disposable {
     }
 
     const retriesUsed = run.attempt - 1;
-    if (retryable && retriesUsed < series.maxRetries) {
-      const delay = config().get<number>('retryDelayMinutes', 60);
+    const plan = retryPlan({
+      run,
+      series,
+      allSeries: this.store.getSeries(),
+      retryable,
+      nowMs: Date.now(),
+      delayMinutes: config().get<number>('retryDelayMinutes', 60)
+    });
+
+    if (plan.kind !== 'report') {
+      const queued = newRun(series, plan.scheduledAt, plan.attempt, newId());
       await this.store.addRun(
-        newRun(
-          series,
-          new Date(Date.now() + delay * 60_000).toISOString(),
-          run.attempt + 1,
-          newId()
-        )
+        plan.kind === 'recovery' ? { ...queued, chainRecovery: true } : queued
       );
-      log.info(`run ${run.id} failed — retry ${run.attempt} queued in ${delay}m`);
+      log.info(
+        plan.kind === 'recovery'
+          ? `run ${run.id} failed in a chain; recovery retry queued for ${plan.scheduledAt}`
+          : `run ${run.id} failed — retry ${run.attempt} queued for ${plan.scheduledAt}`
+      );
       return;
     }
 

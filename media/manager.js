@@ -1200,7 +1200,10 @@
     if (run.status === 'cancelled') badges.push('<span class="badge">cancelled</span>');
     if (run.status === 'pending') badges.push('<span class="badge is-queued">queued</span>');
     if (run.authFailure) badges.push('<span class="badge is-bad">auth required</span>');
-    if (run.attempt > 1) badges.push(`<span class="badge">retry ${run.attempt - 1}</span>`);
+    // "retry 6" on its own reads as a plan nobody is going to fix. Named
+    // instead, because this one is keeping a chain open until the outage passes.
+    if (run.chainRecovery) badges.push('<span class="badge">chain recovery — hourly</span>');
+    else if (run.attempt > 1) badges.push(`<span class="badge">retry ${run.attempt - 1}</span>`);
     if (run.denials) badges.push(`<span class="badge is-bad">⚠ ${run.denials} denied</span>`);
     if (run.costUsd) badges.push(`<span class="badge">$${run.costUsd.toFixed(2)}</span>`);
     return badges;

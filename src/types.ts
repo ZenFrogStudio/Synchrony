@@ -150,6 +150,12 @@ export interface TaskRun {
   manual?: boolean;
   /** Credentials were rejected. Rendered distinctly; never retried. */
   authFailure?: boolean;
+  /**
+   * An hourly retry keeping a chain alive past its exhausted `maxRetries`. See
+   * `retry.ts`. Optional and additive, like `manual` and `authFailure` above, so
+   * it needs no migration and no SCHEMA_VERSION bump.
+   */
+  chainRecovery?: boolean;
 }
 
 export interface ChronosState {

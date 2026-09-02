@@ -514,6 +514,25 @@ logic out; one of the moves also narrowed a guard.
 
 ### Fixed
 
+- **Shutting down a window no longer risks deleting another window's lock.**
+  Releasing the scheduler lock checked who owned it and then deleted the file,
+  two steps with a gap in between. A window suspended past the 90-second
+  staleness window has its lock legitimately taken over by the next one — that is
+  the design, and it is what stops a closed window deadlocking the schedule
+  forever. But if the takeover landed in that gap, the suspended window's delete
+  succeeded against the *new* holder's file rather than failing, and nothing
+  threw, so the guard that was meant to catch it never fired. Both windows then
+  believed they held the folder, and both scheduled the same series: two agents
+  editing one repository at once, which is the single thing the lock exists to
+  prevent. `chronos.maxConcurrent` is no help there, because it counts one
+  window's runs.
+
+  The ownership check now happens immediately before the delete, the way claiming
+  the lock already re-reads the file rather than trusting its own write. That
+  narrows the gap to as small as the filesystem allows rather than closing it —
+  there is no atomic compare-and-delete available here without a
+  platform-specific call, and one is not worth writing for a 90-second suspend.
+
 - **Unscheduling from a coding agent no longer strands the rest of the chain.**
   Removing a series closes up the chain around it — each plan that ran after it
   is relinked to run after its predecessor instead — but only the manager did

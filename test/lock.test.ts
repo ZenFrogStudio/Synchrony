@@ -108,6 +108,18 @@ describe('lock — releasing', () => {
     assert.equal(readLock(file)?.owner, 'window-a');
   });
 
+  it('should_leave_a_lock_alone_when_another_window_has_taken_it_over', () => {
+    // What a suspended window wakes up to: it once held this, but its heartbeat
+    // went stale and window-b claimed it fairly. Releasing must not delete
+    // window-b's claim, or both windows go on scheduling this folder.
+    fs.writeFileSync(file, JSON.stringify({ owner: 'window-b', heartbeatAt: NOW }), 'utf8');
+
+    releaseLock(file, 'window-a');
+
+    assert.equal(fs.existsSync(file), true, 'the lock file survives');
+    assert.equal(readLock(file)?.owner, 'window-b', 'and still names its holder');
+  });
+
   it('should_do_nothing_when_releasing_a_lock_that_is_already_gone', () => {
     assert.doesNotThrow(() => releaseLock(file, 'window-a'));
   });

@@ -74,10 +74,18 @@ export function holdLock(
 
 /** Hands the lock over promptly on shutdown, rather than making the next window wait out `staleMs`. */
 export function releaseLock(file: string, owner: string): void {
-  if (readLock(file)?.owner !== owner) {
-    return; // Never drop a lock we do not hold.
-  }
   try {
+    // Read immediately before the unlink rather than trusting an earlier check.
+    // A window suspended past the staleness window has its lock legitimately
+    // taken over by another, and unlinking then deletes *their* claim, leaving
+    // two windows both scheduling this folder — the one thing this file exists
+    // to prevent. This narrows that gap to as small as the filesystem allows;
+    // it does not close it, as there is no atomic compare-and-delete here
+    // without a platform-specific call, which is not worth it for a 90-second
+    // suspend.
+    if (readLock(file)?.owner !== owner) {
+      return; // Never drop a lock we do not hold.
+    }
     fs.unlinkSync(file);
   } catch {
     // Already gone, or taken by someone else between the read and the unlink.

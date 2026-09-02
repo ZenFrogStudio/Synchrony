@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
-import { describe, it } from 'node:test';
+import { beforeEach, describe, it } from 'node:test';
 import {
   PERMISSION_REFUSAL,
   planAnswers,
@@ -104,46 +104,84 @@ describe('mcp working directory', () => {
    */
   const ROOT = path.resolve('/repo');
 
+  // The one thing `planCwd` cannot work out for itself. A map rather than a real
+  // filesystem: these tests assert the *rule*, and `roots.test.ts` asserts that
+  // the real resolver reports links correctly.
+  const links = new Map<string, string>();
+  const follow = (target: string) => links.get(target) ?? target;
+
+  beforeEach(() => {
+    links.clear();
+  });
+
   it('should_keep_the_project_folder_itself', () => {
     // The default every series is born with. Refusing it would refuse the
     // ordinary case in the name of the exceptional one.
-    assert.equal(valueOf(planCwd(ROOT, ROOT)), ROOT);
+    assert.equal(valueOf(planCwd(ROOT, ROOT, follow)), ROOT);
   });
 
   it('should_keep_a_folder_inside_the_project', () => {
     // A package in a monorepo is the real reason to want this argument at all.
     const inside = path.join(ROOT, 'packages', 'api');
 
-    assert.equal(valueOf(planCwd(inside, ROOT)), inside);
+    assert.equal(valueOf(planCwd(inside, ROOT, follow)), inside);
   });
 
   it('should_resolve_a_relative_path_against_the_project_folder', () => {
     // `runner.ts` spawns with whatever is stored, so the stored value has to be
     // absolute however the agent chose to spell it.
-    assert.equal(valueOf(planCwd('packages/api', ROOT)), path.join(ROOT, 'packages', 'api'));
+    assert.equal(valueOf(planCwd('packages/api', ROOT, follow)), path.join(ROOT, 'packages', 'api'));
   });
 
   it('should_refuse_a_folder_outside_the_project', () => {
-    assert.match(reasonOf(planCwd(path.resolve('/somewhere-else'), ROOT)), /must be inside/);
+    assert.match(reasonOf(planCwd(path.resolve('/somewhere-else'), ROOT, follow)), /must be inside/);
   });
 
   it('should_refuse_a_traversal_that_climbs_out', () => {
     // The spelling that looks contained and is not — and the one an argument
     // check that only rejected absolute paths would wave straight through.
-    assert.match(reasonOf(planCwd('../../etc', ROOT)), /must be inside/);
+    assert.match(reasonOf(planCwd('../../etc', ROOT, follow)), /must be inside/);
   });
 
   it('should_refuse_a_sibling_that_merely_starts_with_the_same_letters', () => {
     // `/repo-evil` is not inside `/repo`, though a `startsWith` check on the
     // string would say it is. This is why the comparison goes through
     // `path.relative` rather than through prefix matching.
-    assert.match(reasonOf(planCwd(`${ROOT}-evil`, ROOT)), /must be inside/);
+    assert.match(reasonOf(planCwd(`${ROOT}-evil`, ROOT, follow)), /must be inside/);
   });
 
   it('should_refuse_anything_that_is_not_a_path', () => {
     for (const bad of ['', '   ', undefined, null, 42, {}]) {
-      assert.ok(!planCwd(bad, ROOT).ok, `${JSON.stringify(bad)} was accepted as a cwd`);
+      assert.ok(!planCwd(bad, ROOT, follow).ok, `${JSON.stringify(bad)} was accepted as a cwd`);
     }
+  });
+
+  it('should_refuse_a_link_inside_the_project_that_leads_out', () => {
+    // The escape the string comparison alone cannot see. The agent driving this
+    // server has file tools inside the project, so it can make this link itself.
+    const escape = path.join(ROOT, 'escape');
+    links.set(escape, path.resolve('/elsewhere'));
+
+    assert.match(reasonOf(planCwd(escape, ROOT, follow)), /is a link/);
+  });
+
+  it('should_keep_a_link_that_stays_inside_the_project', () => {
+    // A link is not the problem; where it leads is. And the stored value stays
+    // the path as spelled, so the manager shows what the user asked for.
+    const alias = path.join(ROOT, 'alias');
+    links.set(alias, path.join(ROOT, 'packages', 'api'));
+
+    assert.equal(valueOf(planCwd(alias, ROOT, follow)), alias);
+  });
+
+  it('should_follow_a_link_on_the_project_folder_itself', () => {
+    // Both sides are resolved, not just the target: a project reached through a
+    // link would otherwise have every folder inside it refused.
+    const sub = path.join(ROOT, 'sub');
+    links.set(ROOT, path.resolve('/real/repo'));
+    links.set(sub, path.resolve('/real/repo/sub'));
+
+    assert.equal(valueOf(planCwd(sub, ROOT, follow)), sub);
   });
 });
 

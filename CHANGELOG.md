@@ -514,6 +514,10 @@ logic out; one of the moves also narrowed a guard.
 
 ### Changed
 
+- **The task sidebar gives Run and Series their own colours.** The bottom-bar
+  actions no longer read as two identical quiet buttons: **Run** is green and
+  **Series** is purple, with matching hover and disabled states.
+
 - **The manager plan pane puts scheduling controls first.** **Run now**,
   **Schedule** / **Unschedule**, and the When picker now sit together in one
   row under the selected plan's header. A plan that has never been scheduled can
@@ -557,6 +561,29 @@ logic out; one of the moves also narrowed a guard.
 
   This changes nothing about the manager, where `cwd` is picked by a person from
   a folder dialog and may still point anywhere they choose.
+
+- **A symlink no longer walks a scheduled run straight back out of the project.**
+  The `cwd` containment above compared path strings, and a string knows nothing
+  about where a link leads. A symlink — or, on Windows, a directory junction —
+  created inside the project folder reads as a child of it by any spelling, and
+  the agent driving the MCP server is precisely the one with file tools inside
+  that folder. It could make `.chronos/out` point at `C:\`, call `schedule_plan`
+  with `cwd: ".chronos/out"`, and the check would wave it through; the run then
+  started, in `auto` mode with nobody watching, at the root of the disk. That is
+  the escape the rule was written to stop, arrived at through the one thing the
+  rule could not see.
+
+  `planCwd` now checks containment twice: once on the paths as spelled, and again
+  on where those paths really lead. Both sides are resolved, not just the target
+  — a project folder that is itself reached through a link would otherwise have
+  every folder inside it refused. The resolver is handed in as a function by
+  `mcp-server.ts` rather than imported, so `mcp-tools.ts` stays free of `fs` and
+  every rule in it remains a unit test.
+
+  A `cwd` naming a folder that does not exist yet is still accepted, which is
+  what scheduling a run into a directory the run itself creates needs.
+  `fs.realpathSync` throws on a missing path, so `resolveLinks` walks up to the
+  deepest ancestor that does exist, resolves that, and re-appends the rest.
 
 ### Fixed
 

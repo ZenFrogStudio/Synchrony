@@ -25,7 +25,7 @@ import {
   recordAnswers,
   writeQuestion
 } from './questions';
-import { pathsFor, ensureRoot, ChronosPaths } from './roots';
+import { pathsFor, ensureRoot, resolveLinks, ChronosPaths } from './roots';
 import { createSeries, stampRepeatEnd } from './series';
 import { readState, updateState } from './state-file';
 import { ChronosState, TaskRun, TaskSeries } from './types';
@@ -64,7 +64,10 @@ import { ChronosState, TaskRun, TaskSeries } from './types';
  *   so `schedule_plan` cannot be aimed at an arbitrary file on this disk.
  * - **A run is pointed inside `--folder`, never outside it.** `cwd` is the one
  *   path an agent can still name, and it is what a run can actually reach, so
- *   `planCwd` holds it to this project the way `planPath` holds the plan.
+ *   `planCwd` holds it to this project the way `planPath` holds the plan. It
+ *   follows links rather than only comparing path strings: a symlink or junction
+ *   inside the project reads as a child of it however it is spelled, and the
+ *   agent this rule contains is the one that can create it.
  * - **Writes stay under `--folder`'s `.chronos`,** and the tree is created on
  *   the first write rather than at start-up, so an agent merely listing an
  *   unconfigured project does not litter it.
@@ -272,7 +275,7 @@ function resolvePlan(dir: string, name: string): { filePath: string } | { reason
  * `if`, rather than each repeating "only when it was given" around the call.
  */
 function whereToRun(cwd: string | undefined) {
-  return cwd === undefined ? undefined : planCwd(cwd, FOLDER);
+  return cwd === undefined ? undefined : planCwd(cwd, FOLDER, resolveLinks);
 }
 
 const state = (): ChronosState => readState(paths().state).state;

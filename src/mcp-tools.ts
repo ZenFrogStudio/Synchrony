@@ -25,7 +25,10 @@ import { DAILY, LOCK_STALE_MS, Recurrence, TaskSeries } from './types';
  * and writing and applies the verdicts; this decides. `path` is the one import
  * that touches the filesystem's vocabulary, and it is arithmetic on strings
  * rather than access: `planCwd` has to compare two paths, and nothing else here
- * can answer that question.
+ * can answer that question. The one question it cannot answer for itself — where
+ * a link actually leads, which no amount of string arithmetic reveals — is handed
+ * in by the caller as a function rather than imported, so the purity claim holds
+ * and the rule is still a unit test.
  */
 
 ///////////////////////////*What comes off the wire*////////////////////////////
@@ -255,27 +258,59 @@ export function planSeriesOverrides(raw: unknown): Verdict<Partial<TaskSeries>> 
  * `packages/api` is the obvious way to ask for the case above, and resolving it
  * here means the stored `cwd` is always absolute, which is what `runner.ts`
  * spawns with.
+ *
+ * Containment is checked twice: once on the paths as spelled, and again on where
+ * those paths really lead, which is what `resolveLinks` is handed in for. A
+ * symlink or Windows junction inside the project reads as a child of it by any
+ * string comparison, and the agent driving this server can make one — so without
+ * the second pass a run could be aimed through a link at anywhere on the disk.
+ *
+ * The value returned is the string-resolved path, not the realpath: the run
+ * enters the same directory either way, and this keeps the manager showing the
+ * path the user recognises when a project itself sits under a link.
  */
-export function planCwd(raw: unknown, folder: string): Verdict<string> {
+export function planCwd(
+  raw: unknown,
+  folder: string,
+  resolveLinks: (target: string) => string
+): Verdict<string> {
   if (typeof raw !== 'string' || !raw.trim()) {
     return refuse('`cwd` must be a path inside this project.');
   }
 
   const root = path.resolve(folder);
   const target = path.resolve(root, raw);
-  const rel = path.relative(root, target);
 
-  // '' is the project folder itself. A leading '..' or an absolute answer both
-  // mean the target sits outside it — the second happens on Windows when the
-  // two paths are on different drives, where there is no relative form at all.
-  if (rel !== '' && (rel.startsWith('..') || path.isAbsolute(rel))) {
+  if (outside(root, target)) {
     return refuse(
       `\`cwd\` must be inside ${root}. This server speaks for one project, and a run ` +
         'cannot be aimed at another folder from here.'
     );
   }
 
+  // The same rule again, against where those two paths really lead. The check
+  // above is arithmetic on strings, and a junction inside the project reads as a
+  // child of it however it is spelled — the agent driving this server can make
+  // one, so a run pointed through it would start wherever the link goes. Both
+  // sides are resolved, not just the target: a project folder that is itself
+  // reached through a link would otherwise refuse every folder inside it.
+  if (outside(resolveLinks(root), resolveLinks(target))) {
+    return refuse(
+      `\`cwd\` must be inside ${root}. That path is a link, and it leads outside this project.`
+    );
+  }
+
   return { ok: true, value: target };
+}
+
+/**
+ * Whether `target` sits outside `root`. '' is the root itself, which is allowed.
+ * A leading '..' or an absolute answer both mean outside — the second happens on
+ * Windows when the two are on different drives, where there is no relative form.
+ */
+function outside(root: string, target: string): boolean {
+  const rel = path.relative(root, target);
+  return rel !== '' && (rel.startsWith('..') || path.isAbsolute(rel));
 }
 
 ///////////////////////////*Is anything there to run it*////////////////////////////

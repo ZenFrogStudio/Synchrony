@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { ensureRoot, pathsFor, ROOT_DIR, sweepPending } from '../src/roots';
+import { ensureRoot, pathsFor, resolveLinks, ROOT_DIR, sweepPending } from '../src/roots';
 
 let folder: string;
 
@@ -104,6 +104,80 @@ describe('ensureRoot', () => {
     ensureRoot(paths);
 
     assert.equal(fs.readFileSync(ignore, 'utf8'), 'state.json\nlogs/\n');
+  });
+});
+
+describe('resolveLinks', () => {
+  /**
+   * A directory link, or false when this machine will not make one — an
+   * unprivileged Windows account without developer mode is the usual reason, and
+   * that is a fact about the machine rather than a failure of the rule.
+   */
+  function link(target: string, at: string): boolean {
+    try {
+      fs.symlinkSync(target, at, process.platform === 'win32' ? 'junction' : 'dir');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** `os.tmpdir()` is itself a link on macOS, so the expected side is resolved too. */
+  const real = (target: string): string => fs.realpathSync(target);
+
+  it('should_resolve_a_link_to_where_it_actually_leads', (t) => {
+    // The escape this exists to close: a link made inside the project, pointing
+    // out of it, which every string comparison reads as a child of the project.
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-outside-'));
+    const inside = path.join(folder, 'escape');
+    if (!link(outside, inside)) {
+      t.skip('this machine will not create directory links');
+      return;
+    }
+
+    try {
+      assert.equal(resolveLinks(inside), real(outside));
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('should_resolve_a_link_partway_along_a_path', (t) => {
+    // The link need not be the last segment: what matters is where the whole
+    // path lands, and the rest is re-appended to wherever the link led.
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-outside-'));
+    const inside = path.join(folder, 'alias');
+    if (!link(outside, inside)) {
+      t.skip('this machine will not create directory links');
+      return;
+    }
+
+    try {
+      assert.equal(
+        resolveLinks(path.join(inside, 'packages', 'api')),
+        path.join(real(outside), 'packages', 'api')
+      );
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('should_leave_a_path_that_does_not_exist_yet_alone', () => {
+    // `realpathSync` throws on a missing path, and scheduling a run into a folder
+    // about to be created is legitimate — so resolution walks up to the deepest
+    // ancestor that is there and re-appends the rest.
+    const missing = path.join(folder, 'not-made-yet', 'either');
+
+    assert.equal(resolveLinks(missing), path.join(real(folder), 'not-made-yet', 'either'));
+  });
+
+  it('should_return_a_plain_directory_unchanged', () => {
+    // So the cases above are not passing vacuously on a resolver that rewrites
+    // every path it is given.
+    const plain = path.join(folder, 'packages');
+    fs.mkdirSync(plain);
+
+    assert.equal(resolveLinks(plain), real(plain));
   });
 });
 

@@ -88,6 +88,35 @@ export function ensureRoot(paths: ChronosPaths): boolean {
   return created;
 }
 
+/**
+ * The path with every symlink and junction along it resolved, as far as the
+ * path actually exists.
+ *
+ * `fs.realpathSync` throws on a path that is not there, and a `cwd` naming a
+ * folder about to be created is a legitimate thing to schedule — so the deepest
+ * ancestor that does exist is resolved and the rest is re-appended. A path with
+ * no existing ancestor at all (a drive that is not mounted) comes back merely
+ * resolved, which is the safe answer: the caller's containment check then sees
+ * it exactly as spelled.
+ */
+export function resolveLinks(target: string): string {
+  let head = path.resolve(target);
+  const tail: string[] = [];
+
+  for (;;) {
+    try {
+      return path.join(fs.realpathSync(head), ...tail);
+    } catch {
+      const parent = path.dirname(head);
+      if (parent === head) {
+        return path.resolve(target);
+      }
+      tail.unshift(path.basename(head));
+      head = parent;
+    }
+  }
+}
+
 /** What one sweep of the staging area did. */
 export interface SweepReport {
   /** How many staging folders were deleted. */

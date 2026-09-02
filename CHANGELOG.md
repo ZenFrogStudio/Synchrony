@@ -27,6 +27,29 @@ logic out; one of the moves also narrowed a guard.
 
 ### Added
 
+- **A standing daily fluidity review.** Chronos exists to make scheduling and
+  managing agent tasks fluid, and friction is invisible from the inside — the
+  person who built a journey stops counting its steps after the tenth time
+  through it. `docs/DAILY-FLUIDITY-REVIEW.md` is a recurring plan that walks the
+  product's journeys every day at 11:00 and reports the three highest-value
+  improvements open right now, drawn from what it finds and from the still-open
+  backlog of earlier reports.
+
+  It defines fluidity as something countable — the number of actions, waits and
+  dead ends between having an idea and having a finished run — so a finding has
+  to name a journey, an address in the code, and what the step costs today
+  against what it would cost after the change. A recommendation nobody can
+  disagree with in numbers does not get written down.
+
+  It divides from the weekly security review by subject and by output. Security
+  is weekly, adversarial, and writes ready-to-run fix plans; this one is daily,
+  is about friction, and writes recommendations only — one dated report in
+  `.chronos/audits/` and at most three inbox tasks. At a daily cadence, plans
+  would fill the library faster than anyone could read them. Both share
+  `.chronos/audits/` and de-duplicate against every report already there, so a
+  finding is never raised twice across the three reviews, and neither may write
+  `.chronos/state.json`: a person still decides what runs.
+
 - **Chained plans: several plans in a row, each started by the one before it
   finishing.** Scheduling five plans for one evening meant opening each one and
   picking five times by hand, and guessing how long each would take. Guess short

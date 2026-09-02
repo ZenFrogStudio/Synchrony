@@ -514,6 +514,21 @@ logic out; one of the moves also narrowed a guard.
 
 ### Fixed
 
+- **Unscheduling from a coding agent no longer strands the rest of the chain.**
+  Removing a series closes up the chain around it — each plan that ran after it
+  is relinked to run after its predecessor instead — but only the manager did
+  that. The `unschedule` tool an agent calls over MCP dropped the series and its
+  runs and left the links alone. With A → B → C chained and A unscheduled, B was
+  left waiting on an id that no longer existed: the next tick switched it off and
+  said so, which is the loud half. C was the quiet half — its predecessor B still
+  existed, so nothing looked broken, and it simply parked forever with no
+  notification of any kind. One removal cost three plans and mentioned one.
+
+  The tool now applies the same splice the manager does, computed before the
+  removal while the link being closed up is still readable. Nothing about the
+  splice rule itself changed; the two removal paths just agree now, and a source
+  guard keeps them from drifting apart again.
+
 - **Re-running a retired plan no longer restarts the whole chain behind it out
   of the archive.** When a chain finishes, every plan in it moves to
   `.chronos/archive/plans` and is marked spent, so no untaken occurrence can fire

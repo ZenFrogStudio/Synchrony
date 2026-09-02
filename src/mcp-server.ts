@@ -3,7 +3,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { wouldCycle } from './chain';
+import { spliceChain, wouldCycle } from './chain';
 import * as library from './library';
 import { readLock } from './lock';
 import {
@@ -750,7 +750,8 @@ tool(fullSurface,
     },
     description:
       'Removes a series from the schedule, together with its run history. The plan file itself ' +
-      'is untouched and can be scheduled again. To stop a task without losing its history, call ' +
+      'is untouched and can be scheduled again. Any plans that ran after this one are relinked to ' +
+      'run after its predecessor instead. To stop a task without losing its history, call ' +
       'update_schedule with enabled: false.',
     inputSchema: z.object({ id: z.string().describe('Series id, from list_schedule') })
   },
@@ -761,8 +762,19 @@ tool(fullSurface,
     }
 
     updateState(ensureWritable().state, (current) => {
+      // Before the removal, while the link being closed up is still readable —
+      // the same order `Store.removeSeries` uses, for the same reason. After the
+      // filter there is nothing left for a follower to inherit a link from, and
+      // it would be left waiting on an id that is gone.
+      const splices = spliceChain(current.series, id);
       current.series = current.series.filter((s) => s.id !== id);
       current.runs = current.runs.filter((r) => r.seriesId !== id);
+      for (const { id: followerId, patch } of splices) {
+        const follower = current.series.find((s) => s.id === followerId);
+        if (follower) {
+          Object.assign(follower, patch);
+        }
+      }
     });
 
     note(`unscheduled ${series.fileName}`);

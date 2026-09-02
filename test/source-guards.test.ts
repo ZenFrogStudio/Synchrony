@@ -344,6 +344,33 @@ describe('source guards', () => {
     assert.match(server, /readOnlyHint: true/, 'nothing is marked read-only any more');
   });
 
+  it('should_close_up_the_chain_when_the_mcp_server_unschedules_a_series', () => {
+    // There are two paths that remove a series — the manager's `removeSeries`
+    // and this tool — and only the store's is covered by a unit test, because
+    // `mcp-server.ts` reads and writes the state file itself and no test here
+    // can call into it. Drop the splice from this side and the failure is
+    // almost entirely silent: the plan immediately behind the removed one is
+    // switched off with one notification, and everything behind *that* parks
+    // forever with none at all. `test/chain.test.ts` proves `spliceChain`
+    // works; this proves the tool still calls it.
+    const server = fs.readFileSync(path.join(SRC, 'mcp-server.ts'), 'utf8');
+
+    assert.match(
+      server,
+      /import \{[^}]*\bspliceChain\b[^}]*\} from '\.\/chain'/,
+      "src/mcp-server.ts no longer imports spliceChain from './chain'"
+    );
+
+    const start = server.indexOf("'unschedule'");
+    assert.ok(start > 0, 'src/mcp-server.ts no longer registers unschedule');
+    const handler = server.slice(start, server.indexOf('\n);', start));
+
+    assert.ok(
+      handler.includes('spliceChain('),
+      'the unschedule handler must splice the chain, or its followers wait on a series that is gone'
+    );
+  });
+
   it('should_hand_out_the_update_proof_mcp_path_rather_than_the_versioned_one', () => {
     // `extensionUri` names the folder VS Code installed *this version* into, so
     // a config copied from it stops working the next time Chronos updates. The

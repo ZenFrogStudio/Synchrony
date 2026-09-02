@@ -2,7 +2,7 @@
   "name": "chronos",
   "displayName": "Chronos",
   "description": "Schedule Claude Code tasks from Markdown plan files.",
-  "version": "0.8.0-rc.70",
+  "version": "0.8.0-rc.71",
   "publisher": "Z3n",
   "license": "MIT",
   "icon": "media/icon.png",

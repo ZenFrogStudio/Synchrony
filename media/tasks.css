@@ -13,6 +13,10 @@
   --sodium: #E0A458;
   --action: #0E8A8F;
   --action-hover: #12A3A9;
+  --run: #1F7A33;
+  --run-hover: #238636;
+  --series: #6D28D9;
+  --series-hover: #5B21B6;
   --ok: var(--vscode-charts-green, #3FB950);
   --muted: var(--vscode-descriptionForeground);
   --danger: var(--vscode-errorForeground);
@@ -27,6 +31,10 @@ body.vscode-light {
   --accent: #0A6E73;
   --action: #0A6E73;
   --action-hover: #0E8A8F;
+  --run: #1F7A33;
+  --run-hover: #238636;
+  --series: #5B21B6;
+  --series-hover: #4C1D95;
   --ok: #1A7F37;
 }
 
@@ -37,6 +45,10 @@ body.vscode-high-contrast {
   --accent: var(--vscode-focusBorder);
   --action: var(--vscode-button-background);
   --action-hover: var(--vscode-button-hoverBackground);
+  --run: var(--vscode-button-background);
+  --run-hover: var(--vscode-button-hoverBackground);
+  --series: var(--vscode-button-background);
+  --series-hover: var(--vscode-button-hoverBackground);
 }
 
 * {
@@ -138,6 +150,36 @@ body.vscode-high-contrast-light {
 /* Beats `.button:disabled:hover`, which would paint a dead button teal. */
 .button.is-quiet:disabled:hover {
   background: none;
+}
+
+#generate-series.button,
+#run-task.button {
+  border-color: transparent;
+  color: #FFFFFF;
+}
+
+#generate-series.button {
+  background: var(--series);
+}
+
+#generate-series.button:hover {
+  background: var(--series-hover);
+}
+
+#generate-series.button:disabled:hover {
+  background: var(--series);
+}
+
+#run-task.button {
+  background: var(--run);
+}
+
+#run-task.button:hover {
+  background: var(--run-hover);
+}
+
+#run-task.button:disabled:hover {
+  background: var(--run);
 }
 
 /* --- The list --- */

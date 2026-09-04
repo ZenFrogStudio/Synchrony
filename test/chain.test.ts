@@ -284,6 +284,36 @@ describe('chain — building one', () => {
       assert.equal(patch.recurrence, null);
     }
   });
+
+  it('should_put_the_chains_engine_on_every_plan_in_it', () => {
+    // One setup for the whole run: a chain cannot half-run on one engine and
+    // half on another.
+    const withSetup = chainPatches(['a', 'b', 'c'], new Date(NOW).toISOString(), 15, true, {
+      agent: 'codex',
+      model: 'gpt-5.3-codex',
+      permissionMode: 'auto'
+    });
+
+    for (const { patch } of withSetup) {
+      assert.equal(patch.agent, 'codex');
+      assert.equal(patch.model, 'gpt-5.3-codex');
+      assert.equal(patch.permissionMode, 'auto');
+    }
+  });
+
+  it('should_not_let_the_setup_overwrite_the_link', () => {
+    const withSetup = chainPatches(['a', 'b'], new Date(NOW).toISOString(), 15, true, {
+      agent: 'codex',
+      chain: { after: 'somewhere-else', delayMinutes: 99, stopOnFailure: false },
+      enabled: false,
+      recurrence: { daysOfWeek: [1], timeLocal: '09:00' }
+    } as Partial<TaskSeries>);
+
+    assert.deepEqual(withSetup[1].patch.chain, { after: 'a', delayMinutes: 15, stopOnFailure: true });
+    assert.equal(withSetup[1].patch.spent, true);
+    assert.equal(withSetup[1].patch.recurrence, null);
+    assert.equal(withSetup[1].patch.enabled, true);
+  });
 });
 
 describe('chain — closing a gap', () => {

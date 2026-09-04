@@ -36,6 +36,9 @@ type Inbound =
       startIso: string;
       gapMinutes: number;
       stopOnFailure: boolean;
+      agent?: string;
+      model?: string;
+      permissionMode?: string;
     }
   | { type: 'updateSeries'; id: string; patch: Partial<TaskSeries> }
   | { type: 'browseCwd'; id: string }
@@ -608,6 +611,20 @@ export class Manager implements vscode.Disposable {
       return;
     }
 
+    // Through `seriesEdit` rather than taken on trust: `model` becomes an argv
+    // entry for a shell-invoked spawn on Windows and `agent` chooses which
+    // executable that spawn runs, which is exactly why that module exists. An
+    // absent key is still visited and clears the field — a chain with no engine
+    // picked is a Claude chain.
+    const { patch: setup, rejected } = seriesEdit({
+      agent: message.agent,
+      model: message.model,
+      permissionMode: message.permissionMode
+    });
+    if (rejected.length) {
+      log.warn(`chainPlans: ignored ${rejected.join(', ')}`);
+    }
+
     // Every plan gets its series first, so the links below can name real ids.
     const ids: string[] = [];
     for (const name of names) {
@@ -632,14 +649,15 @@ export class Manager implements vscode.Disposable {
       ids,
       new Date(start).toISOString(),
       message.gapMinutes,
-      message.stopOnFailure === true
+      message.stopOnFailure === true,
+      setup
     )) {
       await this.store.updateSeries(id, patch);
     }
 
     log.info(
       `chained ${names.length} plans from ${new Date(start).toISOString()}, ` +
-        `${message.gapMinutes}m apart (${names.join(' → ')})`
+        `${message.gapMinutes}m apart on ${setup.agent ?? DEFAULT_AGENT} (${names.join(' → ')})`
     );
     this.post();
     this.notify(

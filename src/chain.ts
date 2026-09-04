@@ -141,13 +141,18 @@ export function chainPatches(
   ids: readonly string[],
   startIso: string,
   gapMinutes: number,
-  stopOnFailure: boolean
+  stopOnFailure: boolean,
+  /** Engine, model and permissions for every plan in the chain. One setup, so a
+   *  chain cannot half-run on one engine and half on another. Spread first, so a
+   *  stray key can never overwrite the link that makes the chain a chain. */
+  setup: Partial<TaskSeries> = {}
 ): SeriesPatch[] {
   return ids.map((id, index) => ({
     id,
     patch:
       index === 0
         ? {
+            ...setup,
             nextRunAt: startIso,
             recurrence: null,
             chain: undefined,
@@ -155,6 +160,7 @@ export function chainPatches(
             spent: false
           }
         : {
+            ...setup,
             chain: { after: ids[index - 1], delayMinutes: gapMinutes, stopOnFailure },
             recurrence: null,
             enabled: true,

@@ -27,6 +27,15 @@ logic out; one of the moves also narrowed a guard.
 
 ### Added
 
+- **A chain says what its plans run on.** Every other route to the schedule
+  offers Engine, Model and Permissions; the chain builder offered none, so a
+  chain of five plans ran on whatever each plan happened to be set to, and
+  fixing that meant opening five plans and setting three dropdowns on each. The
+  chain page now has the same three fields, and **Create chain** writes them
+  onto every plan in the chain — including plans that already had their own. One
+  setup for the whole run, stated on the page rather than discovered afterwards:
+  a plan pinned to another engine comes out as whatever the chain says.
+
 - **A standing daily fluidity review.** Chronos exists to make scheduling and
   managing agent tasks fluid, and friction is invisible from the inside — the
   person who built a journey stops counting its steps after the tenth time
@@ -524,6 +533,13 @@ logic out; one of the moves also narrowed a guard.
   pick its first time there before pressing **Schedule**, while existing
   schedules keep the same picker and run settings without the old action row at
   the bottom of the pane.
+
+- **The chain builder's controls sit where a plan's do.** **Create chain**,
+  **Cancel** and the start-time picker were in two different places — the picker
+  buried in a "When" section halfway down the page, the buttons at the very
+  bottom — while a plan's own controls had already moved into one row under its
+  header. All three are now in that same row, in the same position, so the same
+  job is done in the same place whichever page you are looking at.
 
 - **Recurring and chained plans are easier to spot in the manager library.**
   The coloured status line under each plan now uses blue for recurring series

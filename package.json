@@ -2,7 +2,7 @@
   "name": "chronos",
   "displayName": "Chronos",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.8.0-rc.79",
+  "version": "0.8.0-rc.80",
   "publisher": "Z3n",
   "license": "MIT",
   "icon": "media/icon.png",

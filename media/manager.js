@@ -91,6 +91,13 @@
   /** Minutes between one plan finishing and the next starting. */
   let chainGap = 15;
   let chainStop = true;
+  /** Engine, model and permissions for the chain being built. Written onto every
+   *  plan in it when it is created — one setup for the whole run, rather than
+   *  whatever each plan happened to be set to. Defaults match a newly scheduled
+   *  plan: Claude, the account default model, `auto`. */
+  let chainAgent = 'claude';
+  let chainModel = '';
+  let chainPermission = 'auto';
   /** Which row is being dragged, or -1. */
   let chainDragFrom = -1;
   /** A plan is addressed by name alone — no path from here ever reaches the
@@ -279,6 +286,14 @@
   const agentOf = (s) =>
     state.agents.find((a) => a.id === agentIdOf(s)) || state.agents[0];
   const modelsOf = (s) => (agentOf(s) || { models: [] }).models;
+
+  /** A series-shaped object for the three shared field builders, so the chain page
+   *  and a plan's Schedule section cannot draw different dropdowns. */
+  const chainSetup = () => ({
+    agent: chainAgent,
+    model: chainModel,
+    permissionMode: chainPermission
+  });
 
   const isRunning = (s) =>
     !!s && state.runs.some((r) => r.seriesId === s.id && r.status === 'running');
@@ -616,6 +631,8 @@
         </div>
       </div>
 
+      ${chainCommandRow()}
+
       <div class="section">
         <h3 class="section-title">In order</h3>
         ${
@@ -641,19 +658,21 @@
       </div>
 
       <div class="section">
-        <h3 class="section-title">When</h3>
+        <h3 class="section-title">Schedule</h3>
         <div class="grid">
-          <div class="field">
-            <span class="field-label">Start</span>
-            ${whenPicker(chainStart || defaultStartIso())}
-          </div>
           <label class="field">
             <span class="field-label">Gap between plans</span>
             <input class="field-input" type="number" min="0" max="1440" step="1"
               data-field="chainGap" data-focus-key="chain-gap" value="${chainGap}" />
             <p class="field-help">Minutes to wait after one plan finishes before the next starts.</p>
           </label>
+
+          ${permissionField(chainSetup())}
+          ${engineField(chainSetup())}
+          ${modelField(chainSetup())}
         </div>
+        <p class="field-help">Every plan in the chain runs on this — whatever each one was set
+          to before.</p>
         <div class="field is-spaced">
           <label class="field-check">
             <input type="checkbox" data-field="chainStop" data-focus-key="chain-stop-all"
@@ -663,12 +682,22 @@
           <p class="field-help">Retries happen first either way — the chain only stops once a
             plan has run out of them.</p>
         </div>
-        <div class="actions">
-          <button class="button" type="button" data-action="chain-create"
-            ${chainNames.length < 2 ? 'disabled' : ''}>Create chain</button>
-          <button class="button is-quiet" type="button" data-action="chain-cancel">Cancel</button>
-        </div>
       </div>`;
+  }
+
+  /**
+   * The same three controls, in the same place, as a plan's command row: the
+   * button that puts this on the schedule, the way out, and the time it starts.
+   * There is no Run now — a chain has nothing to run until it has been created.
+   */
+  function chainCommandRow() {
+    const ready = chainNames.length >= 2;
+    return `<div class="plan-command-row">
+      <button class="button" type="button" data-action="chain-create" ${ready ? '' : 'disabled'}
+        title="${ready ? 'Put these plans on the schedule, in this order' : 'A chain needs at least two plans'}">Create chain</button>
+      <button class="button is-quiet" type="button" data-action="chain-cancel">Cancel</button>
+      <div class="plan-command-when">${whenPicker(chainStart || defaultStartIso())}</div>
+    </div>`;
   }
 
   function chainRow(plan, name, index) {
@@ -1629,7 +1658,10 @@
         names: chainNames.slice(),
         startIso: chainStart || defaultStartIso(),
         gapMinutes: chainGap,
-        stopOnFailure: chainStop
+        stopOnFailure: chainStop,
+        agent: chainAgent,
+        model: chainModel,
+        permissionMode: chainPermission
       });
       // Straight to the plan that starts it, which is where the schedule now is.
       const first = chainNames[0];
@@ -1641,6 +1673,9 @@
     if (action === 'chain-cancel') {
       chainNames = [];
       showChain = false;
+      // The free-text Model box belonged to this page. Leaving it open would
+      // carry it onto whatever plan is shown next.
+      customModel = false;
       closePicker();
       return render();
     }
@@ -1745,6 +1780,42 @@
     }
 
     if (showChain) {
+      if (field === 'permissionMode') {
+        chainPermission = el.value;
+        return;
+      }
+
+      // A model id belongs to one engine, and so does a permission mode —
+      // switching engines drops either rather than passing on something that
+      // would fail at fire time. The same rule the plan panel's `agent` case
+      // applies.
+      if (field === 'agent') {
+        const next = state.agents.find((a) => a.id === el.value);
+        chainAgent = el.value;
+        if (!next || !next.models.some((m) => m.value === chainModel)) chainModel = '';
+        if (!(PERMISSION_MODES[chainAgent] || PERMISSION_MODES.claude).includes(chainPermission)) {
+          chainPermission = 'auto';
+        }
+        customModel = false;
+        return render();
+      }
+
+      if (field === 'model') {
+        // Custom… is a UI state, not a value: it reveals the box, and the box writes.
+        if (el.value === CUSTOM_MODEL) {
+          customModel = true;
+          return render();
+        }
+        customModel = false;
+        chainModel = el.value;
+        return;
+      }
+
+      if (field === 'customModel') {
+        chainModel = el.value.trim();
+        return;
+      }
+
       if (field === 'chainGap') {
         // An emptied box is not a value, and Number('') is 0 — which would
         // silently mean "no gap at all". The field snaps back instead.
@@ -2245,6 +2316,8 @@
     saveNow();
     showChain = !showChain;
     showSettings = false;
+    // The Model field's free-text box belongs to whichever page opened it.
+    customModel = false;
     closePicker();
     if (showChain) {
       if (!chainNames.length && selected) chainNames = [selected];

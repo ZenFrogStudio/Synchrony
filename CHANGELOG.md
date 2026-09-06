@@ -27,6 +27,41 @@ logic out; one of the moves also narrowed a guard.
 
 ### Added
 
+- **A dashboard HTML artifact with embedded CSS.**
+  `dashboard/artifact.html` mirrors the browser dashboard without depending on
+  an external stylesheet, so artifact viewers can render the existing design
+  directly. The normal server-backed dashboard remains unchanged.
+
+- **One browser page showing every Chronos window at once.** Four or five editor
+  windows are four or five extension hosts that cannot see each other, so
+  *what is Chronos doing right now* had no answer anywhere: finding a run that
+  had gone wrong meant clicking through every window's manager in turn. Each
+  window now writes a small JSON heartbeat into `~/.chronos-dashboard/instances`,
+  and `npm run dashboard` serves a read-only board that reads the lot — which
+  workspace each window belongs to, which one holds the scheduler, what is
+  running, what is queued, what was missed, what failed in the last day, and the
+  combined seven-day spend. It polls every four seconds, so it keeps up without
+  a refresh, and a window that closes goes **Stopped**, or **Stale** if it was
+  killed outright.
+
+  The filesystem is the meeting point, the same way `scheduler.lock` already
+  arbitrates which window schedules: no port per window, no IPC between hosts,
+  no process to keep alive. It is one small file per window, written through a
+  temp file and a rename so the page can never read a half-written document.
+
+  Read-only by construction, and stated in three places: the server answers
+  nothing but `GET`, the payload carries no handle anything could act on, and
+  there is no route back into a window. Bound to `127.0.0.1` — the heartbeats
+  name real project paths, and the loopback interface is the only audience that
+  should see them. The board never deletes a heartbeat either; it marks an old
+  one stale and goes on showing it, because a window that went quiet with a run
+  still in flight is exactly what somebody would open the page to find.
+
+  Nothing about it lives in the editor's process beyond assembling that payload:
+  no second window, no webview, no child process, and no new dependency. Both
+  new pieces — `dashboard/` and `scripts/dashboard-server.js` — are excluded from
+  the packaged extension.
+
 - **The Tasks panel can pick the model its buttons use.** After the per-plan
   prompt was removed, changing `chronos.planModel` meant leaving the inbox for
   Settings even though the choice sits directly upstream of **Generate plan**,

@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { adoptGlobal, claimAdoption } from './adopt';
 import { AGENTS } from './agents';
 import { consolidate } from './consolidate';
+import { DashboardExporter } from './dashboard-export';
 import { seedLibrary } from './library';
 import { initLog, log, logConsolidation, logRetirement, pruneLogs } from './log';
 import { Manager } from './manager';
@@ -62,6 +63,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   const scheduler = new Scheduler(store, runner, () => paths().lock, retire);
+
+  // This window's status, written to a shared directory under the user's home
+  // so a browser can show every window at once. Read-only and one-way: nothing
+  // outside this process can reach the schedule through it. See
+  // `dashboard-export.ts`.
+  const dashboard = new DashboardExporter(store, scheduler, paths);
 
   /**
    * Staging folders left by planning sessions that ended with the window rather
@@ -137,6 +144,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     manager.restartWatching();
     stateWatcher.restart();
     manager.post();
+    // Explicitly, rather than leaning on the store change `retarget` fires: the
+    // folder name, library path and results path in the heartbeat all move with
+    // this switch, and none of them is something the store reports.
+    dashboard.refresh();
     await scheduler.reclaim();
     log.info(`switched to ${folder}`);
   };
@@ -167,6 +178,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const mcpLauncher = mcpLauncherPath(context);
 
   context.subscriptions.push(
+    // First, so its closing heartbeat is written while the store and the
+    // scheduler are still answering.
+    dashboard,
     store,
     runner,
     scheduler,
@@ -217,6 +231,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   await scheduler.start();
+  // After the scheduler, so the first heartbeat already knows whether this
+  // window is the one holding the schedule.
+  dashboard.start();
 
   // Not awaited: activation must not wait on a child process. A bad path should
   // surface here rather than at fire time.

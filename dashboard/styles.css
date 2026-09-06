@@ -1,0 +1,318 @@
+/* The Chronos instance dashboard. An operations board: dense rows, high
+   contrast, no decoration that is not carrying information. The palette is the
+   manager's own — teal for accents, sodium for liveness, green for a good
+   outcome, red for a bad one — so the browser page and the editor panel read as
+   the same product. Global values only, no component tokens. */
+
+:root {
+  --bg: #0D1117;
+  --panel: #141A22;
+  --raised: #1B222C;
+  --border: #262E3A;
+  --text: #E6EDF3;
+  --muted: #8B98A8;
+  --accent: #12A3A9;
+  --sodium: #C97F46;
+  --ok: #3FB950;
+  --danger: #F85149;
+  --radius: 6px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/*//////////////////////////////*Top bar*//////////////////////////////*/
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(20, 26, 34, 0.72);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.bar h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pill {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.pill.live {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.pill.down {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/*/////////////////////////////*Summary band*//////////////////////////////*/
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 20px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.tile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.tile-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Only when the number is not zero. A board of zeroes should read as calm. */
+.tile.hot .tile-value {
+  color: var(--sodium);
+}
+
+.tile.bad .tile-value {
+  color: var(--danger);
+}
+
+/*////////////////////////////////*Columns*////////////////////////////////*/
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 20px 24px;
+  align-items: start;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 12px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.panel h2.sub {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty {
+  padding: 8px 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/*//////////////////////////////*Instance rows*//////////////////////////////*/
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--raised);
+  transition: border-color 200ms ease-in-out, background 200ms ease-in-out;
+}
+
+.row:hover {
+  border-color: var(--accent);
+  background: #1F2733;
+}
+
+/* Running outranks everything: it is the only state where something is
+   happening right now. Missed and failed outrank idle. Stale is drawn back
+   rather than raised — a quiet window is normal, not an alarm. */
+.row.running {
+  border-left-color: var(--sodium);
+}
+
+.row.attention {
+  border-left-color: var(--danger);
+}
+
+.row.stale {
+  opacity: 0.62;
+}
+
+/* Unless it went quiet with work still in flight, which is the one case where
+   a stale window is genuinely a problem. */
+.row.stale.running {
+  opacity: 1;
+  border-left-color: var(--danger);
+}
+
+.row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.path {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.tag {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tag.leader {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tag.active {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.tag.busy {
+  border-color: var(--sodium);
+  color: var(--sodium);
+}
+
+.tag.bad {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.error {
+  font-size: 11px;
+  color: var(--danger);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*///////////////////////////////*Breakpoints*///////////////////////////////*/
+
+@media (max-width: 1100px) {
+  .summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px;
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 12px 20px;
+  }
+
+  .bar {
+    padding: 10px 12px;
+  }
+}

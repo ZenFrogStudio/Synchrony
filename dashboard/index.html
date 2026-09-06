@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chronos Instances</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Chronos Instances</h1>
+      <div class="bar-right">
+        <span id="connection" class="pill">Connecting</span>
+        <span id="refreshed" class="muted">&mdash;</span>
+      </div>
+    </header>
+
+    <section class="summary" aria-label="Summary">
+      <div class="tile">
+        <span class="tile-label">Instances</span>
+        <span class="tile-value" id="sum-instances">0</span>
+        <span class="tile-note" id="sum-instances-note">&mdash;</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Active</span>
+        <span class="tile-value" id="sum-active">0</span>
+        <span class="tile-note" id="sum-active-note">&mdash;</span>
+      </div>
+      <div class="tile" id="tile-running">
+        <span class="tile-label">Running</span>
+        <span class="tile-value" id="sum-running">0</span>
+        <span class="tile-note">tasks in flight</span>
+      </div>
+      <div class="tile" id="tile-missed">
+        <span class="tile-label">Missed</span>
+        <span class="tile-value" id="sum-missed">0</span>
+        <span class="tile-note">awaiting a decision</span>
+      </div>
+      <div class="tile" id="tile-failed">
+        <span class="tile-label">Failures</span>
+        <span class="tile-value" id="sum-failed">0</span>
+        <span class="tile-note">last 24 hours</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Cost</span>
+        <span class="tile-value" id="sum-cost">$0.00</span>
+        <span class="tile-note">last 7 days, combined</span>
+      </div>
+    </section>
+
+    <main class="grid">
+      <section class="panel" aria-labelledby="h-instances">
+        <h2 id="h-instances">Instances</h2>
+        <div id="instances" class="rows"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-work">
+        <h2 id="h-work">Live work</h2>
+        <div id="running" class="rows"></div>
+        <h2 class="sub">Queued and upcoming</h2>
+        <div id="upcoming" class="rows"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-attention">
+        <h2 id="h-attention">Missed</h2>
+        <div id="missed" class="rows"></div>
+        <h2 class="sub">Recent failures</h2>
+        <div id="failures" class="rows"></div>
+        <h2 class="sub">Stale and stopped</h2>
+        <div id="stale" class="rows"></div>
+      </section>
+    </main>
+
+    <script src="dashboard.js"></script>
+  </body>
+</html>

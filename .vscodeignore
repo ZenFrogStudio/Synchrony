@@ -18,6 +18,11 @@ media/screenshots-2.png
 # GitHub. It must never ship inside the .vsix.
 site/**
 docs/**
+# The instance dashboard is developer tooling, started by hand with
+# `npm run dashboard`. Nothing in the extension loads either folder — the
+# extension's only half of it is `dist/extension.js` writing the heartbeat.
+dashboard/**
+scripts/**
 test/**
 src/**
 dist-test/**

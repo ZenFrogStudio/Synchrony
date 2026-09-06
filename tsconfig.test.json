@@ -16,6 +16,7 @@
     "src/adopt.ts",
     "src/agents.ts",
     "src/command.ts",
+    "src/dashboard-payload.ts",
     "src/decide.ts",
     "src/edit.ts",
     "src/history.ts",

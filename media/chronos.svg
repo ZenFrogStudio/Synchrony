@@ -4,12 +4,14 @@
        teal-and-violet scaling of the full mark is lost here and the whole
        thing has to work as one silhouette.
 
-       Drawn at 24px but read at 16px, which is what the proportions are for: a
-       heavy ring, one horn, and a head big enough to survive the downscale. The
-       scales, the eye and the tapering body all close up into a smudge at that
-       size, so they are gone, and the tail simply ends in the jaws rather than
-       curling into them. -->
-  <path d="M11.03 6.68A6.6 6.6 0 1 1 7.04 14.17" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
-  <path d="M10.6 5.2L5.4 7.6L1.4 10.8L3.4 11.9L5.8 11.2L7.9 15.9L9.6 12Z" fill="currentColor"/>
-  <path d="M6.9 7.5L8.8 2.2L9.2 6.5Z" fill="currentColor"/>
+       Drawn on the same 24px canvas as VS Code's activity-bar icons, then
+       scaled up so the circular mark reads at the same apparent size
+       as the stock icons around it. The scales, the eye and the tapering body
+       all close up into a smudge at that size, so they are gone, and the tail
+       simply ends in the jaws rather than curling into them. -->
+  <g transform="translate(-3.36 -3.36) scale(1.28)">
+    <path d="M11.03 6.68A6.6 6.6 0 1 1 7.04 14.17" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+    <path d="M10.6 5.2L5.4 7.6L1.4 10.8L3.4 11.9L5.8 11.2L7.9 15.9L9.6 12Z" fill="currentColor"/>
+    <path d="M6.9 7.5L8.8 2.2L9.2 6.5Z" fill="currentColor"/>
+  </g>
 </svg>

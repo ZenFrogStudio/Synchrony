@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
+import { CLAUDE_MODELS } from '../src/agents';
 
 /**
  * Rules about the source itself, for properties no unit test can observe.
@@ -260,6 +261,25 @@ describe('source guards', () => {
       const key = `chronos.${match[1]}`;
       assert.ok(manifest.contributes.configuration.properties[key], `package.json omits ${key}`);
     }
+  });
+
+  it('should_keep_the_plan_model_manifest_enum_in_step_with_the_claude_model_list', () => {
+    // The Tasks dropdown reads src/agents.ts, while VS Code Settings enforces
+    // package.json. If the tables drift, one UI offers a value the other
+    // refuses at the moment it is picked.
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    const setting = manifest.contributes.configuration.properties['chronos.planModel'];
+
+    assert.deepEqual(
+      setting.enum,
+      CLAUDE_MODELS.map((model) => model.value),
+      'package.json chronos.planModel enum changed without src/agents.ts CLAUDE_MODELS'
+    );
+    assert.deepEqual(
+      setting.enumDescriptions,
+      CLAUDE_MODELS.map((model) => model.label),
+      'package.json chronos.planModel enumDescriptions changed without src/agents.ts CLAUDE_MODELS'
+    );
   });
 
   it('should_install_into_the_editor_this_project_is_developed_in', () => {

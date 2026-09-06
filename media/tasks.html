@@ -24,15 +24,22 @@
     </p>
 
     <div id="action-bar" class="action-bar" hidden>
-      <button id="generate-plan" class="button is-wide" type="button" disabled>
-        <i class="codicon codicon-lightbulb"></i> Generate plan
-      </button>
-      <button id="generate-series" class="button is-quiet" type="button" disabled>
-        <i class="codicon codicon-list-ordered"></i> Series
-      </button>
-      <button id="run-task" class="button is-quiet" type="button" disabled>
-        <i class="codicon codicon-play"></i> Run
-      </button>
+      <div class="action-model">
+        <label class="model-label" for="plan-model">Model</label>
+        <select id="plan-model" class="model-select"
+          title="Which model Chronos uses for the sessions and runs this panel starts"></select>
+      </div>
+      <div class="action-buttons">
+        <button id="generate-plan" class="button is-wide" type="button" disabled>
+          <i class="codicon codicon-lightbulb"></i> Generate plan
+        </button>
+        <button id="generate-series" class="button is-quiet" type="button" disabled>
+          <i class="codicon codicon-list-ordered"></i> Series
+        </button>
+        <button id="run-task" class="button is-quiet" type="button" disabled>
+          <i class="codicon codicon-play"></i> Run
+        </button>
+      </div>
     </div>
 
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>

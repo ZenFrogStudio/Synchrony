@@ -1,14 +1,17 @@
 /* Chronos manager. The shell is derived from VS Code theme vars so it adapts to
    any theme. Chronos owns a few global colours: sodium for liveness and
-   imminence, teal for actions and accents, and blue/purple for schedule type.
-   Global values only — no component tokens. */
+   imminence, teal for actions and accents, and blue/purple for
+   schedule type. Global values only — no component tokens. */
 
 :root {
   --border: var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 18%, transparent));
   --accent: #12A3A9;
-  --sodium: #E0A458;
+  --sodium: #C97F46;
+  --sodium-foreground: #111111;
   --action: #0E8A8F;
   --action-hover: #12A3A9;
+  --run: var(--action);
+  --run-hover: var(--action-hover);
   --recurring: var(--vscode-charts-blue, #3794FF);
   --chained: var(--vscode-charts-purple, #B180D7);
   --ok: var(--vscode-charts-green, #3FB950);
@@ -19,13 +22,16 @@
   --radius: 6px;
 }
 
-/* Amber, teal and green all need darkening to stay legible on a light
-   background. */
+/* Teal, blue/purple and green need darkening to stay legible on a light
+   background. Orange stays fixed so all orange controls match. */
 body.vscode-light {
-  --sodium: #9A5B0F;
+  --sodium: #C97F46;
+  --sodium-foreground: #111111;
   --accent: #0A6E73;
   --action: #0A6E73;
   --action-hover: #0E8A8F;
+  --run: var(--action);
+  --run-hover: var(--action-hover);
   --recurring: #0969DA;
   --chained: #8250DF;
   --ok: #1A7F37;
@@ -35,9 +41,12 @@ body.vscode-light {
    which carries both vscode-high-contrast and vscode-high-contrast-light. */
 body.vscode-high-contrast {
   --sodium: var(--vscode-focusBorder);
+  --sodium-foreground: var(--vscode-button-foreground);
   --accent: var(--vscode-focusBorder);
   --action: var(--vscode-button-background);
   --action-hover: var(--vscode-button-hoverBackground);
+  --run: var(--vscode-button-background);
+  --run-hover: var(--vscode-button-hoverBackground);
   --recurring: var(--vscode-focusBorder);
   --chained: var(--vscode-focusBorder);
 }
@@ -414,6 +423,20 @@ body.is-resizing .activity {
 .icon-action:hover {
   background: var(--raised);
   color: var(--vscode-foreground);
+}
+
+.icon-action[data-action="rerun-run"] {
+  color: var(--run);
+}
+
+.icon-action[data-action="rerun-run"]:hover {
+  background: color-mix(in srgb, var(--run) 14%, transparent);
+  color: var(--run);
+}
+
+body.vscode-high-contrast .icon-action[data-action="rerun-run"],
+body.vscode-high-contrast .icon-action[data-action="rerun-run"]:hover {
+  color: var(--vscode-focusBorder);
 }
 
 .icon-action:focus-visible {
@@ -983,6 +1006,32 @@ kbd {
   background: var(--action);
 }
 
+.button[data-action="run-now"] {
+  border-color: var(--run);
+  background: none;
+  color: var(--run);
+}
+
+.button[data-action="run-now"]:hover {
+  background: color-mix(in srgb, var(--run) 14%, transparent);
+  color: var(--run-hover);
+}
+
+.button[data-action="run-now"]:disabled:hover {
+  background: none;
+}
+
+body.vscode-high-contrast .button[data-action="run-now"] {
+  border-color: transparent;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+body.vscode-high-contrast .button[data-action="run-now"]:hover {
+  background: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
+}
+
 .button.is-quiet {
   background: var(--vscode-button-secondaryBackground, transparent);
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
@@ -1014,6 +1063,14 @@ kbd {
   font-size: 0.85em;
   cursor: pointer;
   text-decoration: underline;
+}
+
+.link-button[data-action="run-now"] {
+  color: var(--run);
+}
+
+body.vscode-high-contrast .link-button[data-action="run-now"] {
+  color: var(--vscode-focusBorder);
 }
 
 .actions {

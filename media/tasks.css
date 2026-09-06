@@ -1,22 +1,22 @@
 /* Chronos task inbox — the activity-bar view. Derived from VS Code theme vars so
    it adapts to any theme, and deliberately its own small sheet rather than the
-   manager's: this panel is a list, an input and a button. Chronos owns two
-   colours — sodium, spent on a plan being written right now, and teal, spent on
-   the filled primary buttons and on every accent, outline and link, so that
-   emphasis reads as ours rather than as the editor's stock blue. A run in
-   flight is green, taken from the theme's own chart palette exactly as the
-   manager takes it. Global values only — no component tokens. */
+   manager's: this panel is a list, an input and a button. Chronos owns a few
+   global colours: sodium for planning liveness, teal for primary actions and
+   accents, and deeper purple for Series. A run in flight is
+   still green, taken from the theme's own chart palette exactly as the manager
+   takes it. Global values only — no component tokens. */
 
 :root {
   --border: var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 18%, transparent));
   --accent: #12A3A9;
-  --sodium: #E0A458;
+  --sodium: #C97F46;
+  --sodium-foreground: #111111;
   --action: #0E8A8F;
   --action-hover: #12A3A9;
-  --run: #1F7A33;
-  --run-hover: #238636;
-  --series: #6D28D9;
-  --series-hover: #5B21B6;
+  --run: var(--action);
+  --run-hover: var(--action-hover);
+  --series: #5B21B6;
+  --series-hover: #4C1D95;
   --ok: var(--vscode-charts-green, #3FB950);
   --muted: var(--vscode-descriptionForeground);
   --danger: var(--vscode-errorForeground);
@@ -24,17 +24,18 @@
   --radius: 6px;
 }
 
-/* Amber, teal and green all need darkening to stay legible on a light
-   background. */
+/* Teal, purple and green need darkening to stay legible on a light background.
+   Orange stays fixed so all orange controls match. */
 body.vscode-light {
-  --sodium: #9A5B0F;
+  --sodium: #C97F46;
+  --sodium-foreground: #111111;
   --accent: #0A6E73;
   --action: #0A6E73;
   --action-hover: #0E8A8F;
-  --run: #1F7A33;
-  --run-hover: #238636;
-  --series: #5B21B6;
-  --series-hover: #4C1D95;
+  --run: var(--action);
+  --run-hover: var(--action-hover);
+  --series: #4C1D95;
+  --series-hover: #3B0764;
   --ok: #1A7F37;
 }
 
@@ -42,6 +43,7 @@ body.vscode-light {
    which carries both vscode-high-contrast and vscode-high-contrast-light. */
 body.vscode-high-contrast {
   --sodium: var(--vscode-focusBorder);
+  --sodium-foreground: var(--vscode-button-foreground);
   --accent: var(--vscode-focusBorder);
   --action: var(--vscode-button-background);
   --action-hover: var(--vscode-button-hoverBackground);
@@ -152,34 +154,74 @@ body.vscode-high-contrast-light {
   background: none;
 }
 
+#add-task.button,
+#generate-plan.button,
 #generate-series.button,
 #run-task.button {
-  border-color: transparent;
-  color: #FFFFFF;
+  background: none;
+}
+
+#add-task.button,
+#generate-plan.button {
+  border-color: var(--action);
+  color: var(--action);
+}
+
+#add-task.button:hover,
+#generate-plan.button:hover {
+  background: color-mix(in srgb, var(--action) 14%, transparent);
+  color: var(--action-hover);
+}
+
+#add-task.button:disabled:hover,
+#generate-plan.button:disabled:hover {
+  background: none;
 }
 
 #generate-series.button {
-  background: var(--series);
+  border-color: var(--series);
+  color: var(--series);
 }
 
 #generate-series.button:hover {
-  background: var(--series-hover);
+  background: color-mix(in srgb, var(--series) 14%, transparent);
+  color: var(--series-hover);
 }
 
 #generate-series.button:disabled:hover {
-  background: var(--series);
+  background: none;
 }
 
 #run-task.button {
-  background: var(--run);
+  border-color: var(--run);
+  background: none;
+  color: var(--run);
 }
 
 #run-task.button:hover {
-  background: var(--run-hover);
+  background: color-mix(in srgb, var(--run) 14%, transparent);
+  color: var(--run-hover);
 }
 
 #run-task.button:disabled:hover {
-  background: var(--run);
+  background: none;
+}
+
+body.vscode-high-contrast #add-task.button,
+body.vscode-high-contrast #generate-plan.button,
+body.vscode-high-contrast #generate-series.button,
+body.vscode-high-contrast #run-task.button {
+  border-color: transparent;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+body.vscode-high-contrast #add-task.button:hover,
+body.vscode-high-contrast #generate-plan.button:hover,
+body.vscode-high-contrast #generate-series.button:hover,
+body.vscode-high-contrast #run-task.button:hover {
+  background: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
 }
 
 /* --- The list --- */
@@ -234,7 +276,7 @@ body.vscode-high-contrast-light {
 }
 
 /* The dot is 9px on a sidebar that is often 250px wide — easy to miss, and not
-   the part of the row you read. The state is on the text as well: amber while a
+   the part of the row you read. The state is on the text as well: orange while a
    plan is being written for the task, green while a run is in flight. */
 .task-label.is-generating {
   color: var(--sodium);
@@ -256,7 +298,7 @@ body.vscode-high-contrast-light {
 }
 
 /* Same dot as a run: hollow and neutral for something merely captured, filled
-   amber with a halo while a planning session is open for it, green while a run
+   orange with a halo while a planning session is open for it, green while a run
    fired straight from the inbox is in flight. */
 .task-dot {
   flex: none;
@@ -275,7 +317,7 @@ body.vscode-high-contrast-light {
   background: var(--sodium);
 }
 
-/* Green rather than amber: sodium is spent on a plan being written, and this is
+/* Green rather than orange: sodium is spent on a plan being written, and this is
    a run in flight. Green rather than teal so the dot agrees with the label
    beside it — a row should read as one state, not two. */
 .task-dot.is-running {
@@ -355,11 +397,44 @@ body.vscode-high-contrast-light {
 .action-bar {
   flex: none;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   margin-top: 8px;
 }
 
-/* Both buttons in the bar are the same height; only the primary one stretches. */
+.action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.action-model {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.model-label {
+  color: var(--muted);
+}
+
+.model-select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  font: inherit;
+  cursor: pointer;
+}
+
+.model-select:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* The bar buttons share a height; only the primary one stretches. */
 .action-bar .button {
   display: flex;
   align-items: center;

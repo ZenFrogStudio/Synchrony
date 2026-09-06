@@ -7,12 +7,19 @@
   const inputEl = /** @type {HTMLInputElement} */ (document.getElementById('task-input'));
   const addEl = /** @type {HTMLElement} */ (document.getElementById('add-task'));
   const barEl = /** @type {HTMLElement} */ (document.getElementById('action-bar'));
+  const selectEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-model'));
   const generateEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-plan'));
   const seriesEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-series'));
   const runEl = /** @type {HTMLButtonElement} */ (document.getElementById('run-task'));
 
-  /** @type {{tasks: {name: string, label: string, generating: boolean, running: boolean}[]}} */
-  let state = { tasks: [] };
+  /** @type {{
+   *  tasks: {name: string, label: string, generating: boolean, running: boolean}[],
+   *  models: {value: string, label: string}[],
+   *  model: string
+   * }} */
+  let state = { tasks: [], models: [], model: '' };
+
+  let renderedModels = '';
 
   /** The row being edited and what has been typed into it. Held here, never read
    *  back off the DOM — a state message rebuilds the list, and that must never
@@ -33,6 +40,8 @@
   // ---------- rendering ----------
 
   function render() {
+    renderModels();
+
     // Read before the rebuild throws the focused element away: focus only
     // returns to the list if it was already there, so a redraw never steals it
     // from the capture field.
@@ -80,6 +89,22 @@
         : task.running
           ? 'This task is already running'
           : `Run "${firstLine(task.label)}" now, unattended`;
+  }
+
+  function renderModels() {
+    const options = state.models.map((choice) =>
+      `<option value="${esc(choice.value)}"${choice.value === state.model ? ' selected' : ''}>` +
+      `${esc(choice.label)}</option>`
+    );
+    if (state.model && !state.models.some((choice) => choice.value === state.model)) {
+      options.push(`<option value="${esc(state.model)}" selected>${esc(state.model)}</option>`);
+    }
+
+    const markup = options.join('');
+    if (markup !== renderedModels) {
+      renderedModels = markup;
+      selectEl.innerHTML = markup;
+    }
   }
 
   function taskRow(task) {
@@ -311,6 +336,8 @@
     }
   });
 
+  selectEl.addEventListener('change', () => send({ type: 'setPlanModel', value: selectEl.value }));
+
   // ---------- host ----------
 
   window.addEventListener('message', (event) => {
@@ -319,7 +346,11 @@
       return;
     }
     const wasAt = state.tasks.findIndex((task) => task.name === selected);
-    state = { tasks: Array.isArray(message.tasks) ? message.tasks : [] };
+    state = {
+      tasks: Array.isArray(message.tasks) ? message.tasks : [],
+      models: Array.isArray(message.models) ? message.models : [],
+      model: typeof message.model === 'string' ? message.model : ''
+    };
 
     // A task that has gone — planned, or deleted from another window — must not
     // leave an edit box behind for a row that no longer exists.

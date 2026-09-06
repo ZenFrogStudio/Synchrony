@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { CLAUDE_MODELS } from './agents';
 import { chainPatches } from './chain';
 import { jobState } from './history';
 import {
@@ -104,7 +105,8 @@ type Inbound =
   | { type: 'generatePlan'; name: string }
   | { type: 'generateSeries'; name: string }
   | { type: 'explainTask'; name: string }
-  | { type: 'runTask'; name: string };
+  | { type: 'runTask'; name: string }
+  | { type: 'setPlanModel'; value: string };
 
 /** A planning session in flight: its staging folder and the task that asked. */
 interface PendingPlan {
@@ -154,6 +156,12 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.onTerminalClosed(terminal)
   );
 
+  private readonly config = vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('chronos.planModel')) {
+      this.post();
+    }
+  });
+
   /**
    * How a finished job clears its task. Assigned in the constructor body rather
    * than here: `tsconfig.json` targets ES2022, so field initialisers run before
@@ -176,6 +184,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
   dispose(): void {
     this.terminals.dispose();
+    this.config.dispose();
     this.runs.dispose();
     // Over a copy of the keys, because `discard` deletes from the map it is
     // iterating.
@@ -227,6 +236,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     this.view.webview.postMessage({
       type: 'state',
+      models: CLAUDE_MODELS,
+      model: vscode.workspace.getConfiguration('chronos').get<string>('planModel', ''),
       tasks: this.list().map((task) => ({
         name: task.name,
         label: task.label,
@@ -268,6 +279,18 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       case 'ready':
         this.post();
         return;
+
+      case 'setPlanModel': {
+        if (!CLAUDE_MODELS.some((choice) => choice.value === message.value)) {
+          log.warn(`setPlanModel: refused ${JSON.stringify(message.value)}`);
+          this.post();
+          return;
+        }
+        await vscode.workspace
+          .getConfiguration('chronos')
+          .update('planModel', message.value, vscode.ConfigurationTarget.Global);
+        return;
+      }
 
       case 'addTask': {
         // The untrusted side of the boundary, so the text is checked here rather
@@ -920,6 +943,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         // what "run it in auto mode" means and it should not move if the
         // default does.
         permissionMode: 'auto',
+        model: vscode.workspace.getConfiguration('chronos').get<string>('planModel', '') || undefined,
         // `createSeries` dates a new series an hour out. Without this the job
         // would run now *and* again in an hour, from a plan nobody scheduled.
         spent: true

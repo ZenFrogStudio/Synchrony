@@ -2,7 +2,7 @@
   "name": "chronos",
   "displayName": "Chronos",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.8.0-rc.80",
+  "version": "0.8.0-rc.81",
   "publisher": "Z3n",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -167,7 +167,7 @@
             "Sonnet (latest)",
             "Haiku (latest)"
           ],
-          "markdownDescription": "Model used for the sessions you sit at — generating a plan, and explaining a task. Scheduled runs use each plan's own model."
+          "markdownDescription": "Model for everything the Tasks panel starts — generating a plan, generating a series, explaining a task, and running a task directly. Plans on the schedule use their own model."
         },
         "chronos.planStep.tests": {
           "type": "boolean",

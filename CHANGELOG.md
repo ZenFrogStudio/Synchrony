@@ -27,6 +27,20 @@ logic out; one of the moves also narrowed a guard.
 
 ### Added
 
+- **The Tasks panel can pick the model its buttons use.** After the per-plan
+  prompt was removed, changing `chronos.planModel` meant leaving the inbox for
+  Settings even though the choice sits directly upstream of **Generate plan**,
+  **Series** and **Run**. The prompt stays gone: it was friction on the fastest
+  path for a choice that rarely changes. Instead, the action bar now has an
+  always-visible Model dropdown above those buttons, hidden with the bar when
+  the inbox is empty.
+
+  It writes the same `chronos.planModel` the Settings page writes, not a new
+  task field or a sidebar-only copy, so both controls follow each other without
+  a reload. That setting now covers plan generation, series generation, task
+  explanation and a task run directly from the inbox; plans already on the
+  schedule still use their own model.
+
 - **A chain says what its plans run on.** Every other route to the schedule
   offers Engine, Model and Permissions; the chain builder offered none, so a
   chain of five plans ran on whatever each plan happened to be set to, and

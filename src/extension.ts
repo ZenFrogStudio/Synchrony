@@ -143,6 +143,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     manager.restartWatching();
     stateWatcher.restart();
+    taskView.restartRequests();
     manager.post();
     // Explicitly, rather than leaning on the store change `retarget` fires: the
     // folder name, library path and results path in the heartbeat all move with
@@ -172,6 +173,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const taskView = new TaskView(context.extensionUri, paths, store, scheduler, manager);
 
   stateWatcher.restart();
+  taskView.restartRequests();
 
   // Re-pointed at this install every activation, so configs already registered
   // in other clients keep working across an update. See `mcpLauncherPath`.

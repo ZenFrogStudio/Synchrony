@@ -17,6 +17,8 @@ import {
 import * as library from './library';
 import { log } from './log';
 import { createNonce, Manager } from './manager';
+import { RequestWatcher } from './request-watcher';
+import { PlanRequest } from './requests';
 import { ChronosPaths } from './roots';
 import { Scheduler } from './scheduler';
 import { createSeries, defaultScheduledAt } from './series';
@@ -170,6 +172,16 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    */
   private readonly runs: vscode.Disposable;
 
+  /**
+   * Plan requests from outside this window — the hub, a remote board — each one
+   * a task in this folder's inbox that something elsewhere wants planned. The
+   * watcher claims the file; this view opens the session, routed, exactly as the
+   * palette command would. See `request-watcher.ts`. Started by
+   * `restartRequests()`, which `extension.ts` calls on activation and on every
+   * folder switch, the same beat as `StateWatcher`.
+   */
+  private readonly requests: RequestWatcher;
+
   constructor(
     private readonly extensionUri: vscode.Uri,
     /** The active folder's layout. A thunk, so switching folders re-points the
@@ -180,12 +192,23 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     private readonly manager: Manager
   ) {
     this.runs = this.store.onDidChange(() => this.settleRuns());
+    this.requests = new RequestWatcher(
+      this.paths,
+      () => this.scheduler.leading,
+      (request) => this.generateFromRequest(request)
+    );
+  }
+
+  /** Re-points the request watcher at the active folder. */
+  restartRequests(): void {
+    this.requests.restart();
   }
 
   dispose(): void {
     this.terminals.dispose();
     this.config.dispose();
     this.runs.dispose();
+    this.requests.dispose();
     // Over a copy of the keys, because `discard` deletes from the map it is
     // iterating.
     for (const id of [...this.awaitingPlan.keys()]) {
@@ -427,6 +450,27 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   }
 
   /**
+   * A plan request, claimed by the watcher, becomes a routed planning session:
+   * the requester is not at this keyboard, so the session asks its questions
+   * through Chronos and the answers come back over the same door the request
+   * did. The outcome is written into the request file for the requester to read.
+   */
+  async generateFromRequest(request: PlanRequest): Promise<{ ok: boolean; note?: string }> {
+    const task = this.list().find((t) => t.name === request.task);
+    if (!task) {
+      return { ok: false, note: `no task named ${request.task} in this inbox` };
+    }
+    if (request.series) {
+      // `submit_plan` delivers exactly one plan, so a routed series has nowhere
+      // to put the rest. Refused here with a reason rather than silently downgraded.
+      return { ok: false, note: 'a remote request cannot produce a series; ask for one plan' };
+    }
+    await this.generatePlan(task, true, false, request.model);
+    this.post();
+    return { ok: true, note: `routed planning session opened for ${task.name}` };
+  }
+
+  /**
    * Opens an interactive session that turns a task into a real plan in the
    * library. Backing out at any point — Esc, closing the terminal, never
    * approving — leaves the task exactly where it was and creates nothing.
@@ -440,7 +484,12 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    * which changes what the session is asked for and what ends it — the manifest
    * rather than the first file to land — and nothing else about the session.
    */
-  private async generatePlan(task: InboxTask, routed: boolean, series = false): Promise<void> {
+  private async generatePlan(
+    task: InboxTask,
+    routed: boolean,
+    series = false,
+    modelOverride?: string
+  ): Promise<void> {
     if (!fs.existsSync(task.filePath)) {
       void vscode.window.showWarningMessage('That task no longer exists.');
       return;
@@ -457,7 +506,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     // time, and a prompt on the fastest path in the product — capture, press the
     // lightbulb, start talking — is friction for a choice that rarely changes.
     // It is set on the manager's Settings page instead.
-    const model = config.get<string>('planModel', '');
+    // A request may name its own model; otherwise the setting, as always.
+    const model = modelOverride ?? config.get<string>('planModel', '');
 
     const paths = this.paths();
     // The active folder, with nothing to ask about: a task now belongs to a

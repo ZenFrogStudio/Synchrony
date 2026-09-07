@@ -260,7 +260,8 @@
     "test": "node --test dist-test/test/",
     "pretest": "tsc -p tsconfig.test.json",
     "package": "npm run typecheck && npm run build && vsce package",
-    "reinstall": "npm run package && node reinstall.js"
+    "reinstall": "npm run package && node reinstall.js",
+    "hub": "node dist/hub.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

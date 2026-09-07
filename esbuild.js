@@ -70,6 +70,15 @@ async function main() {
       ...shared,
       entryPoints: ['src/mcp-server.ts'],
       outfile: 'dist/mcp-server.js'
+    }),
+    /**
+     * The hub: the same rule as the MCP server — a plain Node process, no
+     * `vscode` external, so a stray import fails the build rather than the run.
+     */
+    esbuild.context({
+      ...shared,
+      entryPoints: ['src/hub.ts'],
+      outfile: 'dist/hub.js'
     })
   ]);
 

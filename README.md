@@ -4,6 +4,8 @@ A precise scheduling system for coding-agent tasks, integrated within VS Code.
 
 Chronos translates Markdown plans into automated, scheduled executions. It unifies task capture, planning, and execution into a single, coherent workflow. One system. No fragmentation.
 
+![My image](media/Screenshot_1.png)
+
 ## The Manager Interface
 
 A unified view for total control. The plan library resides on the left; execution details—schedule, working directory, permissions, and run history—on the right. 
@@ -21,6 +23,8 @@ Capture requires a single action: type and enter. From here, a task can be expla
 
 *   **Generation:** Initiating a plan opens an interactive terminal session. The agent clarifies requirements before committing to an approach. Upon approval, the plan is written to the library, the task is resolved, and the manager prepares the schedule.
 *   **Explanation:** The explain function analyzes the task and project context, providing a plain-language assessment of the required change and its alternatives, without altering the codebase.
+
+![My image](media/Screenshot_2.png)
 
 ## Project Isolation
 
@@ -44,6 +48,8 @@ Plans are piped directly to the selected coding-agent CLI via standard input. Ch
 
 **Transcripts**
 Every execution generates a permanent Markdown record in `.chronos/results`. This document details the execution conditions, tool calls, agent narration, and final outcome (cost, duration, status). It is the definitive, auditable record of the system's action.
+
+![My image](media/Screenshot_3.png)
 
 ## Agent Integration (MCP)
 

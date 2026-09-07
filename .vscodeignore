@@ -14,6 +14,20 @@ favicon.ico
 # copies the landing page publishes live in `site/img/`, which is excluded below.
 media/screenshots.png
 media/screenshots-2.png
+# A Windows folder-icon file this machine's shell writes into the repo root. It
+# is not part of the extension and it names a real local path, so it must never
+# ship. It stays on disk because deleting it just loses the folder's icon.
+desktop.ini
+# Previously built packages, if any are sitting in the root at package time.
+*.vsix
+# The three README screenshots. `repository` in package.json makes vsce rewrite
+# the README's relative image links to github.com/.../raw/HEAD/media/... at
+# package time, so both the Marketplace listing and the editor's extension page
+# fetch these from GitHub and never touch the packaged copies. They were half
+# the package. Keeping them tracked in git is what makes the README work.
+media/Screenshot_1.png
+media/Screenshot_2.png
+media/Screenshot_3.png
 # The landing page is repo-only — a static site Cloudflare Pages serves from
 # GitHub. It must never ship inside the .vsix.
 site/**
@@ -23,6 +37,10 @@ docs/**
 # extension's only half of it is `dist/extension.js` writing the heartbeat.
 dashboard/**
 scripts/**
+# The hub is the same kind of thing: a machine-wide HTTP MCP server the owner
+# starts from a clone with `npm run hub` (see docs/HUB.md). Nothing in the
+# installed extension spawns it, and its bundle was half the package.
+dist/hub.js
 test/**
 src/**
 dist-test/**

@@ -1896,6 +1896,21 @@ logic out; one of the moves also narrowed a guard.
 
 ### Removed
 
+- **Three files that were shipping inside every install.** The package carried
+  `media/Chronos 1.png` — an 886 KB image nothing in the extension or the README
+  ever loaded, and on its own 41% of the download; `desktop.ini`, a Windows
+  folder-icon file this machine's shell drops in the repo root, which named a
+  real local path; and a 7-byte stray called `%p%` left behind by a shell
+  redirect. The first is deleted, the other two are now excluded in
+  `.vscodeignore`. Also gone: an empty `_to_delete/` folder holding a stale git
+  lock file, and seven old release `.vsix` files sitting in the repo root.
+
+- **`dist/hub.js` from the package.** The hub is a machine-wide HTTP MCP server
+  the owner starts from a clone with `npm run hub`, documented that way in
+  `docs/HUB.md`. Nothing in the installed extension spawns it, so its bundle was
+  dead weight — and it was roughly half the packaged size. It still builds, and
+  still runs from the repo exactly as before.
+
 - **The Completed panel at the foot of the plan library (0.8.0-rc.29).** Finished
   one-shots used to collect in a pinned strip below the plan list, newest first,
   capped at a third of the panel. It was there so they stopped pushing live plans

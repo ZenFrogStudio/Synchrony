@@ -41,6 +41,9 @@ scripts/**
 # starts from a clone with `npm run hub` (see docs/HUB.md). Nothing in the
 # installed extension spawns it, and its bundle was half the package.
 dist/hub.js
+# The Expo phone app is a separate project built and run on its own; its
+# node_modules alone would balloon the vsix.
+mobile/**
 test/**
 src/**
 dist-test/**

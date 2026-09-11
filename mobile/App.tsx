@@ -1,11 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { McpClient } from './lib/mcp';
 import { Route } from './lib/routes';
 import { setClient, setNavigateHome, STORAGE_KEY } from './lib/session';
-import { palette, shared } from './lib/theme';
+import { shared } from './lib/theme';
+import Instance from './screens/Instance';
+import Instances from './screens/Instances';
 import Pair from './screens/Pair';
 
 export default function App() {
@@ -33,28 +35,10 @@ export default function App() {
     <>
       <StatusBar style="light" />
       {route.screen === 'pair' && <Pair navigate={navigate} />}
-      {route.screen === 'instances' && <InstancesStub />}
-      {route.screen === 'instance' && <InstanceStub name={route.name} />}
+      {route.screen === 'instances' && <Instances navigate={navigate} />}
+      {route.screen === 'instance' && (
+        <Instance name={route.name} initialTab={route.tab} navigate={navigate} />
+      )}
     </>
-  );
-}
-
-/** Filled in by the next stage. */
-function InstancesStub() {
-  return (
-    <View style={shared.screen}>
-      <Text style={shared.heading}>Instances</Text>
-      <Text style={{ color: palette.textDim, marginTop: 8 }}>Coming in the next stage.</Text>
-    </View>
-  );
-}
-
-/** Filled in by the next stage. */
-function InstanceStub({ name }: { name: string }) {
-  return (
-    <View style={shared.screen}>
-      <Text style={shared.heading}>{name}</Text>
-      <Text style={{ color: palette.textDim, marginTop: 8 }}>Coming in the next stage.</Text>
-    </View>
   );
 }

@@ -79,6 +79,11 @@ export class McpClient {
     this.url = connectorUrl;
   }
 
+  /** The host name only, never the token — for display, e.g. a paired-desktop header. */
+  get host(): string {
+    return new URL(this.url).host;
+  }
+
   async initialize(): Promise<void> {
     await this.post({
       jsonrpc: '2.0',

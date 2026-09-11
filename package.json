@@ -269,7 +269,8 @@
     "pretest": "tsc -p tsconfig.test.json",
     "package": "npm run typecheck && npm run build && vsce package",
     "reinstall": "npm run package && node reinstall.js",
-    "hub": "node dist/hub.js"
+    "hub": "node dist/hub.js",
+    "hub:smoke": "node scripts/hub-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

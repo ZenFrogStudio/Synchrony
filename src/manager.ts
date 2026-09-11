@@ -27,7 +27,6 @@ type Inbound =
   | { type: 'loadPlan'; name: string }
   | { type: 'savePlan'; name: string; text: string }
   | { type: 'openInEditor'; name: string }
-  | { type: 'importPlan' }
   | { type: 'revealLibrary' }
   | { type: 'schedulePlan'; name: string; nextRunAt?: string }
   | {
@@ -373,19 +372,6 @@ export class Manager implements vscode.Disposable {
         await vscode.window.showTextDocument(vscode.Uri.file(filePath), {
           viewColumn: vscode.ViewColumn.Beside
         });
-        return;
-      }
-
-      case 'importPlan': {
-        const picked = await vscode.window.showOpenDialog({
-          canSelectMany: true,
-          openLabel: 'Copy into library',
-          filters: { Markdown: ['md'] }
-        });
-        for (const uri of picked ?? []) {
-          library.importFile(dir, uri.fsPath);
-        }
-        this.post();
         return;
       }
 

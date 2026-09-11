@@ -2,7 +2,7 @@
   "name": "chronos",
   "displayName": "Chronos",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.8.0-rc.84",
+  "version": "0.8.0-rc.86",
   "publisher": "Z3n",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -270,6 +270,7 @@
     "package": "npm run typecheck && npm run build && vsce package",
     "reinstall": "npm run package && node reinstall.js",
     "hub": "node dist/hub.js",
+    "hub:up": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/hub-up.ps1",
     "hub:smoke": "node scripts/hub-smoke.mjs"
   },
   "devDependencies": {

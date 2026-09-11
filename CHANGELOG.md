@@ -27,6 +27,45 @@ logic out; one of the moves also narrowed a guard.
 
 ### Added
 
+- **The hub reaches full manager/tasks tool parity.** The hub's MCP surface
+  used to cover only `list_instances`, task capture and plan requests — enough
+  for the published board, not enough to do anything with an instance once you
+  had one. It now carries every read and write the manager and Tasks panel
+  have: plans, schedule (create, update, unschedule, run now, chain), runs
+  (rerun, dismiss, cancel), tasks (edit, delete, run), transcripts and logs.
+  `scripts/hub-smoke.mjs` calls each tool once against a scratch instance and
+  fails loudly if a reply's shape drifts from what `mcp-actions.ts` actually
+  returns.
+
+- **A `.chronos/control/` command channel, and settings in the heartbeat.**
+  Two things the hub could not previously do, because they only make sense
+  inside a live editor window: cancel a running task, and change a
+  `chronos.*` setting. Each write goes through the same `<id>.json` →
+  `<id>.claimed.json` → `<id>.done.json` handshake `request-watcher.ts`
+  already uses for plan requests, so a live window claims a command, acts on
+  it through the real `vscode.workspace.getConfiguration` path, and reports
+  back — a command written while no window is open just waits on disk. The
+  heartbeat each window writes now also carries its settings page (`groups`
+  and current `values`), so a client that only sees heartbeats — no MCP
+  connection — can still show what the settings are, even if it cannot change
+  them.
+
+- **A phone remote.** `mobile/` is an Expo app carrying the same tool surface
+  as the hub — pairing (scan or paste the connector URL `hub:up` prints),
+  instances, tasks, plans, schedule, runs and transcripts, chained plans, and
+  now settings — so acting on an instance no longer needs a laptop open.
+  `npm run hub:up` now also prints a QR code for the connector URL alongside
+  the text, best-effort via `qrcode-terminal`. Reads work off the last
+  heartbeat with no editor window open; writes that need one (plan
+  generation, cancel, settings) queue on disk exactly as any other hub write
+  does, and the app says so rather than implying the action landed. See
+  `docs/HUB.md`'s Phone remote section and `mobile/README.md`.
+
+  This supersedes the older, narrower phone projection in `src/remote.ts` and
+  `src/command.ts` — a restricted read/answer-only surface built before the
+  hub existed. Neither file is touched: the hub's per-machine bearer token is
+  the model going forward, and the older code is simply left dormant.
+
 - **A dashboard HTML artifact with embedded CSS.**
   `dashboard/artifact.html` mirrors the browser dashboard without depending on
   an external stylesheet, so artifact viewers can render the existing design
@@ -603,6 +642,10 @@ logic out; one of the moves also narrowed a guard.
 - **Removed the manager header's New plan button.** Creating a plan already
   belongs to the sidebar, so the manager keeps Import and Chain in its library
   header without repeating the same action in two places.
+
+- **Removed the manager library header's Import button.** Copying `.md` files
+  into the library through a file picker is gone; dropping a file onto the
+  manager still imports it. The `importPlan` message type went with it.
 
 ### Security
 

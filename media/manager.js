@@ -2296,7 +2296,6 @@
     applySizes();
   });
 
-  document.getElementById('import-plan').addEventListener('click', () => send({ type: 'importPlan' }));
   document.getElementById('reveal-library').addEventListener('click', () => send({ type: 'revealLibrary' }));
   document.getElementById('reveal-results').addEventListener('click', () => send({ type: 'revealResults' }));
   document.getElementById('reveal-archive').addEventListener('click', () => send({ type: 'revealArchive' }));

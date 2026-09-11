@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { readInstance } from '../lib/api';
 import { usePoll } from '../lib/poll';
 import { Route } from '../lib/routes';
@@ -10,6 +10,7 @@ import PlansTab from '../tabs/PlansTab';
 import ScheduleTab from '../tabs/ScheduleTab';
 import RunsTab from '../tabs/RunsTab';
 import ChainTab from '../tabs/ChainTab';
+import SettingsTab from '../tabs/SettingsTab';
 
 interface Props {
   name: string;
@@ -72,7 +73,7 @@ export default function Instance({ name, initialTab, navigate }: Props) {
         ) : tab === 'chain' ? (
           <ChainTab snapshot={data} refresh={refresh} refreshing={refreshing} />
         ) : (
-          <StubPanel label={TAB_LABEL[tab]} />
+          <SettingsTab snapshot={data} refresh={refresh} refreshing={refreshing} />
         )}
       </View>
 
@@ -90,14 +91,6 @@ export default function Instance({ name, initialTab, navigate }: Props) {
         ))}
       </View>
     </View>
-  );
-}
-
-function StubPanel({ label }: { label: string }) {
-  return (
-    <ScrollView contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: palette.textDim }}>{label} coming in a later stage.</Text>
-    </ScrollView>
   );
 }
 

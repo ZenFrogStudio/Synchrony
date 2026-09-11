@@ -3,9 +3,10 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { spliceChain, wouldCycle } from './chain';
+import { wouldCycle } from './chain';
 import * as library from './library';
 import { readLock } from './lock';
+import { removeSeries } from './mcp-actions';
 import {
   planAnswers,
   planCwd,
@@ -759,29 +760,13 @@ tool(fullSurface,
     inputSchema: z.object({ id: z.string().describe('Series id, from list_schedule') })
   },
   async ({ id }) => {
-    const series = state().series.find((s) => s.id === id);
-    if (!series) {
+    const out = removeSeries(ensureWritable(), id);
+    if (!out.ok) {
       return refuse('No scheduled task has that id. Call list_schedule for the current ids.');
     }
 
-    updateState(ensureWritable().state, (current) => {
-      // Before the removal, while the link being closed up is still readable —
-      // the same order `Store.removeSeries` uses, for the same reason. After the
-      // filter there is nothing left for a follower to inherit a link from, and
-      // it would be left waiting on an id that is gone.
-      const splices = spliceChain(current.series, id);
-      current.series = current.series.filter((s) => s.id !== id);
-      current.runs = current.runs.filter((r) => r.seriesId !== id);
-      for (const { id: followerId, patch } of splices) {
-        const follower = current.series.find((s) => s.id === followerId);
-        if (follower) {
-          Object.assign(follower, patch);
-        }
-      }
-    });
-
-    note(`unscheduled ${series.fileName}`);
-    return reply(`Unscheduled ${series.fileName}. Its plan is still in the library.`);
+    note(`unscheduled ${out.value.fileName}`);
+    return reply(`Unscheduled ${out.value.fileName}. Its plan is still in the library.`);
   }
 );
 

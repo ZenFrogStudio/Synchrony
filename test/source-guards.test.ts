@@ -393,30 +393,40 @@ describe('source guards', () => {
     assert.match(server, /readOnlyHint: true/, 'nothing is marked read-only any more');
   });
 
-  it('should_close_up_the_chain_when_the_mcp_server_unschedules_a_series', () => {
-    // There are two paths that remove a series — the manager's `removeSeries`
-    // and this tool — and only the store's is covered by a unit test, because
-    // `mcp-server.ts` reads and writes the state file itself and no test here
-    // can call into it. Drop the splice from this side and the failure is
-    // almost entirely silent: the plan immediately behind the removed one is
-    // switched off with one notification, and everything behind *that* parks
-    // forever with none at all. `test/chain.test.ts` proves `spliceChain`
-    // works; this proves the tool still calls it.
-    const server = fs.readFileSync(path.join(SRC, 'mcp-server.ts'), 'utf8');
+  it('should_close_up_the_chain_when_a_series_is_removed', () => {
+    // There are two paths that remove a series — the manager's own
+    // `Store.removeSeries`, and `mcp-actions.ts`'s `removeSeries`, which the
+    // stdio server's `unschedule` tool now delegates to instead of carrying its
+    // own copy (so the hub gets the same rule for free). Drop the splice from
+    // there and the failure is almost entirely silent: the plan immediately
+    // behind the removed one is switched off with one notification, and
+    // everything behind *that* parks forever with none at all.
+    // `test/chain.test.ts` proves `spliceChain` works; this proves
+    // `removeSeries` still calls it, and that the stdio tool still calls
+    // `removeSeries` rather than reimplementing it.
+    const actions = fs.readFileSync(path.join(SRC, 'mcp-actions.ts'), 'utf8');
 
     assert.match(
-      server,
+      actions,
       /import \{[^}]*\bspliceChain\b[^}]*\} from '\.\/chain'/,
-      "src/mcp-server.ts no longer imports spliceChain from './chain'"
+      "src/mcp-actions.ts no longer imports spliceChain from './chain'"
     );
 
-    const start = server.indexOf("'unschedule'");
-    assert.ok(start > 0, 'src/mcp-server.ts no longer registers unschedule');
-    const handler = server.slice(start, server.indexOf('\n);', start));
-
+    const start = actions.indexOf('export function removeSeries');
+    assert.ok(start > 0, 'src/mcp-actions.ts no longer defines removeSeries');
+    const body = actions.slice(start, actions.indexOf('\n}', start));
     assert.ok(
-      handler.includes('spliceChain('),
-      'the unschedule handler must splice the chain, or its followers wait on a series that is gone'
+      body.includes('spliceChain('),
+      'removeSeries must splice the chain, or its followers wait on a series that is gone'
+    );
+
+    const server = fs.readFileSync(path.join(SRC, 'mcp-server.ts'), 'utf8');
+    const toolStart = server.indexOf("'unschedule'");
+    assert.ok(toolStart > 0, 'src/mcp-server.ts no longer registers unschedule');
+    const handler = server.slice(toolStart, server.indexOf('\n);', toolStart));
+    assert.ok(
+      handler.includes('removeSeries('),
+      'the unschedule handler must call the shared removeSeries rather than carrying its own copy'
     );
   });
 

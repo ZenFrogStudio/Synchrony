@@ -12,6 +12,7 @@ import {
 import { log } from './log';
 import { ChronosPaths } from './roots';
 import { Scheduler } from './scheduler';
+import { settingGroups, SettingGroup } from './settings';
 import { Store } from './store';
 import { nowUtc } from './time';
 
@@ -38,6 +39,9 @@ export class DashboardExporter implements vscode.Disposable {
   private readonly instanceId = `${process.pid}-${randomBytes(3).toString('hex')}`;
   private readonly startedAt = nowUtc();
   private readonly file = path.join(instancesDir(), `${this.instanceId}.json`);
+  /** The Settings page's shape, built once like `Manager`'s copy: a schema
+   *  cannot change at runtime, only the values read for it can. */
+  private readonly settingGroups: SettingGroup[];
 
   private timer: NodeJS.Timeout | undefined;
   private debounce: NodeJS.Timeout | undefined;
@@ -48,8 +52,17 @@ export class DashboardExporter implements vscode.Disposable {
     private readonly store: Store,
     private readonly scheduler: Scheduler,
     /** Resolved per write: the active folder moves, and the payload names it. */
-    private readonly paths: () => ChronosPaths
-  ) {}
+    private readonly paths: () => ChronosPaths,
+    /** `contributes.configuration.properties`, straight from the manifest —
+     *  the same source `Manager`'s Settings page is generated from. */
+    configProperties: Record<string, unknown>,
+    /** Engines this machine answered `--version` on. A thunk because the probe
+     *  in `extension.ts` runs after this exporter is constructed and can
+     *  change what it reports as it lands. */
+    private readonly availableAgents: () => string[]
+  ) {
+    this.settingGroups = settingGroups(configProperties);
+  }
 
   /**
    * Begins exporting. A heartbeat on a timer answers "is this window still
@@ -63,7 +76,15 @@ export class DashboardExporter implements vscode.Disposable {
     this.timer = setInterval(() => this.write('active'), HEARTBEAT_MS);
     this.subscriptions.push(
       this.store.onDidChange(() => this.refresh()),
-      this.scheduler.onDidChangeLeadership(() => this.refresh())
+      this.scheduler.onDidChangeLeadership(() => this.refresh()),
+      // So a setting applied through `control.ts` — or typed into VS Code's
+      // own Settings UI — shows up in the heartbeat within `refresh`'s debounce
+      // rather than waiting out the next 15s tick.
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('chronos')) {
+          this.refresh();
+        }
+      })
     );
   }
 
@@ -98,6 +119,7 @@ export class DashboardExporter implements vscode.Disposable {
 
   private write(status: 'active' | 'stopped'): void {
     const resolved = this.paths();
+    const config = vscode.workspace.getConfiguration('chronos');
 
     const payload = buildInstancePayload({
       instanceId: this.instanceId,
@@ -113,7 +135,16 @@ export class DashboardExporter implements vscode.Disposable {
       resultsPath: resolved.results,
       costLast7Days: this.store.costLast7Days(),
       series: this.store.getSeries(),
-      runs: this.store.getRuns()
+      runs: this.store.getRuns(),
+      settings: {
+        groups: this.settingGroups,
+        values: Object.fromEntries(
+          this.settingGroups
+            .flatMap((group) => group.fields)
+            .map((field) => [field.key, config.get(field.key, field.default)])
+        )
+      },
+      availableAgents: this.availableAgents()
     });
 
     try {

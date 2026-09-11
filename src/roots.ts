@@ -39,6 +39,11 @@ export interface ChronosPaths {
    * live window to open a planning session. See `requests.ts`.
    */
   requests: string;
+  /**
+   * Control commands from outside a window — cancelling a run, writing a
+   * setting — things only a live window can do. See `control.ts`.
+   */
+  control: string;
   results: string;
   logs: string;
   /** Plans and tasks removed from the library. Kept, never pruned. */
@@ -59,6 +64,7 @@ export function pathsFor(folder: string): ChronosPaths {
     pending: path.join(root, '.pending'),
     questions: path.join(root, 'questions'),
     requests: path.join(root, 'requests'),
+    control: path.join(root, 'control'),
     results: path.join(root, 'results'),
     logs: path.join(root, 'logs'),
     archive: path.join(root, 'archive'),
@@ -82,7 +88,15 @@ export function pathsFor(folder: string): ChronosPaths {
 export function ensureRoot(paths: ChronosPaths): boolean {
   const created = fs.mkdirSync(paths.root, { recursive: true }) !== undefined;
 
-  for (const dir of [paths.plans, paths.tasks, paths.questions, paths.requests, paths.results, paths.logs]) {
+  for (const dir of [
+    paths.plans,
+    paths.tasks,
+    paths.questions,
+    paths.requests,
+    paths.control,
+    paths.results,
+    paths.logs
+  ]) {
     fs.mkdirSync(dir, { recursive: true });
   }
 

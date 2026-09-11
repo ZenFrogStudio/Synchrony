@@ -113,6 +113,13 @@ export class Runner implements vscode.Disposable {
     return false;
   }
 
+  /** Whether this window's `Runner` holds the child process for `runId` — the
+   *  ownership `control-watcher.ts` checks before claiming a cancel, since a
+   *  deposed scheduler leader keeps its running processes (see `scheduler.ts`). */
+  owns(runId: string): boolean {
+    return this.active.has(runId);
+  }
+
   /** Remaining concurrency. Parallel agents in one repo collide, hence the cap. */
   freeSlots(): number {
     const max = config().get<number>('maxConcurrent', 1);

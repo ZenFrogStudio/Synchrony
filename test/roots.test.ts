@@ -28,6 +28,8 @@ describe('pathsFor', () => {
     assert.equal(paths.tasks, path.join(root, 'tasks'));
     assert.equal(paths.pending, path.join(root, '.pending'));
     assert.equal(paths.questions, path.join(root, 'questions'));
+    assert.equal(paths.requests, path.join(root, 'requests'));
+    assert.equal(paths.control, path.join(root, 'control'));
     assert.equal(paths.results, path.join(root, 'results'));
     assert.equal(paths.logs, path.join(root, 'logs'));
     assert.equal(paths.archive, path.join(root, 'archive'));
@@ -57,6 +59,8 @@ describe('ensureRoot', () => {
       paths.plans,
       paths.tasks,
       paths.questions,
+      paths.requests,
+      paths.control,
       paths.results,
       paths.logs
     ]) {

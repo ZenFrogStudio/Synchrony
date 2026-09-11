@@ -2,8 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { adoptGlobal, claimAdoption } from './adopt';
-import { AGENTS } from './agents';
+import { AGENTS, DEFAULT_AGENT } from './agents';
 import { consolidate } from './consolidate';
+import { ControlWatcher } from './control-watcher';
 import { DashboardExporter } from './dashboard-export';
 import { seedLibrary } from './library';
 import { initLog, log, logConsolidation, logRetirement, pruneLogs } from './log';
@@ -19,7 +20,7 @@ import { writeState } from './state-file';
 import { StatusItem } from './status';
 import { Store } from './store';
 import { TaskView } from './tasks';
-import { STORE_KEY } from './types';
+import { AgentId, STORE_KEY } from './types';
 
 /** Which folder this window is showing. See `activeFolder` below. */
 const ACTIVE_FOLDER_KEY = 'chronos.activeFolder';
@@ -64,11 +65,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const scheduler = new Scheduler(store, runner, () => paths().lock, retire);
 
+  // Engines this machine answered `--version` on, refreshed once the probe
+  // below lands. Read by the dashboard heartbeat the same way `Manager` reads
+  // it, through a thunk rather than a value frozen at construction time.
+  let availableAgentIds: AgentId[] = [DEFAULT_AGENT];
+
   // This window's status, written to a shared directory under the user's home
   // so a browser can show every window at once. Read-only and one-way: nothing
   // outside this process can reach the schedule through it. See
   // `dashboard-export.ts`.
-  const dashboard = new DashboardExporter(store, scheduler, paths);
+  const dashboard = new DashboardExporter(
+    store,
+    scheduler,
+    paths,
+    context.extension.packageJSON.contributes.configuration.properties,
+    () => availableAgentIds
+  );
 
   /**
    * Staging folders left by planning sessions that ended with the window rather
@@ -144,6 +156,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     manager.restartWatching();
     stateWatcher.restart();
     taskView.restartRequests();
+    controlWatcher.restart();
     manager.post();
     // Explicitly, rather than leaning on the store change `retarget` fires: the
     // folder name, library path and results path in the heartbeat all move with
@@ -172,8 +185,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // activity-bar click produces.
   const taskView = new TaskView(context.extensionUri, paths, store, scheduler, manager);
 
+  // Cancel and settings commands from outside a window — the hub, a remote
+  // board — landing in this folder's `.chronos/control/`. See `control.ts`.
+  const controlWatcher = new ControlWatcher(
+    paths,
+    () => scheduler.leading,
+    runner,
+    scheduler,
+    context.extension.packageJSON.contributes.configuration.properties
+  );
+
   stateWatcher.restart();
   taskView.restartRequests();
+  controlWatcher.restart();
 
   // Re-pointed at this install every activation, so configs already registered
   // in other clients keep working across an update. See `mcpLauncherPath`.
@@ -190,6 +214,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     status,
     taskView,
     stateWatcher,
+    controlWatcher,
     vscode.window.registerWebviewViewProvider(TaskView.viewType, taskView),
     vscode.window.registerWebviewPanelSerializer(Manager.viewType, {
       // Restores the tab after a window reload instead of holding it in memory.
@@ -259,9 +284,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }
 
-    manager.setAvailableAgents(
-      probes.filter((p) => !p.problem || p.agent.id === 'claude').map((p) => p.agent.id)
-    );
+    availableAgentIds = probes
+      .filter((p) => !p.problem || p.agent.id === 'claude')
+      .map((p) => p.agent.id);
+    manager.setAvailableAgents(availableAgentIds);
+    // The heartbeat already went out once with the optimistic default above;
+    // this is what corrects it once the probe actually lands.
+    dashboard.refresh();
   });
 
   log.info(`Chronos activated on ${paths().folder}`);

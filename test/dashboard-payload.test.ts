@@ -306,6 +306,25 @@ describe('dashboard payload — run detail', () => {
   });
 });
 
+describe('dashboard payload — settings and agents', () => {
+  it('should_carry_settings_and_available_agents_when_supplied', () => {
+    const payload = build({
+      settings: { groups: [], values: { maxConcurrent: 2 } },
+      availableAgents: ['claude', 'codex']
+    });
+
+    assert.deepEqual(payload.settings, { groups: [], values: { maxConcurrent: 2 } });
+    assert.deepEqual(payload.availableAgents, ['claude', 'codex']);
+  });
+
+  it('should_leave_settings_and_available_agents_absent_when_not_supplied', () => {
+    const payload = build();
+
+    assert.equal(payload.settings, undefined);
+    assert.equal(payload.availableAgents, undefined);
+  });
+});
+
 describe('dashboard payload — where heartbeats live', () => {
   it('should_put_every_window_in_one_shared_directory_under_the_home_folder', () => {
     assert.equal(

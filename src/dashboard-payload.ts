@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import { buildActivity } from './activity';
+import type { SettingGroup } from './settings';
 import { truncate } from './time';
 import { RunStatus, TaskRun, TaskSeries, isFinished } from './types';
 
@@ -92,6 +93,13 @@ export interface DashboardInstance {
   recent: DashboardEntry[];
   missed: DashboardEntry[];
   failures: DashboardEntry[];
+  /** The Settings page's shape and current values, for a remote caller writing
+   *  a `control.ts` `updateSetting` command. Absent when the exporting window
+   *  was not given the manifest's configuration properties. */
+  settings?: { groups: SettingGroup[]; values: Record<string, unknown> };
+  /** Engines this window found reachable, for a remote caller choosing which
+   *  agent to schedule against. Absent before the probe has landed. */
+  availableAgents?: string[];
 }
 
 /** Everything the caller has to look up before the shape can be decided. */
@@ -112,6 +120,8 @@ export interface InstanceFacts {
   costLast7Days: number;
   series: readonly TaskSeries[];
   runs: readonly TaskRun[];
+  settings?: { groups: SettingGroup[]; values: Record<string, unknown> };
+  availableAgents?: string[];
 }
 
 /** Where every window on this machine writes its heartbeat. */
@@ -207,7 +217,9 @@ export function buildInstancePayload(facts: InstanceFacts): DashboardInstance {
         })
       )
       .sort((a, b) => b.at.localeCompare(a.at))
-      .slice(0, MAX_LISTED)
+      .slice(0, MAX_LISTED),
+    settings: facts.settings,
+    availableAgents: facts.availableAgents
   };
 }
 

@@ -202,7 +202,20 @@ export function PromptModal({
   );
 }
 
-const sheetStyles = StyleSheet.create({
+///////////////////////////*Sheet*////////////////////////////
+
+/** The bare backdrop+card every custom sheet (WhenPicker, edit forms) builds on. */
+export function Sheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: ReactNode }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={sheetStyles.backdrop}>
+        <View style={sheetStyles.sheet}>{children}</View>
+      </View>
+    </Modal>
+  );
+}
+
+export const sheetStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: '#000000aa',

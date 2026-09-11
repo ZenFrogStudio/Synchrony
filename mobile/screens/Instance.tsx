@@ -6,6 +6,10 @@ import { Route } from '../lib/routes';
 import { palette, shared } from '../lib/theme';
 import { Banner } from '../components/ui';
 import TasksTab from '../tabs/TasksTab';
+import PlansTab from '../tabs/PlansTab';
+import ScheduleTab from '../tabs/ScheduleTab';
+import RunsTab from '../tabs/RunsTab';
+import ChainTab from '../tabs/ChainTab';
 
 interface Props {
   name: string;
@@ -59,6 +63,14 @@ export default function Instance({ name, initialTab, navigate }: Props) {
           <Text style={{ color: palette.textDim }}>Loading…</Text>
         ) : tab === 'tasks' ? (
           <TasksTab snapshot={data} refresh={refresh} refreshing={refreshing} />
+        ) : tab === 'plans' ? (
+          <PlansTab snapshot={data} refresh={refresh} refreshing={refreshing} />
+        ) : tab === 'schedule' ? (
+          <ScheduleTab snapshot={data} refresh={refresh} refreshing={refreshing} />
+        ) : tab === 'runs' ? (
+          <RunsTab snapshot={data} refresh={refresh} refreshing={refreshing} />
+        ) : tab === 'chain' ? (
+          <ChainTab snapshot={data} refresh={refresh} refreshing={refreshing} />
         ) : (
           <StubPanel label={TAB_LABEL[tab]} />
         )}

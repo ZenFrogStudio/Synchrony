@@ -47,6 +47,19 @@ if (!found) {
   process.exit(1);
 }
 
+// Ids this extension shipped under before `z3n.synchrony`. The editor treats
+// each as its own extension, so one left installed activates alongside the new
+// build — two schedulers on one folder, and the loser reports "another window"
+// that does not exist. That is exactly how rc.86 sat next to 0.9.0 for a day.
+const RETIRED_IDS = ['onemedialabs.chronus', 'onemedialabs.chronos', 'z3n.chronos'];
+
+const listed = spawnSync(found, ['--list-extensions'], { shell: true, encoding: 'utf8' });
+const installed = (listed.stdout || '').split(/\r?\n/).map((id) => id.trim().toLowerCase());
+for (const id of RETIRED_IDS.filter((id) => installed.includes(id))) {
+  console.log(`Removing the older build ${id} — it was running a second scheduler on every folder.`);
+  spawnSync(found, ['--uninstall-extension', id], { stdio: 'inherit', shell: true });
+}
+
 // --force because the version has usually not changed, and without it the editor
 // declines to reinstall and the stale copy stays put.
 const result = spawnSync(found, ['--install-extension', vsix, '--force'], {

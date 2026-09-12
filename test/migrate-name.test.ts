@@ -9,6 +9,7 @@ import {
   LEGACY_ROOT_DIR,
   migrateHomeDir,
   migrateRoot,
+  oldCopies,
   ROOT_DIR,
   rootDirFor
 } from '../src/migrate-name';
@@ -77,5 +78,31 @@ describe('rename — home directory', () => {
   it('should_point_at_the_new_dir_when_neither_exists', () => {
     assert.equal(dashboardDirFor(dir), path.join(dir, '.synchrony-dashboard'));
     assert.equal(migrateHomeDir(dir), 'none');
+  });
+});
+
+describe('rename — older builds still installed', () => {
+  const self = { id: 'Z3n.synchrony', name: 'synchrony', version: '0.9.1' };
+  const chronos = { id: 'z3n.chronos', name: 'chronos', version: '0.8.0-rc.86' };
+  const chronus = { id: 'onemedialabs.chronus', name: 'chronus', version: '0.8.0-rc.9' };
+  const unrelated = { id: 'ms-python.python', name: 'python', version: '2026.1.0' };
+
+  it('should_report_every_previous_id_and_nothing_else', () => {
+    const found = oldCopies([unrelated, chronos, self, chronus], self.id);
+    assert.deepEqual(found, [chronos, chronus]);
+  });
+
+  it('should_not_report_itself_whatever_the_editor_does_to_the_case', () => {
+    // The manifest says `Z3n`; the editor's registry says `z3n`.
+    assert.deepEqual(oldCopies([{ ...self, id: 'z3n.synchrony' }], 'Z3n.synchrony'), []);
+  });
+
+  it('should_report_the_same_name_under_another_publisher', () => {
+    const marketplace = { id: 'someone-else.synchrony', name: 'synchrony', version: '0.9.0' };
+    assert.deepEqual(oldCopies([self, marketplace], self.id), [marketplace]);
+  });
+
+  it('should_report_nothing_when_only_this_build_is_installed', () => {
+    assert.deepEqual(oldCopies([self, unrelated], self.id), []);
   });
 });

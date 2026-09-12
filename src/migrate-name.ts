@@ -63,6 +63,35 @@ export function dashboardDirFor(home: string = os.homedir()): string {
   return path.join(home, DASHBOARD_DIR);
 }
 
+/** What the editor reports for one installed extension. */
+export interface InstalledExtension {
+  /** `publisher.name`, in whatever case the editor keeps it. */
+  id: string;
+  /** The manifest's `name` — the half of the id that survived the publisher change. */
+  name: string;
+  version: string;
+}
+
+/**
+ * Package names this product has shipped under. Ids are `publisher.name`, and
+ * both halves have changed (`onemedialabs.chronus` → `z3n.chronos` →
+ * `z3n.synchrony`), so the name is matched on its own.
+ */
+const PRODUCT_NAMES = ['chronus', 'chronos', 'synchrony'];
+
+/**
+ * Older builds still installed under a previous id. The editor sees each id as
+ * a separate extension, so they all activate in the same window — one
+ * scheduler each, on the same folder — and whichever loses the lock tells the
+ * user that "another window" holds it, when no other window exists.
+ */
+export function oldCopies(installed: InstalledExtension[], selfId: string): InstalledExtension[] {
+  const self = selfId.toLowerCase();
+  return installed.filter(
+    (e) => e.id.toLowerCase() !== self && PRODUCT_NAMES.includes(e.name.toLowerCase())
+  );
+}
+
 function renameIfLegacy(from: string, to: string): MigrateOutcome {
   if (fs.existsSync(to)) return 'current';
   if (!fs.existsSync(from)) return 'none';

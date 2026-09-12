@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-12
+
+### Fixed
+
+- **"Another window is open on this same folder" with no other window open.**
+  The rename left the previous build (`z3n.chronos`) installed beside the new
+  one (`z3n.synchrony`). The editor treats the two ids as separate extensions,
+  so both activated in every window, each with its own scheduler on the same
+  folder; whichever lost the lock reported the other as "another window".
+  Now, on activation, any build still installed under a previous id
+  (`z3n.chronos`, `onemedialabs.chronos`, `onemedialabs.chronus`) is named in a
+  warning with an **Uninstall** button, and `npm run reinstall` removes those
+  ids before installing. `oldCopies` in `src/migrate-name.ts` is the rule.
+
 ## [0.9.0] - 2026-09-12
 
 Chronos is now Synchrony. Every name moved with it: the extension id and

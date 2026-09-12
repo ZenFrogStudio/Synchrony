@@ -13,7 +13,7 @@ import { MCP_CLIENTS } from './mcp-clients';
 import { migrate } from './migrate';
 import { sweepQuestions } from './questions';
 import { retireCompletedPlans } from './retire';
-import { MigrateOutcome, migrateRoot } from './migrate-name';
+import { MigrateOutcome, migrateRoot, oldCopies } from './migrate-name';
 import { SynchronyPaths, ensureRoot, pathsFor, sweepPending } from './roots';
 import { probeAgent, Runner } from './runner';
 import { Scheduler } from './scheduler';
@@ -31,6 +31,7 @@ const ADOPTED_KEY = 'synchrony.adoptedInto';
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   initLog(context);
   log.info(`Synchrony ${context.extension.packageJSON.version} activating`);
+  warnAboutOldCopies(context);
 
   let active = activeFolder(context);
   // Chronos -> Synchrony, once per install: the folder's `.chronos` becomes
@@ -307,6 +308,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 export function deactivate(): void {
   log.info('Synchrony deactivating');
+}
+
+/**
+ * A build installed under a previous id (`z3n.chronos`, `onemedialabs.chronus`)
+ * is a separate extension to the editor, so it activates right alongside this
+ * one. Two schedulers then compete for one folder's lock, and the loser's only
+ * vocabulary for that is "another window is open on this same folder" — which
+ * sends the user hunting for a window that does not exist. Name the actual
+ * cause, and put the fix on the button.
+ */
+function warnAboutOldCopies(context: vscode.ExtensionContext): void {
+  const installed = vscode.extensions.all.map((e) => ({
+    id: e.id,
+    name: String(e.packageJSON.name ?? ''),
+    version: String(e.packageJSON.version ?? '')
+  }));
+  for (const copy of oldCopies(installed, context.extension.id)) {
+    log.warn(`an older build, ${copy.id} ${copy.version}, is installed alongside this one`);
+    void vscode.window
+      .showWarningMessage(
+        `An older copy of Synchrony (${copy.id} ${copy.version}) is still installed and is ` +
+          'running its own schedule on this folder. Uninstall it, then reload the window.',
+        'Uninstall'
+      )
+      .then((choice) => {
+        if (choice === 'Uninstall') {
+          void vscode.commands.executeCommand('workbench.extensions.uninstallExtension', copy.id);
+        }
+      });
+  }
 }
 
 ///////////////////////////*Schedules written from outside*////////////////////////////

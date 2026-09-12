@@ -2,7 +2,6 @@ import { createMcpHandler, McpServer, StandardSchemaWithJSON } from '@modelconte
 import { randomBytes, timingSafeEqual } from 'crypto';
 import * as fs from 'fs';
 import * as http from 'http';
-import * as os from 'os';
 import * as path from 'path';
 import { Readable } from 'stream';
 import { z } from 'zod';
@@ -42,12 +41,13 @@ import {
 import { planAnswers } from './mcp-tools';
 import { listQuestions, readQuestion, recordAnswers } from './questions';
 import { readOutcome as readRequestOutcome, requestStatus } from './requests';
-import { ChronosPaths, pathsFor, ROOT_DIR } from './roots';
+import { dashboardDirFor, hasRoot, migrateHomeDir, migrateRoot } from './migrate-name';
+import { SynchronyPaths, pathsFor } from './roots';
 import { readState } from './state-file';
 import { MAX_CHAIN_DELAY_MINUTES } from './types';
 
 /**
- * The Chronos hub: one MCP server, over HTTP, for every project on this machine.
+ * The Synchrony hub: one MCP server, over HTTP, for every project on this machine.
  *
  * `mcp-server.ts` is the door an agent uses — spawned per project, stdio, no
  * network. This is the door the *owner* uses from somewhere else: a phone, a
@@ -63,7 +63,7 @@ import { MAX_CHAIN_DELAY_MINUTES } from './types';
  * //Steps to completion:
  *
  *   //Read the roots to scan and the token to require from argv / env;
- *   //Discover instances: every immediate child of a root with a `.chronos`;
+ *   //Discover instances: every immediate child of a root with a `.synchrony`;
  *   //Register the read tools, each scoped by `instance`;
  *   //Register the write tools, each going through mcp-actions.ts;
  *   //Bridge Node's http server to the SDK's fetch-shaped handler and listen.
@@ -91,14 +91,17 @@ import { MAX_CHAIN_DELAY_MINUTES } from './types';
 
 ///////////////////////////*Process setup*////////////////////////////
 
-const VERSION = process.env.CHRONOS_VERSION ?? '0.0.0-dev';
+const VERSION = process.env.SYNCHRONY_VERSION ?? '0.0.0-dev';
 const DEFAULT_PORT = 7433;
 const DEFAULT_MAX_RETRIES = 3;
-const HUB_DIR = path.join(os.homedir(), '.chronos-dashboard');
+// Renamed from `.chronos-dashboard` if that is what this machine has; the token
+// and every heartbeat move with it.
+migrateHomeDir();
+const HUB_DIR = dashboardDirFor();
 const DEFAULT_TOKEN_FILE = path.join(HUB_DIR, 'hub.token');
 
 function note(text: string): void {
-  process.stderr.write(`[chronos-hub] ${text}\n`);
+  process.stderr.write(`[synchrony-hub] ${text}\n`);
 }
 
 /** Every value after each occurrence of `flag`. */
@@ -116,8 +119,8 @@ function argValues(argv: readonly string[], flag: string): string[] {
 const ARGV = process.argv.slice(2);
 const ROOTS = argValues(ARGV, '--root').map((r) => path.resolve(r));
 const FOLDERS = argValues(ARGV, '--folder').map((f) => path.resolve(f));
-const PORT = Number(argValues(ARGV, '--port')[0] ?? process.env.CHRONOS_HUB_PORT ?? DEFAULT_PORT);
-const HOST = argValues(ARGV, '--host')[0] ?? process.env.CHRONOS_HUB_HOST ?? '127.0.0.1';
+const PORT = Number(argValues(ARGV, '--port')[0] ?? process.env.SYNCHRONY_HUB_PORT ?? DEFAULT_PORT);
+const HOST = argValues(ARGV, '--host')[0] ?? process.env.SYNCHRONY_HUB_HOST ?? '127.0.0.1';
 const TOKEN_FILE = argValues(ARGV, '--token-file')[0] ?? DEFAULT_TOKEN_FILE;
 
 if (!ROOTS.length && !FOLDERS.length) {
@@ -131,7 +134,7 @@ if (!ROOTS.length && !FOLDERS.length) {
  * nothing and the secret is on screen exactly once.
  */
 function loadToken(): string {
-  const fromEnv = process.env.CHRONOS_HUB_TOKEN?.trim();
+  const fromEnv = process.env.SYNCHRONY_HUB_TOKEN?.trim();
   if (fromEnv) {
     return fromEnv;
   }
@@ -186,18 +189,21 @@ function pathWithoutToken(pathname: string): string | undefined {
 
 interface Instance {
   name: string;
-  paths: ChronosPaths;
+  paths: SynchronyPaths;
 }
 
 /**
  * Every project this hub speaks for, re-read on each call so a folder created
  * after start-up appears without a restart. A project is a folder with a
- * `.chronos` directory in it; the folder's own name is the instance name.
+ * `.synchrony` directory in it; the folder's own name is the instance name.
  */
 function discover(): Instance[] {
   const seen = new Map<string, Instance>();
   const add = (folder: string) => {
-    if (!fs.existsSync(path.join(folder, ROOT_DIR))) return;
+    if (!hasRoot(folder)) return;
+    // A project still on `.chronos` is renamed the first time the hub sees it.
+    // `failed` (a handle held by an older window) is served under the old name.
+    if (migrateRoot(folder) === 'migrated') note(`migrated ${folder}: .chronos -> .synchrony`);
     const name = path.basename(folder);
     if (!seen.has(name.toLowerCase())) {
       seen.set(name.toLowerCase(), { name, paths: pathsFor(folder) });
@@ -327,12 +333,12 @@ function scoped<A extends { instance: string }, R>(
 ///////////////////////////*The tool surface*////////////////////////////
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: 'chronos-hub', version: VERSION }, { capabilities: { tools: {} } });
+  const server = new McpServer({ name: 'synchrony-hub', version: VERSION }, { capabilities: { tools: {} } });
 
   // ---------- read ----------
 
   tool(server, 'list_instances', {
-    title: 'List Chronos instances',
+    title: 'List Synchrony instances',
     annotations: READS,
     description:
       'Every project this hub speaks for, with whether a VS Code window is live on it, what is ' +
@@ -579,7 +585,7 @@ function buildServer(): McpServer {
     annotations: WRITES,
     description:
       'Asks a live VS Code window on that instance to open a planning session for an inbox task. ' +
-      'The session asks its questions through Chronos (see list_questions / answer_question) and ' +
+      'The session asks its questions through Synchrony (see list_questions / answer_question) and ' +
       'lands the plan in the library. Nothing is scheduled.',
     inputSchema: z.object({
       instance: instanceArg,
@@ -915,13 +921,13 @@ function buildServer(): McpServer {
     title: 'Change a global setting',
     annotations: WRITES,
     description:
-      'Writes one Chronos setting through a live editor window, the same validation a setting ' +
+      'Writes one Synchrony setting through a live editor window, the same validation a setting ' +
       'typed into the manager’s Settings page gets. Settings are global — shared by every ' +
       'instance on this machine, not scoped to the folder named here. Needs a live window on this ' +
       'folder; if none answers within a few seconds the command is left on disk for one to pick up.',
     inputSchema: z.object({
       instance: instanceArg,
-      key: z.string().describe('Setting key with no "chronos." prefix, e.g. "maxRetries"'),
+      key: z.string().describe('Setting key with no "synchrony." prefix, e.g. "maxRetries"'),
       value: z.unknown()
     })
   }, async (args) =>
@@ -1058,7 +1064,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   const found = discover();
-  note(`chronos-hub ${VERSION} listening on http://${HOST}:${PORT}`);
+  note(`synchrony-hub ${VERSION} listening on http://${HOST}:${PORT}`);
   note(`serving ${found.length} instance(s): ${found.map((i) => i.name).join(', ') || '(none yet)'}`);
   note(`token file: ${TOKEN_FILE}`);
   note(`connector URL (put your tunnel's https host in front of the path): http://${HOST}:${PORT}/${TOKEN}/mcp`);

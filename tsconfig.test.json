@@ -27,6 +27,7 @@
     "src/mcp-actions.ts",
     "src/mcp-clients.ts",
     "src/mcp-tools.ts",
+    "src/migrate-name.ts",
     "src/migrate.ts",
     "src/outcome.ts",
     "src/questions.ts",

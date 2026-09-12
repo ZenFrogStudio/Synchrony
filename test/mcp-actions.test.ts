@@ -24,7 +24,7 @@ import {
   summarizeInstance
 } from '../src/mcp-actions';
 import { listUnclaimed } from '../src/requests';
-import { ChronosPaths, ensureRoot, pathsFor } from '../src/roots';
+import { SynchronyPaths, ensureRoot, pathsFor } from '../src/roots';
 import { readState, updateState } from '../src/state-file';
 import { TaskRun, TaskSeries } from '../src/types';
 
@@ -34,11 +34,11 @@ import { TaskRun, TaskSeries } from '../src/types';
  */
 
 let folder: string;
-let paths: ChronosPaths;
+let paths: SynchronyPaths;
 const inAnHour = () => new Date(Date.now() + 60 * 60_000).toISOString();
 
 beforeEach(() => {
-  folder = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-actions-'));
+  folder = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-actions-'));
   paths = pathsFor(folder);
 });
 

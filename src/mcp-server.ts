@@ -26,18 +26,18 @@ import {
   recordAnswers,
   writeQuestion
 } from './questions';
-import { pathsFor, ensureRoot, resolveLinks, ChronosPaths } from './roots';
+import { pathsFor, ensureRoot, resolveLinks, SynchronyPaths } from './roots';
 import { createSeries, stampRepeatEnd } from './series';
 import { readState, updateState } from './state-file';
-import { ChronosState, TaskRun, TaskSeries } from './types';
+import { SynchronyState, TaskRun, TaskSeries } from './types';
 
 /**
- * Chronos as an MCP server: the door any coding agent drives it through.
+ * Synchrony as an MCP server: the door any coding agent drives it through.
  *
  * Spawned as a child process by the agent (Claude Code, Codex, Cursor), scoped
  * to one project folder given as `--folder`, and speaking JSON-RPC over stdio.
  * It never talks to VS Code and never opens a port — it reads and writes the
- * same `.chronos` tree the extension does, and the open window notices.
+ * same `.synchrony` tree the extension does, and the open window notices.
  *
  * It holds no state. Every call re-reads the folder and writes back through
  * `updateState`, whose read-modify-write is exactly what lets two editor windows
@@ -69,7 +69,7 @@ import { ChronosState, TaskRun, TaskSeries } from './types';
  *   follows links rather than only comparing path strings: a symlink or junction
  *   inside the project reads as a child of it however it is spelled, and the
  *   agent this rule contains is the one that can create it.
- * - **Writes stay under `--folder`'s `.chronos`,** and the tree is created on
+ * - **Writes stay under `--folder`'s `.synchrony`,** and the tree is created on
  *   the first write rather than at start-up, so an agent merely listing an
  *   unconfigured project does not litter it.
  *
@@ -86,11 +86,11 @@ import { ChronosState, TaskRun, TaskSeries } from './types';
  * announces to every client that connects. The fallback is what the test build
  * sees, which does not run esbuild.
  */
-const VERSION = process.env.CHRONOS_VERSION ?? '0.0.0-dev';
+const VERSION = process.env.SYNCHRONY_VERSION ?? '0.0.0-dev';
 
 /**
  * Retries for a series an agent schedules. The manifest default for
- * `chronos.maxRetries`, restated rather than read: settings live in VS Code and
+ * `synchrony.maxRetries`, restated rather than read: settings live in VS Code and
  * this process has no way to reach them. A caller who wants something else
  * passes `maxRetries`, and the manager can change it afterwards either way.
  */
@@ -98,7 +98,7 @@ const DEFAULT_MAX_RETRIES = 3;
 
 /** stderr, because stdout is the wire. The agent surfaces this in its own log. */
 function note(text: string): void {
-  process.stderr.write(`[chronos-mcp] ${text}\n`);
+  process.stderr.write(`[synchrony-mcp] ${text}\n`);
 }
 
 /**
@@ -146,7 +146,7 @@ requireFolder(FOLDER);
  *
  * Two things fall out of that. An unattended session cannot put anything on the
  * schedule even if it decides to, and — since the user's own agent config
- * usually already registers a full `chronos` server — the session is not handed
+ * usually already registers a full `synchrony` server — the session is not handed
  * two overlapping tool lists to choose between.
  */
 const ASK_ONLY = ARGV.includes('--ask-only');
@@ -161,10 +161,10 @@ const PENDING = argValue(ARGV, '--pending');
 /** What this session is working on, stamped onto every question it asks. */
 const SOURCE = argValue(ARGV, '--source');
 
-const paths = (): ChronosPaths => pathsFor(FOLDER);
+const paths = (): SynchronyPaths => pathsFor(FOLDER);
 
 /** Called before every write, never before a read. See the header. */
-function ensureWritable(): ChronosPaths {
+function ensureWritable(): SynchronyPaths {
   const resolved = paths();
   ensureRoot(resolved);
   return resolved;
@@ -279,7 +279,7 @@ function whereToRun(cwd: string | undefined) {
   return cwd === undefined ? undefined : planCwd(cwd, FOLDER, resolveLinks);
 }
 
-const state = (): ChronosState => readState(paths().state).state;
+const state = (): SynchronyState => readState(paths().state).state;
 
 /** The view of a series an agent gets. `filePath` is included for orientation
  *  only — nothing may be scheduled by path, and no tool accepts one back. */
@@ -329,7 +329,7 @@ function describeRun(run: TaskRun) {
 ///////////////////////////*The tool surface*////////////////////////////
 
 const server = new McpServer(
-  { name: 'chronos', version: VERSION },
+  { name: 'synchrony', version: VERSION },
   { capabilities: { tools: {} } }
 );
 
@@ -374,7 +374,7 @@ tool(fullSurface,
     title: 'List plans',
     annotations: READS,
     description:
-      'The Chronos plan library for this project: every Markdown plan that can be scheduled. ' +
+      'The Synchrony plan library for this project: every Markdown plan that can be scheduled. ' +
       'Newest first. A plan is addressed by its `name` everywhere else in this server.',
     inputSchema: z.object({})
   },
@@ -414,7 +414,7 @@ tool(fullSurface,
     annotations: READS,
     description:
       'The capture inbox: one-line jobs noted down but not yet written up as a plan. ' +
-      'These are what the Chronos sidebar shows.',
+      'These are what the Synchrony sidebar shows.',
     inputSchema: z.object({})
   },
   async () => {
@@ -498,7 +498,7 @@ tool(fullSurface,
     title: 'Capture a task',
     annotations: WRITES,
     description:
-      'Notes a one-line job into the Chronos inbox, where it appears in the sidebar of any open ' +
+      'Notes a one-line job into the Synchrony inbox, where it appears in the sidebar of any open ' +
       'VS Code window on this project. Capture only — nothing is scheduled and nothing runs.',
     inputSchema: z.object({ text: z.string().min(1).max(2000).describe('What needs doing') })
   },
@@ -509,7 +509,7 @@ tool(fullSurface,
     }
     const task = library.createPlan(ensureWritable().tasks, clean, `${clean}\n`);
     note(`captured task ${task.name}`);
-    return reply(`Captured "${task.title}" in the Chronos inbox as ${task.name}.`);
+    return reply(`Captured "${task.title}" in the Synchrony inbox as ${task.name}.`);
   }
 );
 
@@ -629,7 +629,7 @@ tool(fullSurface,
     return replyJson({
       scheduled: series.fileName,
       ...describeSeries(series),
-      note: 'It runs in `auto` permission mode. Raise that in the Chronos manager if it needs more.',
+      note: 'It runs in `auto` permission mode. Raise that in the Synchrony manager if it needs more.',
       ...(queued ? { queued } : {})
     });
   }
@@ -670,7 +670,7 @@ tool(fullSurface,
   },
   async (args) => {
     // Read and validate before `ensureWritable`, so a call that is going to be
-    // refused does not leave a `.chronos` tree behind in an unconfigured folder.
+    // refused does not leave a `.synchrony` tree behind in an unconfigured folder.
     const series = state().series.find((s) => s.id === args.id);
 
     const where = whereToRun(args.cwd);
@@ -909,7 +909,7 @@ tool(fullSurface,
     title: 'List questions waiting for an answer',
     annotations: READS,
     description:
-      'Questions a Chronos planning session has asked and is still waiting on, newest first. ' +
+      'Questions a Synchrony planning session has asked and is still waiting on, newest first. ' +
       'Answer one with answer_question.',
     inputSchema: z.object({
       includeAnswered: z
@@ -992,7 +992,7 @@ if (PENDING) {
       title: 'Submit the finished plan',
       annotations: WRITES,
       description:
-        'Delivers the finished plan to Chronos, which files it in this project’s plan library ' +
+        'Delivers the finished plan to Synchrony, which files it in this project’s plan library ' +
         'and clears the task it came from. Call this instead of writing the plan to a file ' +
         'yourself. Does not schedule it — a person does that.',
       inputSchema: z.object({
@@ -1014,7 +1014,7 @@ if (PENDING) {
       const plan = library.createPlan(destination, title, body);
       note(`submitted plan ${plan.name}`);
       return reply(
-        `Delivered ${plan.name}. Chronos is filing it in the plan library now, and the task ` +
+        `Delivered ${plan.name}. Synchrony is filing it in the plan library now, and the task ` +
           'it came from is done. Nothing else is needed.'
       );
     }

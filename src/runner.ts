@@ -264,7 +264,7 @@ export class Runner implements vscode.Disposable {
     });
 
     child.on('error', (err) => {
-      active.logStream.write(`\n[chronos] spawn error: ${String(err)}\n`);
+      active.logStream.write(`\n[synchrony] spawn error: ${String(err)}\n`);
     });
 
     child.on('close', (code) => {
@@ -282,7 +282,7 @@ export class Runner implements vscode.Disposable {
       onDidWrite: active.writer.event,
       onDidClose: active.closer.event,
       open: () => {
-        active.writer.fire(`\x1b[2mChronos — ${series.fileName}\x1b[0m\r\n`);
+        active.writer.fire(`\x1b[2mSynchrony — ${series.fileName}\x1b[0m\r\n`);
         active.writer.fire(`\x1b[2m${series.cwd}\x1b[0m\r\n\r\n`);
       },
       // Closing the tab of a live run cancels it; closing a finished one is a
@@ -291,7 +291,7 @@ export class Runner implements vscode.Disposable {
     };
 
     const terminal = vscode.window.createTerminal({
-      name: `Chronos: ${series.fileName}`,
+      name: `Synchrony: ${series.fileName}`,
       pty
     });
 
@@ -421,7 +421,7 @@ export class Runner implements vscode.Disposable {
 }
 
 function config(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration('chronos');
+  return vscode.workspace.getConfiguration('synchrony');
 }
 
 /** Where this engine's executable lives, per its own setting. */
@@ -461,7 +461,7 @@ export function probeAgent(agent: Agent, timeoutMs = 5_000): Promise<string | un
       resolve(problem);
     };
 
-    child.on('error', () => settle(`Could not run "${exe}". Check chronos.${agent.pathSetting}.`));
+    child.on('error', () => settle(`Could not run "${exe}". Check synchrony.${agent.pathSetting}.`));
     child.on('close', (code) =>
       settle(code === 0 ? undefined : `"${exe} --version" exited with code ${code}.`)
     );

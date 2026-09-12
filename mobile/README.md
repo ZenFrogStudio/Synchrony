@@ -1,4 +1,4 @@
-# Chronos phone remote
+# Synchrony phone remote
 
 An Expo app that talks to the [hub](../docs/HUB.md) over the same MCP
 connection claude.ai uses — read every instance's tasks, plans, schedule and

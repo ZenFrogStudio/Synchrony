@@ -8,7 +8,7 @@ import { ensureRoot, pathsFor, resolveLinks, ROOT_DIR, sweepPending } from '../s
 let folder: string;
 
 beforeEach(() => {
-  folder = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-root-'));
+  folder = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-root-'));
 });
 
 afterEach(() => {
@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('pathsFor', () => {
-  it('should_place_every_artefact_under_a_dot_chronos_root', () => {
+  it('should_place_every_artefact_under_a_dot_synchrony_root', () => {
     const paths = pathsFor(folder);
 
     const root = path.join(folder, ROOT_DIR);
@@ -70,7 +70,7 @@ describe('ensureRoot', () => {
 
   it('should_not_create_the_archive_until_something_is_archived', () => {
     // The archive is made on demand, by the first archive and by the reveal
-    // button. An empty `archive/` in every folder Chronos has ever opened is
+    // button. An empty `archive/` in every folder Synchrony has ever opened is
     // clutter for a feature most folders never use.
     const paths = pathsFor(folder);
 
@@ -132,7 +132,7 @@ describe('resolveLinks', () => {
   it('should_resolve_a_link_to_where_it_actually_leads', (t) => {
     // The escape this exists to close: a link made inside the project, pointing
     // out of it, which every string comparison reads as a child of the project.
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-outside-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-outside-'));
     const inside = path.join(folder, 'escape');
     if (!link(outside, inside)) {
       t.skip('this machine will not create directory links');
@@ -149,7 +149,7 @@ describe('resolveLinks', () => {
   it('should_resolve_a_link_partway_along_a_path', (t) => {
     // The link need not be the last segment: what matters is where the whole
     // path lands, and the rest is re-appended to wherever the link led.
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-outside-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-outside-'));
     const inside = path.join(folder, 'alias');
     if (!link(outside, inside)) {
       t.skip('this machine will not create directory links');

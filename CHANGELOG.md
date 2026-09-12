@@ -1,12 +1,49 @@
 # Changelog
 
-All notable changes to Chronos are documented here. Entries below predate the
-rename from Chronus and are left as written.
+All notable changes to Synchrony are documented here. Entries at and below 0.8.0
+predate the rename from Chronos (and, earlier, Chronus) and are left as written.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.9.0] - 2026-09-12
+
+Chronos is now Synchrony. Every name moved with it: the extension id and
+display name, the `synchrony.*` settings and commands, the `.synchrony/`
+project folder, `~/.synchrony-dashboard/`, the stdio MCP server (`synchrony`)
+and the hub (`synchrony-hub`), the phone app, and the docs.
+
+### Added
+
+- `src/migrate-name.ts` — the on-disk half of the rename. A project's
+  `.chronos/` is renamed to `.synchrony/` the first time a window, the hub or
+  the stdio server sees it (atomic; contents untouched). A rename the OS
+  refuses — a handle held by an older window — leaves the folder in use under
+  its old name until it can be renamed, so nothing stalls. The same applies to
+  `~/.chronos-dashboard/`, which carries the hub token and every heartbeat.
+- On activation, `chronos.*` settings are copied to `synchrony.*` at every
+  scope where the new key is unset, and the remembered active folder and
+  adoption marker move with them. Old keys are left in place.
+
+### Changed
+
+- `ROOT_DIR` and `DASHBOARD_DIR` now live in `migrate-name.ts`; `roots.ts`
+  and `dashboard-payload.ts` re-export them and resolve the directory per
+  folder rather than assuming the new name.
+- `media/chronos.svg` → `media/synchrony.svg`; `site/img/chronos-mark.png` →
+  `site/img/synchrony-mark.png`.
+
+### Migration notes
+
+- MCP client configs registered by hand under the server name `chronos` keep
+  working while `dist/mcp-server.js` stays where it is; re-run
+  **Synchrony: Copy MCP config** to register it under `synchrony`.
+- The published board and the phone app address the hub connector as
+  **Synchrony Hub**; re-add the connector in claude.ai under that name.
+- Uninstall the Chronos extension before installing Synchrony, or the two
+  will race for the same folders.
 
 ## [0.8.0] - 2026-09-12
 

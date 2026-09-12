@@ -180,7 +180,7 @@ export function enabledPlanSteps(
 }
 
 /**
- * The MCP server name a routed planning session talks to Chronos through, and
+ * The MCP server name a routed planning session talks to Synchrony through, and
  * the tools it is allowed to call.
  *
  * Exported and derived rather than written out, because these names appear in
@@ -190,11 +190,11 @@ export function enabledPlanSteps(
  * nobody is there to answer, with nothing in any log to say why —
  * `source-guards.test.ts` checks the third one against these.
  */
-export const ASK_SERVER = 'chronos-ask';
+export const ASK_SERVER = 'synchrony-ask';
 export const ASK_TOOLS = ['ask_user', 'submit_plan'].map((tool) => `mcp__${ASK_SERVER}__${tool}`);
 
 /**
- * The JSON an MCP client needs in order to spawn the Chronos server.
+ * The JSON an MCP client needs in order to spawn the Synchrony server.
  *
  * One builder for both callers — the clipboard snippet a user pastes into their
  * own client (`mcp-clients.ts`), and the `mcp.json` a planning session is
@@ -243,7 +243,7 @@ export interface GenerateOptions {
    */
   steps?: PlanStepId[];
   /**
-   * An `mcp.json` registering the `chronos-ask` server. Present means route the
+   * An `mcp.json` registering the `synchrony-ask` server. Present means route the
    * session's questions through it, so they can be answered from somewhere other
    * than this terminal; absent means the session asks in the terminal as it
    * always has, and every argument below is exactly what it was.
@@ -351,7 +351,7 @@ function terminalInstruction(
 }
 
 /**
- * The file a series session writes last, and what Chronos watches for.
+ * The file a series session writes last, and what Synchrony watches for.
  *
  * Exported so the instruction and the watcher in `tasks.ts` cannot drift apart.
  * Deliberately not a `.md`, so `library.listPlans` cannot mistake it for one of
@@ -389,7 +389,7 @@ function seriesInstruction(sourcePath: string, destDir: string, steps: PlanStepI
     'number and do not just repeat the words of the request. When every stage ' +
     `file is written, and only then, write one last file called ${SERIES_MANIFEST} ` +
     'in that same folder listing the stage file names in run order, one per line ' +
-    'and nothing else. Chronos reads that file as the signal that the series is ' +
+    'and nothing else. Synchrony reads that file as the signal that the series is ' +
     'finished.' +
     seriesClosingSentence(steps)
   );
@@ -423,7 +423,7 @@ function routedInstruction(sourcePath: string, steps: PlanStepId[]): string {
     `reach me. When the plan is ready, call ${submit} with it, written as ` +
     'instructions for an agent that will carry it out later with nobody ' +
     'watching, and change nothing else. Do not ask me to approve it first - ' +
-    'I read it and change it in the Chronos panel, and nothing runs until I ' +
+    'I read it and change it in the Synchrony panel, and nothing runs until I ' +
     'schedule it. Title it with a three word ' +
     'description of the outcome the plan produces, in lower case with hyphens ' +
     'instead of spaces, for example add-monthly-repeat. Use exactly three words ' +
@@ -450,7 +450,7 @@ function routedInstruction(sourcePath: string, steps: PlanStepId[]): string {
  * plan.
  *
  * That cost is measured rather than assumed — plan mode refuses an MCP tool call
- * outright, allowlisted or not (`Cannot call mcp__chronos-ask__ask_user while in
+ * outright, allowlisted or not (`Cannot call mcp__synchrony-ask__ask_user while in
  * plan mode`), which would leave a routed session unable to ask its question or
  * deliver its plan. `--allowedTools` does not override it. So a routed session
  * runs in `default` instead, where the two allowlisted tools go through without

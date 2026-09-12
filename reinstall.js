@@ -26,7 +26,7 @@ const path = require('path');
 const EDITOR_CLIS = ['codium', 'code'];
 
 const version = require('./package.json').version;
-const vsix = path.join(__dirname, `chronos-${version}.vsix`);
+const vsix = path.join(__dirname, `synchrony-${version}.vsix`);
 
 if (!fs.existsSync(vsix)) {
   console.error(`error: ${path.basename(vsix)} is missing — run \`npm run package\` first`);
@@ -62,5 +62,5 @@ if (result.status !== 0) {
 // script exists to prevent and it looks identical to success. The reload is the
 // other half: installing over a running window does not swap the code already
 // loaded, so without it the build is on disk, correct, and still invisible.
-console.log(`\nInstalled chronos ${version} into ${found}. Reload the window to pick it up:`);
+console.log(`\nInstalled synchrony ${version} into ${found}. Reload the window to pick it up:`);
 console.log('  Ctrl+Shift+P → Developer: Reload Window');

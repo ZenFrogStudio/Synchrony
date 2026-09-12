@@ -1,5 +1,5 @@
 /**
- * The MCP clients Chronos can hand a ready-to-paste config to.
+ * The MCP clients Synchrony can hand a ready-to-paste config to.
  *
  * One flat table, modelled on `agents.ts`: a client is a label, the file its
  * config belongs in, and the shape that file wants. The command in
@@ -39,7 +39,7 @@ export interface McpClient {
 /** The key every config registers the server under, and the name the tools
  *  appear beneath in the client. One name everywhere, so instructions written
  *  for one client read correctly in another. */
-export const SERVER_NAME = 'chronos';
+export const SERVER_NAME = 'synchrony';
 
 /**
  * The stdio entry five of the eight clients share, give or take a timeout key.

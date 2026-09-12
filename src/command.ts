@@ -9,7 +9,7 @@ import {
 /**
  * What a phone is allowed to ask the desktop to do.
  *
- * This module *is* the security boundary. Chronos defaults new tasks to
+ * This module *is* the security boundary. Synchrony defaults new tasks to
  * `bypassPermissions`, so a remote channel that could change what a plan says —
  * or which permissions it runs under — would be a "run arbitrary code on my dev
  * machine" button reachable from any network. Instead the phone may only change
@@ -128,7 +128,7 @@ function reschedule(series: TaskSeries, payload: unknown, now: number): CommandV
   // when the plan before it finishes, and would overwrite whatever was set from
   // here. Refused out loud rather than accepted and quietly undone.
   if (series.chain) {
-    return reject('That plan runs after another one. Unlink it in Chronos first.');
+    return reject('That plan runs after another one. Unlink it in Synchrony first.');
   }
 
   const raw = field(payload, 'nextRunAt');

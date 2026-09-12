@@ -1,18 +1,18 @@
 {
-  "name": "chronos",
-  "displayName": "Chronos",
+  "name": "synchrony",
+  "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "publisher": "Z3n",
   "license": "MIT",
   "icon": "media/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ZenFrogStudio/Chronos.git"
+    "url": "https://github.com/ZenFrogStudio/Synchrony.git"
   },
-  "homepage": "https://github.com/ZenFrogStudio/Chronos",
+  "homepage": "https://github.com/ZenFrogStudio/Synchrony",
   "bugs": {
-    "url": "https://github.com/ZenFrogStudio/Chronos/issues"
+    "url": "https://github.com/ZenFrogStudio/Synchrony/issues"
   },
   "engines": {
     "vscode": "^1.93.0"
@@ -36,16 +36,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "chronos",
-          "title": "Chronos",
-          "icon": "media/chronos.svg"
+          "id": "synchrony",
+          "title": "Synchrony",
+          "icon": "media/synchrony.svg"
         }
       ]
     },
     "views": {
-      "chronos": [
+      "synchrony": [
         {
-          "id": "chronos.tasks",
+          "id": "synchrony.tasks",
           "name": "Tasks",
           "type": "webview"
         }
@@ -53,104 +53,104 @@
     },
     "commands": [
       {
-        "command": "chronos.openManager",
-        "title": "Chronos: Open Manager",
+        "command": "synchrony.openManager",
+        "title": "Synchrony: Open Manager",
         "icon": "$(multiple-windows)"
       },
       {
-        "command": "chronos.addFiles",
-        "title": "Chronos: Schedule Markdown File...",
+        "command": "synchrony.addFiles",
+        "title": "Synchrony: Schedule Markdown File...",
         "icon": "$(add)"
       },
       {
-        "command": "chronos.scheduleFile",
-        "title": "Schedule with Chronos"
+        "command": "synchrony.scheduleFile",
+        "title": "Schedule with Synchrony"
       },
       {
-        "command": "chronos.showLogs",
-        "title": "Chronos: Show Logs"
+        "command": "synchrony.showLogs",
+        "title": "Synchrony: Show Logs"
       },
       {
-        "command": "chronos.addTask",
-        "title": "Chronos: Add Task",
+        "command": "synchrony.addTask",
+        "title": "Synchrony: Add Task",
         "icon": "$(add)"
       },
       {
-        "command": "chronos.generatePlanRemote",
-        "title": "Chronos: Generate Plan (Answer Remotely)..."
+        "command": "synchrony.generatePlanRemote",
+        "title": "Synchrony: Generate Plan (Answer Remotely)..."
       },
       {
-        "command": "chronos.selectFolder",
-        "title": "Chronos: Select Folder",
+        "command": "synchrony.selectFolder",
+        "title": "Synchrony: Select Folder",
         "icon": "$(folder)"
       },
       {
-        "command": "chronos.copyMcpConfig",
-        "title": "Chronos: Copy MCP Server Config..."
+        "command": "synchrony.copyMcpConfig",
+        "title": "Synchrony: Copy MCP Server Config..."
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "chronos.openManager",
-          "when": "view == chronos.tasks",
+          "command": "synchrony.openManager",
+          "when": "view == synchrony.tasks",
           "group": "navigation@2"
         },
         {
-          "command": "chronos.addFiles",
-          "when": "view == chronos.tasks"
+          "command": "synchrony.addFiles",
+          "when": "view == synchrony.tasks"
         }
       ],
       "explorer/context": [
         {
-          "command": "chronos.scheduleFile",
+          "command": "synchrony.scheduleFile",
           "when": "resourceExtname == .md",
           "group": "7_modification"
         }
       ],
       "editor/title/context": [
         {
-          "command": "chronos.scheduleFile",
+          "command": "synchrony.scheduleFile",
           "when": "resourceExtname == .md",
-          "group": "1_chronos"
+          "group": "1_synchrony"
         }
       ],
       "commandPalette": [
         {
-          "command": "chronos.scheduleFile",
+          "command": "synchrony.scheduleFile",
           "when": "false"
         }
       ]
     },
     "configuration": {
-      "title": "Chronos",
+      "title": "Synchrony",
       "properties": {
-        "chronos.claudePath": {
+        "synchrony.claudePath": {
           "type": "string",
           "default": "claude",
           "markdownDescription": "Path to the `claude` executable. Leave as `claude` to resolve from PATH."
         },
-        "chronos.opencodePath": {
+        "synchrony.opencodePath": {
           "type": "string",
           "default": "opencode",
           "markdownDescription": "Path to the `opencode` executable, for tasks whose engine is opencode."
         },
-        "chronos.codexPath": {
+        "synchrony.codexPath": {
           "type": "string",
           "default": "codex",
           "markdownDescription": "Path to the `codex` executable, for tasks whose engine is Codex."
         },
-        "chronos.libraryPath": {
+        "synchrony.libraryPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Where plans are kept. Empty means `.chronos/plans` in the current folder."
+          "markdownDescription": "Where plans are kept. Empty means `.synchrony/plans` in the current folder."
         },
-        "chronos.resultsPath": {
+        "synchrony.resultsPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Where run transcripts are written. Empty means `.chronos/results` in the current folder."
+          "markdownDescription": "Where run transcripts are written. Empty means `.synchrony/results` in the current folder."
         },
-        "chronos.planModel": {
+        "synchrony.planModel": {
           "type": "string",
           "default": "",
           "enum": [
@@ -177,80 +177,80 @@
           ],
           "markdownDescription": "Model for everything the Tasks panel starts — generating a plan, generating a series, explaining a task, and running a task directly. Plans on the schedule use their own model."
         },
-        "chronos.planStep.tests": {
+        "synchrony.planStep.tests": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "End every generated plan by running the project test suite."
         },
-        "chronos.planStep.version": {
+        "synchrony.planStep.version": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "End every generated plan by bumping the project version."
         },
-        "chronos.planStep.changelog": {
+        "synchrony.planStep.changelog": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "End every generated plan by adding a changelog entry."
         },
-        "chronos.planStep.rebuild": {
+        "synchrony.planStep.rebuild": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "End every generated plan by rebuilding the project."
         },
-        "chronos.planStep.reinstall": {
+        "synchrony.planStep.reinstall": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "End every generated plan by reinstalling the project it just built."
         },
-        "chronos.planStep.commit": {
+        "synchrony.planStep.commit": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "End every generated plan by committing the result to git."
         },
-        "chronos.showTerminalOnRun": {
+        "synchrony.showTerminalOnRun": {
           "type": "boolean",
           "default": true,
           "description": "Reveal the terminal panel when a task starts."
         },
-        "chronos.maxConcurrent": {
+        "synchrony.maxConcurrent": {
           "type": "number",
           "default": 1,
           "minimum": 1,
           "maximum": 5,
           "description": "Tasks allowed to run at once. Parallel agents in one repository will collide."
         },
-        "chronos.maxRetries": {
+        "synchrony.maxRetries": {
           "type": "number",
           "default": 3,
           "minimum": 0,
           "maximum": 10,
           "description": "Retry attempts after a failed run."
         },
-        "chronos.retryDelayMinutes": {
+        "synchrony.retryDelayMinutes": {
           "type": "number",
           "default": 60,
           "minimum": 1,
           "description": "Delay before retrying a failed run."
         },
-        "chronos.graceWindowMinutes": {
+        "synchrony.graceWindowMinutes": {
           "type": "number",
           "default": 15,
           "minimum": 0,
           "description": "How late a task may fire and still run."
         },
-        "chronos.idleTimeoutMinutes": {
+        "synchrony.idleTimeoutMinutes": {
           "type": "number",
           "default": 15,
           "minimum": 1,
           "description": "Kill a run that produces no output for this long."
         },
-        "chronos.maxRuntimeMinutes": {
+        "synchrony.maxRuntimeMinutes": {
           "type": "number",
           "default": 60,
           "minimum": 1,
           "description": "Hard ceiling on a single run."
         },
-        "chronos.logRetentionDays": {
+        "synchrony.logRetentionDays": {
           "type": "number",
           "default": 30,
           "minimum": 1,

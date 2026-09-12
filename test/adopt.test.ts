@@ -5,17 +5,17 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { adoptGlobal, claimAdoption, LegacyPaths } from '../src/adopt';
 import { ensureRoot, pathsFor } from '../src/roots';
-import { ChronosPaths } from '../src/roots';
-import { ChronosState, SCHEMA_VERSION, TaskSeries } from '../src/types';
+import { SynchronyPaths } from '../src/roots';
+import { SynchronyState, SCHEMA_VERSION, TaskSeries } from '../src/types';
 
 let tmp: string;
 /** The old machine-wide storage root — what every window shares. */
 let storage: string;
 let legacy: LegacyPaths;
-let next: ChronosPaths;
+let next: SynchronyPaths;
 
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-adopt-'));
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-adopt-'));
 
   storage = path.join(tmp, 'globalStorage');
   const old = path.join(storage, 'plans');
@@ -58,7 +58,7 @@ function series(filePath: string, overrides: Partial<TaskSeries> = {}): TaskSeri
   };
 }
 
-const state = (series: TaskSeries[]): ChronosState => ({
+const state = (series: TaskSeries[]): SynchronyState => ({
   schemaVersion: SCHEMA_VERSION,
   series,
   runs: []
@@ -175,7 +175,7 @@ describe('adoptGlobal', () => {
   });
 
   it('should_copy_nothing_when_the_old_library_is_already_the_new_one', () => {
-    // What `chronos.libraryPath` pointing into the adopting folder produces.
+    // What `synchrony.libraryPath` pointing into the adopting folder produces.
     // Copying a directory into itself would duplicate every plan under a `-2`
     // name, once per activation.
     const shared: LegacyPaths = { plans: next.plans, tasks: next.tasks, results: next.results };
@@ -233,7 +233,7 @@ describe('claimAdoption', () => {
 
   it('should_claim_in_the_shared_storage_rather_than_the_folder_being_adopted_into', () => {
     // The old storage is the contended thing — a marker inside one project's
-    // .chronos would say nothing to a window opened on another project.
+    // .synchrony would say nothing to a window opened on another project.
     claimAdoption(storage);
 
     assert.ok(fs.existsSync(path.join(storage, 'adopted.marker')));

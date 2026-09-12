@@ -1,5 +1,5 @@
-/* Chronos manager. The shell is derived from VS Code theme vars so it adapts to
-   any theme. Chronos owns a few global colours: sodium for liveness and
+/* Synchrony manager. The shell is derived from VS Code theme vars so it adapts to
+   any theme. Synchrony owns a few global colours: sodium for liveness and
    imminence, teal for actions and accents, and blue/purple for
    schedule type. Global values only — no component tokens. */
 
@@ -509,7 +509,7 @@ body.vscode-high-contrast .icon-action[data-action="rerun-run"]:hover {
   overflow-wrap: anywhere;
 }
 
-/* The Chronos mark stands where the countdown clock used to. It is the header's
+/* The Synchrony mark stands where the countdown clock used to. It is the header's
    only moving part now, so the turn has to carry "a run is live" on its own —
    which is why it is a modifier here rather than baked into .head-mark. */
 .head-mark {
@@ -1039,7 +1039,7 @@ body.vscode-high-contrast .button[data-action="run-now"]:hover {
 }
 
 /* The schedule toggle turns sodium only while the job is actually live —
-   the one colour Chronos spends on liveness. Anything unscheduled, and a spent
+   the one colour Synchrony spends on liveness. Anything unscheduled, and a spent
    one-shot with nothing left to fire, stays quiet. */
 .schedule-toggle.is-scheduled {
   border-color: var(--sodium);

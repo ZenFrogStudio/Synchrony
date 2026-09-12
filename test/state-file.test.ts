@@ -4,13 +4,13 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { emptyState, readState, writeState } from '../src/state-file';
-import { ChronosState, SCHEMA_VERSION, TaskRun, TaskSeries } from '../src/types';
+import { SynchronyState, SCHEMA_VERSION, TaskRun, TaskSeries } from '../src/types';
 
 let dir: string;
 let file: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-state-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-state-'));
   file = path.join(dir, 'state.json');
 });
 
@@ -46,7 +46,7 @@ function run(overrides: Partial<TaskRun> = {}): TaskRun {
 }
 
 describe('readState', () => {
-  it('should_return_an_empty_schedule_for_a_folder_chronos_has_never_run_in', () => {
+  it('should_return_an_empty_schedule_for_a_folder_synchrony_has_never_run_in', () => {
     const result = readState(file);
 
     assert.deepEqual(result.state, emptyState());
@@ -54,7 +54,7 @@ describe('readState', () => {
   });
 
   it('should_round_trip_a_schedule_through_disk', () => {
-    const written: ChronosState = {
+    const written: SynchronyState = {
       schemaVersion: SCHEMA_VERSION,
       series: [series()],
       runs: [run()]
@@ -108,7 +108,7 @@ describe('readState', () => {
     assert.equal(fs.readFileSync(`${file}.bak`, 'utf8'), '{ not json at all');
   });
 
-  it('should_back_up_a_schedule_from_a_newer_chronos_rather_than_guessing_at_it', () => {
+  it('should_back_up_a_schedule_from_a_newer_synchrony_rather_than_guessing_at_it', () => {
     const future = JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, series: [], runs: [] });
     fs.writeFileSync(file, future, 'utf8');
 

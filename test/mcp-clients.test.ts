@@ -13,7 +13,7 @@ import { MCP_CLIENTS, McpClient, SERVER_NAME } from '../src/mcp-clients';
  * folder called "Ada Lovelace" actually looks like.
  */
 
-const SERVER = 'C:\\Users\\Ada Lovelace\\AppData\\Roaming\\Code\\User\\globalStorage\\z3n.chronos\\mcp-server.js';
+const SERVER = 'C:\\Users\\Ada Lovelace\\AppData\\Roaming\\Code\\User\\globalStorage\\z3n.synchrony\\mcp-server.js';
 const FOLDER = 'D:\\03-Software\\My Project';
 
 const byId = (id: string): McpClient => {
@@ -73,7 +73,7 @@ describe('MCP_CLIENTS', () => {
   it('should_register_every_client_under_the_one_server_name', () => {
     // Instructions written for one client have to read correctly in another, and
     // they name the tools by their server. A row that renamed it would break
-    // every "ask Chronos what is scheduled" sentence in the README for that
+    // every "ask Synchrony what is scheduled" sentence in the README for that
     // client alone.
     for (const client of MCP_CLIENTS) {
       assert.match(

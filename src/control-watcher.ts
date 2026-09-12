@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { claimCommand, ControlCommand, finishCommand, listUnclaimed, peekUnclaimed } from './control';
 import { log } from './log';
-import { ChronosPaths } from './roots';
+import { SynchronyPaths } from './roots';
 import { Runner } from './runner';
 import { Scheduler } from './scheduler';
 import { coerceSetting, settingGroups } from './settings';
@@ -32,7 +32,7 @@ export class ControlWatcher implements vscode.Disposable {
   private sweeping = false;
 
   constructor(
-    private readonly paths: () => ChronosPaths,
+    private readonly paths: () => SynchronyPaths,
     private readonly isLeader: () => boolean,
     private readonly runner: Runner,
     private readonly scheduler: Scheduler,
@@ -161,7 +161,7 @@ export class ControlWatcher implements vscode.Disposable {
       }
 
       await vscode.workspace
-        .getConfiguration('chronos')
+        .getConfiguration('synchrony')
         .update(field.key, value, vscode.ConfigurationTarget.Global);
       return { ok: true };
     } catch (err) {

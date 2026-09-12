@@ -2,24 +2,25 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * Where one folder's Chronos data lives.
+ * Where one folder's Synchrony data lives.
  *
- * Everything Chronos writes for a folder goes under a single `.chronos`
+ * Everything Synchrony writes for a folder goes under a single `.synchrony`
  * directory inside it: the schedule, the plan library, the task inbox, the run
  * transcripts and the raw logs. One root rather than a scattering of
- * configurable locations, so "what does Chronos know about this project?" is
+ * configurable locations, so "what does Synchrony know about this project?" is
  * answered by one `ls`, and moving a project moves its schedule with it.
  *
  * Pure path arithmetic plus one mkdir, like `results.ts` and `lock.ts` — no
  * `vscode` import, so the layout is testable against a temp directory.
  */
 
-export const ROOT_DIR = '.chronos';
+import { ROOT_DIR, rootDirFor } from './migrate-name';
+export { ROOT_DIR };
 
-export interface ChronosPaths {
-  /** The project folder Chronos is operating in. */
+export interface SynchronyPaths {
+  /** The project folder Synchrony is operating in. */
   folder: string;
-  /** `<folder>/.chronos` — everything below is inside it. */
+  /** `<folder>/.synchrony` — everything below is inside it. */
   root: string;
   /** Series and runs. Was `globalState` before the layout became per-folder. */
   state: string;
@@ -52,8 +53,9 @@ export interface ChronosPaths {
   archivedTasks: string;
 }
 
-export function pathsFor(folder: string): ChronosPaths {
-  const root = path.join(folder, ROOT_DIR);
+export function pathsFor(folder: string): SynchronyPaths {
+  // `.synchrony`, or `.chronos` for a project not yet migrated — see migrate-name.ts.
+  const root = path.join(folder, rootDirFor(folder));
   return {
     folder,
     root,
@@ -85,7 +87,7 @@ export function pathsFor(folder: string): ChronosPaths {
  * Returns true when the root did not exist beforehand — the caller uses that to
  * decide whether a folder is new enough to want a starter plan.
  */
-export function ensureRoot(paths: ChronosPaths): boolean {
+export function ensureRoot(paths: SynchronyPaths): boolean {
   const created = fs.mkdirSync(paths.root, { recursive: true }) !== undefined;
 
   for (const dir of [

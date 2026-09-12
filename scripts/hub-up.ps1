@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-  Starts the Chronos hub and a public HTTPS tunnel to it, and prints the URL
-  to paste into claude.ai as the "Chronos Hub" custom connector.
+  Starts the Synchrony hub and a public HTTPS tunnel to it, and prints the URL
+  to paste into claude.ai as the "Synchrony Hub" custom connector.
 
 .DESCRIPTION
-  One command instead of three. Runs from the Chronos repo root:
+  One command instead of three. Runs from the Synchrony repo root:
 
     npm run hub:up                       (default root D:\03-Software)
     npm run hub:up -- -Root E:\projects  (another root)
@@ -47,19 +47,19 @@ if (-not $cloudflared) {
 # ---- hub -------------------------------------------------------------------
 Say "starting hub for $Root on 127.0.0.1:$Port"
 $hub = Start-Process -FilePath node -ArgumentList @('dist\hub.js', '--root', $Root, '--port', $Port) `
-  -NoNewWindow -PassThru -RedirectStandardError "$env:TEMP\chronos-hub.err.log"
+  -NoNewWindow -PassThru -RedirectStandardError "$env:TEMP\synchrony-hub.err.log"
 
 Start-Sleep -Seconds 2
 try {
   $health = Invoke-RestMethod "http://127.0.0.1:$Port/healthz" -TimeoutSec 5
   Say "hub is up: version $($health.version), $($health.instances) instance(s)"
 } catch {
-  Get-Content "$env:TEMP\chronos-hub.err.log" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+  Get-Content "$env:TEMP\synchrony-hub.err.log" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
   Stop-Process -Id $hub.Id -ErrorAction SilentlyContinue
   throw "hub did not answer on port $Port"
 }
 
-$tokenFile = Join-Path $env:USERPROFILE '.chronos-dashboard\hub.token'
+$tokenFile = Join-Path $env:USERPROFILE '.synchrony-dashboard\hub.token'
 $token = (Get-Content $tokenFile -Raw).Trim()
 
 if (-not $cloudflared) {
@@ -71,7 +71,7 @@ if (-not $cloudflared) {
 
 # ---- tunnel ----------------------------------------------------------------
 Say 'starting Cloudflare quick tunnel...'
-$tunnelLog = "$env:TEMP\chronos-tunnel.log"
+$tunnelLog = "$env:TEMP\synchrony-tunnel.log"
 Remove-Item $tunnelLog -ErrorAction SilentlyContinue
 $tunnel = Start-Process -FilePath $cloudflared.Source `
   -ArgumentList @('tunnel', '--url', "http://127.0.0.1:$Port", '--no-autoupdate') `
@@ -93,17 +93,17 @@ if (-not $host_) {
 $connector = "$host_/$token/mcp"
 Write-Host ''
 Write-Host '  ====================================================================='
-Write-Host '  Chronos Hub connector URL (claude.ai -> Settings -> Connectors -> Add):'
+Write-Host '  Synchrony Hub connector URL (claude.ai -> Settings -> Connectors -> Add):'
 Write-Host "  $connector"
-Write-Host '  Name it exactly:  Chronos Hub     Leave the OAuth fields empty.'
+Write-Host '  Name it exactly:  Synchrony Hub     Leave the OAuth fields empty.'
 Write-Host '  ====================================================================='
 Write-Host ''
-Set-Content -Path (Join-Path $env:USERPROFILE '.chronos-dashboard\hub.connector-url') -Value $connector
-Say "also written to $env:USERPROFILE\.chronos-dashboard\hub.connector-url"
+Set-Content -Path (Join-Path $env:USERPROFILE '.synchrony-dashboard\hub.connector-url') -Value $connector
+Say "also written to $env:USERPROFILE\.synchrony-dashboard\hub.connector-url"
 
 try {
   npx --yes qrcode-terminal $connector 2>$null
-  Say 'Scan or paste this URL into the Chronos phone app.'
+  Say 'Scan or paste this URL into the Synchrony phone app.'
 } catch {
   # No npx / no network — the printed URL above still works, just without the QR aid.
 }

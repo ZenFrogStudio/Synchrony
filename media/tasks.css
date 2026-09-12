@@ -1,6 +1,6 @@
-/* Chronos task inbox — the activity-bar view. Derived from VS Code theme vars so
+/* Synchrony task inbox — the activity-bar view. Derived from VS Code theme vars so
    it adapts to any theme, and deliberately its own small sheet rather than the
-   manager's: this panel is a list, an input and a button. Chronos owns a few
+   manager's: this panel is a list, an input and a button. Synchrony owns a few
    global colours: sodium for planning liveness, teal for primary actions and
    accents, and deeper purple for Series. A run in flight is
    still green, taken from the theme's own chart palette exactly as the manager

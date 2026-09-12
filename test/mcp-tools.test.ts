@@ -32,7 +32,7 @@ const HOUR = 60 * 60_000;
 function series(overrides: Partial<TaskSeries> = {}): TaskSeries {
   return {
     id: 's1',
-    filePath: 'D:\\repo\\.chronos\\plans\\nightly.md',
+    filePath: 'D:\\repo\\.synchrony\\plans\\nightly.md',
     fileName: 'nightly.md',
     cwd: 'D:\\repo',
     permissionMode: 'auto',

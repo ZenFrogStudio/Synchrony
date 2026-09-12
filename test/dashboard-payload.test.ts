@@ -25,7 +25,7 @@ const at = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
 function series(overrides: Partial<TaskSeries> = {}): TaskSeries {
   return {
     id: 'series-1',
-    filePath: 'D:\\repo\\.chronos\\plans\\refactor.md',
+    filePath: 'D:\\repo\\.synchrony\\plans\\refactor.md',
     fileName: 'refactor.md',
     cwd: 'D:\\repo',
     permissionMode: 'acceptEdits',
@@ -61,8 +61,8 @@ function build(overrides: Partial<InstanceFacts> = {}) {
     workspaceName: 'repo',
     activeFolder: 'D:\\repo',
     schedulerLeader: true,
-    libraryPath: 'D:\\repo\\.chronos\\plans',
-    resultsPath: 'D:\\repo\\.chronos\\results',
+    libraryPath: 'D:\\repo\\.synchrony\\plans',
+    resultsPath: 'D:\\repo\\.synchrony\\results',
     costLast7Days: 0,
     series: [series()],
     runs: [],
@@ -329,7 +329,7 @@ describe('dashboard payload — where heartbeats live', () => {
   it('should_put_every_window_in_one_shared_directory_under_the_home_folder', () => {
     assert.equal(
       instancesDir('D:\\Users\\dev'),
-      path.join('D:\\Users\\dev', '.chronos-dashboard', 'instances')
+      path.join('D:\\Users\\dev', '.synchrony-dashboard', 'instances')
     );
   });
 });

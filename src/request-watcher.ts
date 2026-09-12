@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { log } from './log';
 import { claimRequest, finishRequest, listUnclaimed, PlanRequest } from './requests';
-import { ChronosPaths } from './roots';
+import { SynchronyPaths } from './roots';
 
 /**
  * Watches a folder's `requests/` and hands each claimed request to the window.
@@ -31,7 +31,7 @@ export class RequestWatcher {
   private sweeping = false;
 
   constructor(
-    private readonly paths: () => ChronosPaths,
+    private readonly paths: () => SynchronyPaths,
     private readonly leading: () => boolean,
     private readonly handle: RequestHandler
   ) {}

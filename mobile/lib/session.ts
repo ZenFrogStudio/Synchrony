@@ -7,7 +7,7 @@ import { McpClient } from './mcp';
  * than a state-management library — there is exactly one of it.
  */
 
-export const STORAGE_KEY = 'chronos.connectorUrl';
+export const STORAGE_KEY = 'synchrony.connectorUrl';
 
 let client: McpClient | undefined;
 let navigateHome: (() => void) | undefined;

@@ -1,5 +1,5 @@
 /**
- * The Chronos instance dashboard's local server.
+ * The Synchrony instance dashboard's local server.
  *
  * Every editor window writes a small JSON heartbeat into a shared directory
  * under the user's home (see `src/dashboard-export.ts`). A browser cannot read
@@ -9,7 +9,7 @@
  * Node built-ins only, and deliberately outside the extension: it is started by
  * hand with `npm run dashboard`, has no dependency on the TypeScript build, and
  * outlives or precedes any particular editor window. Read-only throughout —
- * nothing here can reach a schedule, cancel a run or write to a `.chronos`.
+ * nothing here can reach a schedule, cancel a run or write to a `.synchrony`.
  *
  * Bound to 127.0.0.1. The instance files name real project paths, and the loop
  * back interface is the only audience that should ever see them.
@@ -30,7 +30,7 @@ const STATIC_ROOT = path.resolve(__dirname, '..', 'dashboard');
  * extension's build would mean the dashboard could not start until somebody had
  * compiled it.
  */
-const DASHBOARD_DIR = '.chronos-dashboard';
+const DASHBOARD_DIR = '.synchrony-dashboard';
 const STALE_MS = 45_000;
 
 /** An instance file is a status document. Anything larger is not one. */
@@ -200,7 +200,7 @@ function handle(req, res) {
   if (route === '/health') {
     sendJson(res, 200, {
       ok: true,
-      service: 'chronos-dashboard',
+      service: 'synchrony-dashboard',
       instancesDir: instancesDir(),
       staleAfterMs: STALE_MS,
       uptimeSeconds: Math.round(process.uptime())
@@ -233,16 +233,16 @@ function start(port) {
     if (err.code === 'EADDRINUSE') {
       console.error(
         `Port ${port} is already in use. Either the dashboard is already running ` +
-          `at http://${HOST}:${port}, or set CHRONOS_DASHBOARD_PORT to another port.`
+          `at http://${HOST}:${port}, or set SYNCHRONY_DASHBOARD_PORT to another port.`
       );
     } else {
-      console.error(`Chronos dashboard failed to start: ${err.message}`);
+      console.error(`Synchrony dashboard failed to start: ${err.message}`);
     }
     process.exitCode = 1;
   });
 
   server.listen(port, HOST, () => {
-    console.log(`Chronos dashboard: http://${HOST}:${port}`);
+    console.log(`Synchrony dashboard: http://${HOST}:${port}`);
     console.log(`Reading instances from ${instancesDir()}`);
   });
 
@@ -254,7 +254,7 @@ module.exports = { instancesDir, readInstances, resolveStatic, start, STALE_MS, 
 if (require.main === module) {
   const fromArgv = process.argv.find((arg) => arg.startsWith('--port='));
   const port =
-    Number(fromArgv ? fromArgv.slice('--port='.length) : process.env.CHRONOS_DASHBOARD_PORT) ||
+    Number(fromArgv ? fromArgv.slice('--port='.length) : process.env.SYNCHRONY_DASHBOARD_PORT) ||
     DEFAULT_PORT;
   start(port);
 }

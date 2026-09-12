@@ -41,9 +41,9 @@ let outside: string;
 let archive: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-lib-'));
-  outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-out-'));
-  archive = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-arch-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-lib-'));
+  outside = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-out-'));
+  archive = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-arch-'));
 });
 
 afterEach(() => {
@@ -91,7 +91,7 @@ describe('consolidate — importing outside plans', () => {
   });
 
   it('should_leave_the_original_file_untouched', async () => {
-    // Copy, never move. The user's file is theirs; Chronos runs the copy.
+    // Copy, never move. The user's file is theirs; Synchrony runs the copy.
     const sourcePath = sourceFile('keep-me.md', 'original');
     const store = new FakeStore([series('a', sourcePath)]);
 
@@ -250,7 +250,7 @@ describe('consolidate — pruning schedules with no file', () => {
 
 describe('consolidate — unreadable library', () => {
   it('should_remove_nothing_when_the_library_folder_cannot_be_read', async () => {
-    // A `chronos.libraryPath` on an unplugged drive reads as "no files here".
+    // A `synchrony.libraryPath` on an unplugged drive reads as "no files here".
     // Pruning on that would delete a whole schedule for a kicked-out cable.
     const gone = path.join(dir, 'not-mounted');
     const store = new FakeStore([series('a', path.join(gone, 'nightly.md'))]);

@@ -28,7 +28,7 @@ import {
 let dir: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-lib-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-lib-'));
 });
 
 afterEach(() => {
@@ -460,7 +460,7 @@ describe('importFile', () => {
   let outside: string;
 
   beforeEach(() => {
-    outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-src-'));
+    outside = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-src-'));
   });
 
   afterEach(() => {
@@ -498,7 +498,7 @@ describe('importFile', () => {
   });
 
   it('should_leave_the_original_where_it_was', () => {
-    // Copy, never move: the user's file is theirs, and Chronos schedules the copy.
+    // Copy, never move: the user's file is theirs, and Synchrony schedules the copy.
     const sourcePath = source('keep-me.md', 'original');
 
     importFile(dir, sourcePath);

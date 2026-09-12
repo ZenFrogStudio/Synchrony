@@ -158,7 +158,7 @@ export interface TaskRun {
   chainRecovery?: boolean;
 }
 
-export interface ChronosState {
+export interface SynchronyState {
   schemaVersion: number;
   series: TaskSeries[];
   runs: TaskRun[];
@@ -172,10 +172,10 @@ export const SCHEMA_VERSION = 3;
 
 /**
  * The `globalState` key state used to live under, before it moved to a
- * `state.json` in each folder's `.chronos`. Kept only so the one-time adoption
+ * `state.json` in each folder's `.synchrony`. Kept only so the one-time adoption
  * in `adopt.ts` can read what is still there; nothing writes it any more.
  */
-export const STORE_KEY = 'chronos.state';
+export const STORE_KEY = 'synchrony.state';
 
 /** Scheduler tick. A gap larger than 3x this means the process was suspended. */
 export const TICK_MS = 30_000;

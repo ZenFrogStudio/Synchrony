@@ -5,7 +5,7 @@ import { computeNextRun } from './recurrence';
 import { DAILY, LOCK_STALE_MS, Recurrence, TaskSeries } from './types';
 
 /**
- * What an MCP client is allowed to ask Chronos to do.
+ * What an MCP client is allowed to ask Synchrony to do.
  *
  * This module *is* the security boundary for the agent channel, the way
  * `command.ts` is for the phone — but drawn in a different place, because the
@@ -13,7 +13,7 @@ import { DAILY, LOCK_STALE_MS, Recurrence, TaskSeries } from './types';
  * a task runs. An agent may write the plan too, because authoring is the whole
  * point of connecting one; what it may not do is set `permissionMode`.
  *
- * That single refusal is the load-bearing rule. Chronos runs coding agents
+ * That single refusal is the load-bearing rule. Synchrony runs coding agents
  * unattended, on a schedule, in a real repository. An agent that could set its
  * own task to `bypassPermissions` would be granting itself recurring,
  * unrestricted tool access on this machine without a human ever seeing the
@@ -73,7 +73,7 @@ const PAST_TOLERANCE_MS = 5 * 60_000;
  */
 export const PERMISSION_REFUSAL =
   'permissionMode cannot be set over MCP. A new task runs in `auto` mode; ' +
-  'raising it is a decision a person makes in the Chronos manager, on a plan ' +
+  'raising it is a decision a person makes in the Synchrony manager, on a plan ' +
   'they have read.';
 
 ///////////////////////////*Timing*////////////////////////////

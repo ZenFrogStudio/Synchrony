@@ -9,7 +9,7 @@ import * as path from 'path';
  * it has always asked *there* — which means somebody has to be sitting at that
  * terminal for a plan to get written. This is the other channel: the session
  * writes its question here as a file, and anything with access to the same
- * `.chronos` tree can answer it. In practice that is Claude Desktop, driven from
+ * `.synchrony` tree can answer it. In practice that is Claude Desktop, driven from
  * a phone, on this same machine.
  *
  * Files rather than a port or a socket, for the same reason the schedule is a

@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { readState, updateState, writeState } from '../src/state-file';
-import { ChronosState, SCHEMA_VERSION, TaskRun, TaskSeries } from '../src/types';
+import { SynchronyState, SCHEMA_VERSION, TaskRun, TaskSeries } from '../src/types';
 
 /**
  * How the store persists a change: read the file, apply the change to that,
@@ -20,7 +20,7 @@ let dir: string;
 let file: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-store-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-store-'));
   file = path.join(dir, 'state.json');
 });
 
@@ -55,7 +55,7 @@ function run(overrides: Partial<TaskRun> = {}): TaskRun {
   };
 }
 
-const state = (overrides: Partial<ChronosState> = {}): ChronosState => ({
+const state = (overrides: Partial<SynchronyState> = {}): SynchronyState => ({
   schemaVersion: SCHEMA_VERSION,
   series: [series()],
   runs: [],
@@ -91,7 +91,7 @@ describe('updateState', () => {
   });
 
   it('should_start_from_an_empty_schedule_when_the_folder_has_no_state_file', () => {
-    // Every folder looks like this before Chronos has run in it, and the first
+    // Every folder looks like this before Synchrony has run in it, and the first
     // write must not be treated as a failed read.
     const after = updateState(file, (fresh) => {
       fresh.series.push(series());

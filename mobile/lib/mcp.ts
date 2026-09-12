@@ -92,7 +92,7 @@ export class McpClient {
       params: {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: {},
-        clientInfo: { name: 'chronos-mobile', version: '0.0.0' }
+        clientInfo: { name: 'synchrony-mobile', version: '0.0.0' }
       }
     });
     await this.post(

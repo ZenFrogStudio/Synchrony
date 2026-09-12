@@ -1,7 +1,7 @@
 import { AgentId } from './types';
 
 /**
- * The engines Chronos can run a plan through, and the models each one offers.
+ * The engines Synchrony can run a plan through, and the models each one offers.
  *
  * One flat table rather than a registry of classes: an engine is four facts and
  * a list, and every other module reads it by id. `claude` is first because it is
@@ -26,7 +26,7 @@ export interface ModelChoice {
 export interface Agent {
   id: AgentId;
   label: string;
-  /** The `chronos.` setting holding this engine's executable path. */
+  /** The `synchrony.` setting holding this engine's executable path. */
   pathSetting: string;
   /** Default executable, resolved from PATH. */
   exe: string;

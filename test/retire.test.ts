@@ -39,8 +39,8 @@ let dir: string;
 let archive: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-lib-'));
-  archive = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-arch-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-lib-'));
+  archive = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-arch-'));
 });
 
 afterEach(() => {

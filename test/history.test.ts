@@ -12,7 +12,7 @@ import {
 } from '../src/types';
 
 /**
- * The only place Chronos deletes something the user might still want, so the
+ * The only place Synchrony deletes something the user might still want, so the
  * rules are asserted rather than assumed.
  */
 

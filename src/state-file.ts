@@ -1,13 +1,13 @@
 import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import { migrate } from './migrate';
-import { ChronosState, SCHEMA_VERSION } from './types';
+import { SynchronyState, SCHEMA_VERSION } from './types';
 
 /**
  * The schedule on disk.
  *
  * State used to live in `globalState`, which is one bucket for the whole
- * machine — the reason Chronos could not tell one project's work from
+ * machine — the reason Synchrony could not tell one project's work from
  * another's. A file per folder replaces it, and the read half is written here
  * rather than in `store.ts` so it can be exercised by the plain Node test
  * runner: no `vscode` import, same rule as `consolidate.ts` and `remote.ts`.
@@ -22,12 +22,12 @@ import { ChronosState, SCHEMA_VERSION } from './types';
  */
 const WRITER = randomBytes(4).toString('hex');
 
-export function emptyState(): ChronosState {
+export function emptyState(): SynchronyState {
   return { schemaVersion: SCHEMA_VERSION, series: [], runs: [] };
 }
 
 export interface ReadResult {
-  state: ChronosState;
+  state: SynchronyState;
   /** Where unrecognisable content was set aside, if it was. */
   backedUpTo?: string;
   /** The version read, when it was older than the current one. */
@@ -38,7 +38,7 @@ export interface ReadResult {
  * Loads a folder's state, upgrading a known older schema through `migrate()`.
  *
  * A missing file is an empty schedule, not an error: it is what every folder
- * looks like before Chronos has run in it. Only a genuinely unrecognisable
+ * looks like before Synchrony has run in it. Only a genuinely unrecognisable
  * shape is set aside, and even then it is copied rather than dropped — losing
  * somebody's schedule to a parse error is not a recovery.
  */
@@ -62,7 +62,7 @@ export function readState(file: string): ReadResult {
     return { state: emptyState(), backedUpTo: setAside(file, raw) };
   }
 
-  const from = (parsed as Partial<ChronosState>).schemaVersion;
+  const from = (parsed as Partial<SynchronyState>).schemaVersion;
   if (from !== SCHEMA_VERSION) {
     writeState(file, migrated);
     return { state: migrated, migratedFrom: from };
@@ -86,8 +86,8 @@ export function readState(file: string): ReadResult {
  */
 export function updateState(
   file: string,
-  change: (state: ChronosState) => void
-): ChronosState {
+  change: (state: SynchronyState) => void
+): SynchronyState {
   const { state } = readState(file);
   change(state);
   writeState(file, state);
@@ -104,7 +104,7 @@ export function updateState(
  * shared temp name would let their writes interleave into a file that parses as
  * nothing — hence the per-window name.
  */
-export function writeState(file: string, state: ChronosState): void {
+export function writeState(file: string, state: SynchronyState): void {
   const temp = `${file}.${WRITER}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(state), 'utf8');
   fs.renameSync(temp, file);

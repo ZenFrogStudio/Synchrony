@@ -19,7 +19,8 @@ import { RunStatus, TaskRun, TaskSeries, isFinished } from './types';
 export const DASHBOARD_SCHEMA_VERSION = 1;
 
 /** Shared directory under the user's home. One file per live window. */
-export const DASHBOARD_DIR = '.chronos-dashboard';
+import { DASHBOARD_DIR, dashboardDirFor } from './migrate-name';
+export { DASHBOARD_DIR };
 
 /** How often a window rewrites its heartbeat when nothing has changed. */
 export const HEARTBEAT_MS = 15_000;
@@ -77,7 +78,7 @@ export interface DashboardInstance {
   /** The window's own root folder. Differs from `activeFolder` in multi-root. */
   workspaceFolder: string;
   workspaceName: string;
-  /** The folder Chronos is pointed at in this window. */
+  /** The folder Synchrony is pointed at in this window. */
   activeFolder: string;
   schedulerLeader: boolean;
   libraryPath: string;
@@ -126,7 +127,7 @@ export interface InstanceFacts {
 
 /** Where every window on this machine writes its heartbeat. */
 export function instancesDir(home: string = os.homedir()): string {
-  return path.join(home, DASHBOARD_DIR, 'instances');
+  return path.join(dashboardDirFor(home), 'instances');
 }
 
 /**

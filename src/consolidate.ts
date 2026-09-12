@@ -5,7 +5,7 @@ import { TaskSeries } from './types';
 
 ////////////////////////////*Scope*//////////////////////////////
 
-/* Make one kind of plan out of two. Chronos used to schedule files where they
+/* Make one kind of plan out of two. Synchrony used to schedule files where they
 lay, anywhere on disk, which meant a second security model, a second watcher and
 a second list in the UI for a distinction nobody asked for. This restores the
 invariant every other module now assumes: every scheduled plan is a file in the
@@ -58,7 +58,7 @@ export async function consolidate(
 ): Promise<ConsolidationReport> {
   const report: ConsolidationReport = { imported: [], droppedSchedules: [] };
 
-  // The one guard that makes the prune below safe. A `chronos.libraryPath` on an
+  // The one guard that makes the prune below safe. A `synchrony.libraryPath` on an
   // unplugged drive or an offline share reads as "no files here", and pruning on
   // that would delete the user's whole schedule for a cable someone kicked out.
   try {

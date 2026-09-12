@@ -14,7 +14,7 @@ type FieldStatus = { kind: 'applied' | 'refused' | 'queued'; note?: string };
 
 /**
  * Mirrors the desktop manager's generated Settings page: same groups, same
- * fields, same `chronos.*` keys, driven by the `settingGroups`/`values` the
+ * fields, same `synchrony.*` keys, driven by the `settingGroups`/`values` the
  * snapshot already carries off `read_instance`.
  */
 export default function SettingsTab({ snapshot, refresh }: Props) {
@@ -41,7 +41,7 @@ export default function SettingsTab({ snapshot, refresh }: Props) {
   return (
     <ScrollView style={{ flex: 1 }}>
       <Text style={{ color: palette.textDim, fontSize: 12, marginBottom: 12 }}>
-        Settings are global — they apply to every Chronos instance on the desktop.
+        Settings are global — they apply to every Synchrony instance on the desktop.
       </Text>
 
       {!settings ? (

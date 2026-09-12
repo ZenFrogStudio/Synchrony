@@ -22,10 +22,10 @@ const fieldFor = (key: string): SettingField => {
 };
 
 describe('settingGroups', () => {
-  it('should_put_every_chronos_setting_into_some_group', () => {
+  it('should_put_every_synchrony_setting_into_some_group', () => {
     // The tripwire for the GROUPS table falling behind the schema: a new
     // setting must reach the page, under a heading or under Other.
-    const expected = Object.keys(PROPERTIES).map((key) => key.replace(/^chronos\./, '')).sort();
+    const expected = Object.keys(PROPERTIES).map((key) => key.replace(/^synchrony\./, '')).sort();
 
     const shown = settingGroups(PROPERTIES).flatMap((group) => group.fields.map((f) => f.key));
 
@@ -45,20 +45,20 @@ describe('settingGroups', () => {
 
     // Assert.
     for (const key of listed) {
-      assert.ok(declared.has(`chronos.${key}`), `GROUPS lists chronos.${key}, which no longer exists`);
+      assert.ok(declared.has(`synchrony.${key}`), `GROUPS lists synchrony.${key}, which no longer exists`);
     }
   });
 
   it('should_drop_a_group_with_nothing_in_it', () => {
     // A schema holding one property must not draw four empty headings.
-    const groups = settingGroups({ 'chronos.planModel': PROPERTIES['chronos.planModel'] });
+    const groups = settingGroups({ 'synchrony.planModel': PROPERTIES['synchrony.planModel'] });
 
     assert.deepEqual(groups.map((g) => g.title), ['Planning']);
   });
 
   it('should_park_an_unlisted_setting_under_other', () => {
     const groups = settingGroups({
-      'chronos.somethingNew': { type: 'string', default: '', description: 'Added later.' }
+      'synchrony.somethingNew': { type: 'string', default: '', description: 'Added later.' }
     });
 
     assert.deepEqual(groups.map((g) => g.title), ['Other']);

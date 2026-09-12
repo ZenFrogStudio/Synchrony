@@ -13,7 +13,8 @@ import { MCP_CLIENTS } from './mcp-clients';
 import { migrate } from './migrate';
 import { sweepQuestions } from './questions';
 import { retireCompletedPlans } from './retire';
-import { ChronosPaths, ensureRoot, pathsFor, sweepPending } from './roots';
+import { MigrateOutcome, migrateRoot } from './migrate-name';
+import { SynchronyPaths, ensureRoot, pathsFor, sweepPending } from './roots';
 import { probeAgent, Runner } from './runner';
 import { Scheduler } from './scheduler';
 import { writeState } from './state-file';
@@ -23,16 +24,23 @@ import { TaskView } from './tasks';
 import { AgentId, STORE_KEY } from './types';
 
 /** Which folder this window is showing. See `activeFolder` below. */
-const ACTIVE_FOLDER_KEY = 'chronos.activeFolder';
+const ACTIVE_FOLDER_KEY = 'synchrony.activeFolder';
 /** Set once the old machine-wide dataset has been moved into a folder. */
-const ADOPTED_KEY = 'chronos.adoptedInto';
+const ADOPTED_KEY = 'synchrony.adoptedInto';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   initLog(context);
-  log.info(`Chronos ${context.extension.packageJSON.version} activating`);
+  log.info(`Synchrony ${context.extension.packageJSON.version} activating`);
 
   let active = activeFolder(context);
-  const paths = (): ChronosPaths =>
+  // Chronos -> Synchrony, once per install: the folder's `.chronos` becomes
+  // `.synchrony` (atomic rename; a refusal leaves it in use under the old name),
+  // and settings written under `chronos.*` are copied to `synchrony.*`.
+  if (active) {
+    logMigration(active, migrateRoot(active));
+  }
+  await migrateSettings(context);
+  const paths = (): SynchronyPaths =>
     resolvePaths(active ?? context.globalStorageUri.fsPath);
 
   const fresh = ensureRoot(paths());
@@ -134,7 +142,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // overnight job to change a dropdown is not a trade worth making silently.
     if (runner.activeCount > 0) {
       void vscode.window.showWarningMessage(
-        `Chronos is running ${runner.activeCount} task${runner.activeCount > 1 ? 's' : ''}. ` +
+        `Synchrony is running ${runner.activeCount} task${runner.activeCount > 1 ? 's' : ''}. ` +
           'Wait for it to finish, or cancel it, before switching folder.'
       );
       manager.post();
@@ -142,6 +150,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     scheduler.releaseNow();
+    logMigration(folder, migrateRoot(folder));
     active = folder;
     await context.workspaceState.update(ACTIVE_FOLDER_KEY, folder);
 
@@ -186,7 +195,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const taskView = new TaskView(context.extensionUri, paths, store, scheduler, manager);
 
   // Cancel and settings commands from outside a window — the hub, a remote
-  // board — landing in this folder's `.chronos/control/`. See `control.ts`.
+  // board — landing in this folder's `.synchrony/control/`. See `control.ts`.
   const controlWatcher = new ControlWatcher(
     paths,
     () => scheduler.leading,
@@ -229,11 +238,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         void switchFolder(resolved);
       }
     }),
-    vscode.commands.registerCommand('chronos.openManager', () => manager.open()),
-    vscode.commands.registerCommand('chronos.selectFolder', () => selectFolder(switchFolder)),
-    vscode.commands.registerCommand('chronos.addFiles', () => addFiles(manager)),
+    vscode.commands.registerCommand('synchrony.openManager', () => manager.open()),
+    vscode.commands.registerCommand('synchrony.selectFolder', () => selectFolder(switchFolder)),
+    vscode.commands.registerCommand('synchrony.addFiles', () => addFiles(manager)),
     vscode.commands.registerCommand(
-      'chronos.scheduleFile',
+      'synchrony.scheduleFile',
       async (uri?: vscode.Uri, uris?: vscode.Uri[]) => {
         // `explorer/context` passes (clicked, whole selection), but
         // `editor/title/context` passes a menu group reference as the second
@@ -247,12 +256,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await manager.addPaths(paths);
       }
     ),
-    vscode.commands.registerCommand('chronos.showLogs', () => log.show()),
-    vscode.commands.registerCommand('chronos.addTask', () => taskView.addTask()),
-    vscode.commands.registerCommand('chronos.generatePlanRemote', () =>
+    vscode.commands.registerCommand('synchrony.showLogs', () => log.show()),
+    vscode.commands.registerCommand('synchrony.addTask', () => taskView.addTask()),
+    vscode.commands.registerCommand('synchrony.generatePlanRemote', () =>
       taskView.generatePlanRemotely()
     ),
-    vscode.commands.registerCommand('chronos.copyMcpConfig', () =>
+    vscode.commands.registerCommand('synchrony.copyMcpConfig', () =>
       copyMcpConfig(mcpLauncher, paths().folder)
     )
   );
@@ -293,11 +302,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     dashboard.refresh();
   });
 
-  log.info(`Chronos activated on ${paths().folder}`);
+  log.info(`Synchrony activated on ${paths().folder}`);
 }
 
 export function deactivate(): void {
-  log.info('Chronos deactivating');
+  log.info('Synchrony deactivating');
 }
 
 ///////////////////////////*Schedules written from outside*////////////////////////////
@@ -311,7 +320,7 @@ export function deactivate(): void {
  * on disk unfired until someone reloaded the window. A second editor window on
  * the same folder gets the same benefit for free.
  *
- * The watch is on the `.chronos` **directory**, filtered to the file — not on
+ * The watch is on the `.synchrony` **directory**, filtered to the file — not on
  * the file itself. `writeState` writes a temp file and renames it over the
  * target, which replaces the inode and leaves a file-level watch pointed at
  * something nothing will ever write to again. `Manager.restartWatching` watches
@@ -325,7 +334,7 @@ class StateWatcher implements vscode.Disposable {
   private debounce: NodeJS.Timeout | undefined;
 
   constructor(
-    private readonly paths: () => ChronosPaths,
+    private readonly paths: () => SynchronyPaths,
     private readonly store: Store
   ) {}
 
@@ -362,7 +371,7 @@ class StateWatcher implements vscode.Disposable {
  * The path a client config points at — one that survives an update.
  *
  * `extensionUri` names the *versioned* install folder, so a config written
- * against it breaks silently the next time Chronos updates: the client goes on
+ * against it breaks silently the next time Synchrony updates: the client goes on
  * spawning a file that is no longer there, and the only symptom is tools that
  * quietly stop appearing. `globalStorageUri` is keyed by publisher and extension
  * id rather than by version, so it is the one path that does not move.
@@ -382,13 +391,13 @@ function mcpLauncherPath(context: vscode.ExtensionContext): string {
   const launcher = path.join(dir, 'mcp-server.js');
 
   // stderr, never stdout: stdout is the JSON-RPC transport, and one line on it
-  // corrupts the handshake. A client connecting after Chronos was uninstalled
+  // corrupts the handshake. A client connecting after Synchrony was uninstalled
   // should be told so and see the process end, rather than hang.
   const shim =
     `const target = ${JSON.stringify(real)};\n` +
     'if (!require(\'fs\').existsSync(target)) {\n' +
-    '  process.stderr.write(`[chronos-mcp] ${target} is missing — Chronos was moved or ' +
-    'uninstalled. Re-run "Chronos: Copy MCP Server Config..." from VS Code.\\n`);\n' +
+    '  process.stderr.write(`[synchrony-mcp] ${target} is missing — Synchrony was moved or ' +
+    'uninstalled. Re-run "Synchrony: Copy MCP Server Config..." from VS Code.\\n`);\n' +
     '  process.exit(1);\n' +
     '}\n' +
     'require(target);\n';
@@ -426,7 +435,7 @@ function readIfPresent(filePath: string): string | undefined {
 async function copyMcpConfig(serverPath: string, folder: string): Promise<void> {
   const picked = await vscode.window.showQuickPick(
     MCP_CLIENTS.map((client) => ({ label: client.label, detail: client.where, client })),
-    { placeHolder: 'Which client are you registering Chronos with?' }
+    { placeHolder: 'Which client are you registering Synchrony with?' }
   );
   if (!picked) {
     return; // Cancelled. Nothing copied, so the clipboard is left as it was.
@@ -436,7 +445,7 @@ async function copyMcpConfig(serverPath: string, folder: string): Promise<void> 
   await vscode.env.clipboard.writeText(client.config(serverPath, folder));
 
   const said = [
-    `Copied the Chronos MCP config for ${path.basename(folder)}. Paste it into ${client.where}.`
+    `Copied the Synchrony MCP config for ${path.basename(folder)}. Paste it into ${client.where}.`
   ];
   if (client.cli) {
     said.push(`Or run: ${client.cli(serverPath, folder)}`);
@@ -448,7 +457,7 @@ async function copyMcpConfig(serverPath: string, folder: string): Promise<void> 
 }
 
 /**
- * The folder this window operates in. Chronos data is per-folder, so this is
+ * The folder this window operates in. Synchrony data is per-folder, so this is
  * the single decision every path below hangs off.
  *
  * One folder is active at a time rather than all of them at once: a second
@@ -471,15 +480,15 @@ function activeFolder(context: vscode.ExtensionContext): string | undefined {
 
 /**
  * Where this window's data lives. With no folder open there is nothing to be
- * specific to, so Chronos falls back to a `.chronos` root inside its own
+ * specific to, so Synchrony falls back to a `.synchrony` root inside its own
  * extension storage and goes on working.
  *
- * `chronos.libraryPath` and `chronos.resultsPath` still override their part of
+ * `synchrony.libraryPath` and `synchrony.resultsPath` still override their part of
  * the layout, which is what makes the change safe for anyone already using
  * them. Set in *workspace* settings they keep a folder's data folder-specific;
  * set in user settings they deliberately put every folder back in one place.
  */
-function resolvePaths(folder: string): ChronosPaths {
+function resolvePaths(folder: string): SynchronyPaths {
   const paths = pathsFor(folder);
   const library = config().get<string>('libraryPath', '').trim();
   const results = config().get<string>('resultsPath', '').trim();
@@ -506,7 +515,7 @@ function resolvePaths(folder: string): ChronosPaths {
  * second window activating on the new build at the same moment, before the flag
  * it writes has reached anyone else.
  */
-function adoptOnce(context: vscode.ExtensionContext, next: ChronosPaths): void {
+function adoptOnce(context: vscode.ExtensionContext, next: SynchronyPaths): void {
   if (context.globalState.get<string>(ADOPTED_KEY) || fs.existsSync(next.state)) {
     return;
   }
@@ -536,7 +545,7 @@ function adoptOnce(context: vscode.ExtensionContext, next: ChronosPaths): void {
   // the whole copy inside the race it is meant to close.
   if (!claimAdoption(context.globalStorageUri.fsPath)) {
     log.info(
-      'another window is adopting the previous machine-wide Chronos data — ' +
+      'another window is adopting the previous machine-wide Synchrony data — ' +
         'leaving it to that one, so it is not copied into two projects at once'
     );
     return;
@@ -547,7 +556,7 @@ function adoptOnce(context: vscode.ExtensionContext, next: ChronosPaths): void {
   void context.globalState.update(ADOPTED_KEY, next.folder);
 
   log.info(
-    `adopted the previous machine-wide Chronos data into ${next.root}: ` +
+    `adopted the previous machine-wide Synchrony data into ${next.root}: ` +
       `${report.plans} plan(s), ${report.tasks} task(s), ${report.repointed} schedule(s), ` +
       `${report.runs} run(s)${report.results ? ', plus past transcripts' : ''}. ` +
       `The originals are untouched in ${legacyLibrary}.`
@@ -555,7 +564,7 @@ function adoptOnce(context: vscode.ExtensionContext, next: ChronosPaths): void {
 }
 
 /**
- * A first-run plan, so a folder new to Chronos opens with something to look at
+ * A first-run plan, so a folder new to Synchrony opens with something to look at
  * and a safe thing to try.
  *
  * Only when the root was just created, never merely because the library is
@@ -564,7 +573,7 @@ function adoptOnce(context: vscode.ExtensionContext, next: ChronosPaths): void {
  * old machine-wide library — it has plans already, and does not need a
  * thirteenth one explaining what a plan is.
  */
-function seedIfNew(paths: ChronosPaths, rootWasCreated: boolean): void {
+function seedIfNew(paths: SynchronyPaths, rootWasCreated: boolean): void {
   if (!rootWasCreated) {
     return;
   }
@@ -581,7 +590,7 @@ function seedIfNew(paths: ChronosPaths, rootWasCreated: boolean): void {
 /** The command-palette route to the manager's folder dropdown. */
 async function selectFolder(switchFolder: (folder: string) => Promise<void>): Promise<void> {
   const picked = await vscode.window.showWorkspaceFolderPick({
-    placeHolder: 'Which folder should Chronos show?'
+    placeHolder: 'Which folder should Synchrony show?'
   });
   if (picked) {
     await switchFolder(picked.uri.fsPath);
@@ -602,6 +611,55 @@ async function addFiles(manager: Manager): Promise<void> {
   }
 }
 
+function logMigration(folder: string, outcome: MigrateOutcome): void {
+  if (outcome === 'migrated') log.info(`renamed .chronos to .synchrony in ${folder}`);
+  if (outcome === 'failed') log.warn(`could not rename .chronos in ${folder} yet (a window may still hold it); using it as is`);
+}
+
+/**
+ * Copies every `chronos.*` setting the manifest still knows to `synchrony.*`,
+ * at every scope it was set, when the new key is unset at that scope. The old
+ * keys are left in place: VS Code keeps unknown settings, they do no harm, and
+ * deleting a user's settings is not ours to do. Same for the two state keys.
+ */
+async function migrateSettings(context: vscode.ExtensionContext): Promise<void> {
+  const properties = context.extension.packageJSON.contributes?.configuration?.properties ?? {};
+  const legacy = vscode.workspace.getConfiguration('chronos');
+  const current = vscode.workspace.getConfiguration('synchrony');
+  let copied = 0;
+  for (const full of Object.keys(properties)) {
+    const key = full.replace(/^synchrony\./, '');
+    const was = legacy.inspect(key);
+    const now = current.inspect(key);
+    if (!was || !now) continue;
+    const scopes: [unknown, unknown, vscode.ConfigurationTarget][] = [
+      [was.globalValue, now.globalValue, vscode.ConfigurationTarget.Global],
+      [was.workspaceValue, now.workspaceValue, vscode.ConfigurationTarget.Workspace]
+    ];
+    for (const [old, fresh, target] of scopes) {
+      if (old !== undefined && fresh === undefined) {
+        try {
+          await current.update(key, old, target);
+          copied++;
+        } catch (err) {
+          log.warn(`could not copy setting chronos.${key}: ${String(err)}`);
+        }
+      }
+    }
+  }
+  if (copied) log.info(`copied ${copied} setting(s) from chronos.* to synchrony.*`);
+
+  for (const [state, key] of [
+    [context.workspaceState, ACTIVE_FOLDER_KEY],
+    [context.globalState, ADOPTED_KEY]
+  ] as const) {
+    const legacyKey = key.replace(/^synchrony\./, 'chronos.');
+    if (state.get(key) === undefined && state.get(legacyKey) !== undefined) {
+      await state.update(key, state.get(legacyKey));
+    }
+  }
+}
+
 function config(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration('chronos');
+  return vscode.workspace.getConfiguration('synchrony');
 }

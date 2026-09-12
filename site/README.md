@@ -1,4 +1,4 @@
-# The Chronos landing page
+# The Synchrony landing page
 
 Plain HTML and CSS. No build step, no dependencies, no JavaScript.
 

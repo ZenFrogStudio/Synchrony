@@ -6,7 +6,7 @@ import { TaskRun, TaskSeries } from './types';
 ////////////////////////////*Scope*//////////////////////////////
 
 /* A plan that has run is finished with the library. A one-shot has no future
-once it has completed, so leaving its file in `.chronos/plans` fills the folder
+once it has completed, so leaving its file in `.synchrony/plans` fills the folder
 with plans that will never fire again — and makes the list in the manager and the
 folder in Explorer disagree about what the library holds.
 
@@ -16,7 +16,7 @@ folder in Explorer disagree about what the library holds.
     and nothing queued or in flight that would still need the file;
   //Group them by the file they point at, since two series can share one plan,
     and only move a file every one of its series is finished with;
-  //Move the file into `.chronos/archive/plans` and repoint the series at the
+  //Move the file into `.synchrony/archive/plans` and repoint the series at the
     copy, marking them spent so an untaken occurrence cannot fire from there;
   //Keep the run history exactly where it is, so the Runs panel still names the
     plan and still links its transcript;

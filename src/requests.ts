@@ -6,11 +6,11 @@ import * as path from 'path';
  * Plan requests: how something outside a VS Code window asks a live window to
  * start a planning session.
  *
- * Plan generation is the one thing the `.chronos` tree cannot express on its
+ * Plan generation is the one thing the `.synchrony` tree cannot express on its
  * own. A task is a file, a series is a line in `state.json`, and any process can
  * write either — but a planning session is a terminal running the `claude` CLI,
  * and only an extension host can open one. So a remote caller writes a request
- * file into `.chronos/requests/`, and whichever live window on that folder
+ * file into `.synchrony/requests/`, and whichever live window on that folder
  * claims it first opens the session on the caller's behalf.
  *
  * The protocol is three renames, each atomic on NTFS and POSIX:
@@ -31,11 +31,11 @@ export const REQUESTS_DIR = 'requests';
 export interface PlanRequest {
   id: string;
   type: 'generatePlan';
-  /** Task file name inside `.chronos/tasks/`, e.g. `fix-the-lock.md`. Never a path. */
+  /** Task file name inside `.synchrony/tasks/`, e.g. `fix-the-lock.md`. Never a path. */
   task: string;
   /** Several stage plans and a manifest rather than one plan. */
   series?: boolean;
-  /** Model id for the planning session. Omit for the window's `chronos.planModel`. */
+  /** Model id for the planning session. Omit for the window's `synchrony.planModel`. */
   model?: string;
   /** ISO 8601 UTC. */
   requestedAt: string;

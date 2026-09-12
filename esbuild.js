@@ -12,7 +12,7 @@ const production = process.argv.includes('--production');
  * it here instead keeps F5 working on a clean machine.
  */
 const problemMatcherLog = {
-  name: 'chronos-log',
+  name: 'synchrony-log',
   setup(build) {
     build.onStart(() => console.log('[build] started'));
     build.onEnd((result) => {
@@ -46,7 +46,7 @@ const shared = {
   // Stamped into both bundles, so the version the MCP server announces to a
   // client is the one in package.json rather than a literal nobody remembers
   // to change.
-  define: { 'process.env.CHRONOS_VERSION': JSON.stringify(version) },
+  define: { 'process.env.SYNCHRONY_VERSION': JSON.stringify(version) },
   plugins: [problemMatcherLog]
 };
 
@@ -84,7 +84,7 @@ async function main() {
 
   if (watch) {
     await Promise.all(contexts.map((ctx) => ctx.watch()));
-    console.log('[chronos] watching...');
+    console.log('[synchrony] watching...');
   } else {
     await Promise.all(contexts.map((ctx) => ctx.rebuild()));
     await Promise.all(contexts.map((ctx) => ctx.dispose()));

@@ -12,7 +12,7 @@
  */
 
 export interface SettingField {
-  /** Short key with no `chronos.` prefix — what `config.get` and `config.update` take. */
+  /** Short key with no `synchrony.` prefix — what `config.get` and `config.update` take. */
   key: string;
   label: string;
   type: 'string' | 'number' | 'boolean';
@@ -31,7 +31,7 @@ export interface SettingGroup {
   fields: SettingField[];
 }
 
-const PREFIX = 'chronos.';
+const PREFIX = 'synchrony.';
 
 /**
  * Which heading each setting sits under, and the order within it. The one thing
@@ -44,7 +44,7 @@ const PREFIX = 'chronos.';
 export const GROUPS: { title: string; note?: string; keys: string[] }[] = [
   {
     title: 'Planning',
-    note: 'These shape the plans Chronos generates from now on. Plans already in your library are untouched.',
+    note: 'These shape the plans Synchrony generates from now on. Plans already in your library are untouched.',
     keys: [
       'planModel',
       'planStep.tests',
@@ -69,7 +69,7 @@ export const GROUPS: { title: string; note?: string; keys: string[] }[] = [
 
 /**
  * Takes `contributes.configuration.properties` verbatim — keys still carrying
- * their `chronos.` prefix — and returns the page. Empty groups are dropped.
+ * their `synchrony.` prefix — and returns the page. Empty groups are dropped.
  */
 export function settingGroups(properties: Record<string, any>): SettingGroup[] {
   const remaining = new Map<string, any>(

@@ -67,7 +67,7 @@ describe('source guards', () => {
   it('should_never_call_Math_random_anywhere_in_src', () => {
     // The CSP nonce is the only guarantee that a <script> in the manager came
     // from us. Seeded from Math.random it is predictable, and the guarantee is
-    // worth nothing. Nothing else in Chronos needs randomness either, so the
+    // worth nothing. Nothing else in Synchrony needs randomness either, so the
     // rule is a flat ban rather than a carve-out for one file.
     //
     // The call form specifically, so prose may still name it — `manager.ts`
@@ -231,7 +231,7 @@ describe('source guards', () => {
     const script = fs.readFileSync(path.join(ROOT, 'reinstall.js'), 'utf8');
 
     assert.ok(script.includes('package.json'), 'reinstall.js must read the version');
-    assert.doesNotMatch(script, /chronos-\d+\.\d+\.\d+/, 'reinstall.js hardcodes a version');
+    assert.doesNotMatch(script, /synchrony-\d+\.\d+\.\d+/, 'reinstall.js hardcodes a version');
   });
 
   it('should_declare_every_engine_where_engine_choices_are_hardcoded', () => {
@@ -258,7 +258,7 @@ describe('source guards', () => {
     }
 
     for (const match of agents.matchAll(/pathSetting: '([^']+)'/g)) {
-      const key = `chronos.${match[1]}`;
+      const key = `synchrony.${match[1]}`;
       assert.ok(manifest.contributes.configuration.properties[key], `package.json omits ${key}`);
     }
   });
@@ -268,17 +268,17 @@ describe('source guards', () => {
     // package.json. If the tables drift, one UI offers a value the other
     // refuses at the moment it is picked.
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    const setting = manifest.contributes.configuration.properties['chronos.planModel'];
+    const setting = manifest.contributes.configuration.properties['synchrony.planModel'];
 
     assert.deepEqual(
       setting.enum,
       CLAUDE_MODELS.map((model) => model.value),
-      'package.json chronos.planModel enum changed without src/agents.ts CLAUDE_MODELS'
+      'package.json synchrony.planModel enum changed without src/agents.ts CLAUDE_MODELS'
     );
     assert.deepEqual(
       setting.enumDescriptions,
       CLAUDE_MODELS.map((model) => model.label),
-      'package.json chronos.planModel enumDescriptions changed without src/agents.ts CLAUDE_MODELS'
+      'package.json synchrony.planModel enumDescriptions changed without src/agents.ts CLAUDE_MODELS'
     );
   });
 
@@ -432,7 +432,7 @@ describe('source guards', () => {
 
   it('should_hand_out_the_update_proof_mcp_path_rather_than_the_versioned_one', () => {
     // `extensionUri` names the folder VS Code installed *this version* into, so
-    // a config copied from it stops working the next time Chronos updates. The
+    // a config copied from it stops working the next time Synchrony updates. The
     // client goes on spawning a file that is no longer there and reports a
     // perfectly healthy failure to connect, which nobody traces back to an
     // update. The launcher under globalStorage is the path that survives.
@@ -494,15 +494,15 @@ describe('source guards', () => {
     const build = fs.readFileSync(path.join(ROOT, 'esbuild.js'), 'utf8');
 
     assert.ok(
-      server.includes('process.env.CHRONOS_VERSION'),
+      server.includes('process.env.SYNCHRONY_VERSION'),
       'src/mcp-server.ts must take its version from the build'
     );
     assert.doesNotMatch(server, /const VERSION = '\d/, 'src/mcp-server.ts hardcodes a version');
     // Both halves: the reader is useless without the stamp, and the stamp is
     // useless without the reader.
     assert.ok(
-      build.includes('process.env.CHRONOS_VERSION'),
-      'esbuild.js no longer defines CHRONOS_VERSION, so the server falls back to 0.0.0-dev'
+      build.includes('process.env.SYNCHRONY_VERSION'),
+      'esbuild.js no longer defines SYNCHRONY_VERSION, so the server falls back to 0.0.0-dev'
     );
   });
 
@@ -560,7 +560,7 @@ describe('source guards', () => {
     const launch = fs.readFileSync(path.join(SRC, 'launch.ts'), 'utf8');
     const tasks = fs.readFileSync(path.join(SRC, 'tasks.ts'), 'utf8');
 
-    assert.match(launch, /export const ASK_SERVER = 'chronos-ask'/);
+    assert.match(launch, /export const ASK_SERVER = 'synchrony-ask'/);
     assert.match(
       tasks,
       /mcpClientConfig\(\s*ASK_SERVER/,
@@ -657,10 +657,10 @@ describe('source guards', () => {
       manager.includes("mediaUri('icon.png')"),
       'src/manager.ts no longer points {{markUri}} at media/icon.png'
     );
-    assert.ok(html.includes('name="chronos-mark"'), 'media/manager.html has no chronos-mark meta');
+    assert.ok(html.includes('name="synchrony-mark"'), 'media/manager.html has no synchrony-mark meta');
     assert.ok(html.includes('{{markUri}}'), 'media/manager.html never carries the mark URI');
     assert.ok(
-      js.includes('meta[name="chronos-mark"]'),
+      js.includes('meta[name="synchrony-mark"]'),
       'media/manager.js no longer reads the mark URI out of the page'
     );
     assert.ok(js.includes('class="head-mark'), 'media/manager.js never renders the header mark');

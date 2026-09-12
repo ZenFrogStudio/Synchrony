@@ -22,7 +22,7 @@ import {
 let dir: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-requests-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-requests-'));
 });
 
 afterEach(() => {

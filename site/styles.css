@@ -1,4 +1,4 @@
-/* Chronos landing page. Hand-written CSS, no build step and no dependencies.
+/* Synchrony landing page. Hand-written CSS, no build step and no dependencies.
 
    Two rules carried over from the manager (media/manager.css):
 
@@ -15,8 +15,8 @@
   --border: #242E32;
   --text: #E4EBED;
   --muted: #93A3A8;
-  --accent: #12A3A9;   /* Chronos teal, from media/manager.css */
-  --sodium: #E0A458;   /* Chronos amber, from media/manager.css */
+  --accent: #12A3A9;   /* Synchrony teal, from media/manager.css */
+  --sodium: #E0A458;   /* Synchrony amber, from media/manager.css */
   --ok: #3FB950;
 }
 

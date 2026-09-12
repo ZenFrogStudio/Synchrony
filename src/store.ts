@@ -4,7 +4,7 @@ import { pruneRuns, pruneSeries } from './history';
 import { log } from './log';
 import { newId, stampRepeatEnd } from './series';
 import { readState, updateState } from './state-file';
-import { ChronosState, SCHEMA_VERSION, TaskRun, TaskSeries } from './types';
+import { SynchronyState, SCHEMA_VERSION, TaskRun, TaskSeries } from './types';
 
 /**
  * Re-exported rather than defined here: `series.ts` is deliberately `vscode`-free
@@ -19,7 +19,7 @@ export class Store {
 
   private constructor(
     private file: string,
-    private state: ChronosState
+    private state: SynchronyState
   ) {}
 
   /**
@@ -32,7 +32,7 @@ export class Store {
 
   /**
    * Points the store at a different folder's state. This is the whole of what
-   * switching folders means to the schedule — everything else in Chronos reads
+   * switching folders means to the schedule — everything else in Synchrony reads
    * through the store or through a path thunk.
    */
   async retarget(file: string): Promise<void> {
@@ -163,9 +163,9 @@ export class Store {
    * The re-read hands back new objects, so `getSeries()` and `getRuns()` are
    * snapshots for reading — a caller that assigned to one of them and expected
    * the change to stick would be writing to a discarded copy. None do; every
-   * edit in Chronos goes through a mutator here.
+   * edit in Synchrony goes through a mutator here.
    */
-  private async persist(change: (state: ChronosState) => void): Promise<void> {
+  private async persist(change: (state: SynchronyState) => void): Promise<void> {
     this.state = updateState(this.file, (state) => {
       change(state);
       state.runs = pruneRuns(state.runs);
@@ -175,7 +175,7 @@ export class Store {
   }
 }
 
-function load(file: string): ChronosState {
+function load(file: string): SynchronyState {
   const result = readState(file);
 
   if (result.backedUpTo) {

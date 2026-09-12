@@ -29,7 +29,7 @@ import {
 let dir: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-questions-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-questions-'));
 });
 
 afterEach(() => {

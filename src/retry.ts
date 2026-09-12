@@ -31,7 +31,7 @@ export function nextTopOfHour(fromMs: number): string {
 }
 
 export type RetryPlan =
-  /** Ordinary bounded retry, `chronos.retryDelayMinutes` out. */
+  /** Ordinary bounded retry, `synchrony.retryDelayMinutes` out. */
   | { kind: 'retry'; scheduledAt: string; attempt: number }
   /** Attempts exhausted inside a chain: keep going, on the hour. */
   | { kind: 'recovery'; scheduledAt: string; attempt: number }

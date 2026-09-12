@@ -169,27 +169,27 @@ async function callTool(name, args) {
 const toolText = (result) => result.content?.[0]?.text ?? '';
 const toolJson = (result) => JSON.parse(toolText(result));
 
-/** Builds `<tmp>/proj/.chronos/` with the layout `ensureRoot` produces, plus a starter plan. */
+/** Builds `<tmp>/proj/.synchrony/` with the layout `ensureRoot` produces, plus a starter plan. */
 function buildFixture() {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-hub-smoke-'));
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-hub-smoke-'));
   const projectDir = path.join(tmpRoot, INSTANCE);
-  const chronosDir = path.join(projectDir, '.chronos');
+  const synchronyDir = path.join(projectDir, '.synchrony');
 
   for (const sub of ['plans', 'tasks', 'questions', 'requests', 'control', 'results', 'logs']) {
-    fs.mkdirSync(path.join(chronosDir, sub), { recursive: true });
+    fs.mkdirSync(path.join(synchronyDir, sub), { recursive: true });
   }
-  fs.writeFileSync(path.join(chronosDir, '.gitignore'), '*\n', 'utf8');
+  fs.writeFileSync(path.join(synchronyDir, '.gitignore'), '*\n', 'utf8');
   fs.writeFileSync(
-    path.join(chronosDir, 'plans', 'starter.md'),
+    path.join(synchronyDir, 'plans', 'starter.md'),
     '# Starter\n\nReply with exactly the word OK and stop. Do not edit any files.\n',
     'utf8'
   );
 
-  return { tmpRoot, projectDir, chronosDir };
+  return { tmpRoot, projectDir, synchronyDir };
 }
 
 async function main() {
-  const { tmpRoot, projectDir, chronosDir } = buildFixture();
+  const { tmpRoot, projectDir, synchronyDir } = buildFixture();
   log(`fixture project at ${projectDir}`);
 
   const hubEntry = path.join(ROOT, 'dist', 'hub.js');
@@ -199,7 +199,7 @@ async function main() {
 
   const hub = spawn(process.execPath, [hubEntry, '--folder', projectDir, '--port', String(PORT)], {
     cwd: ROOT,
-    env: { ...process.env, CHRONOS_HUB_TOKEN: TOKEN, CHRONOS_HUB_HOST: HOST },
+    env: { ...process.env, SYNCHRONY_HUB_TOKEN: TOKEN, SYNCHRONY_HUB_HOST: HOST },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
@@ -230,9 +230,9 @@ async function main() {
     const init = await rpc('initialize', {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: 'chronos-hub-smoke', version: '0.0.0' }
+      clientInfo: { name: 'synchrony-hub-smoke', version: '0.0.0' }
     });
-    assert.equal(init?.serverInfo?.name, 'chronos-hub', `unexpected initialize result: ${JSON.stringify(init)}`);
+    assert.equal(init?.serverInfo?.name, 'synchrony-hub', `unexpected initialize result: ${JSON.stringify(init)}`);
     await rpc('notifications/initialized', {}, { notification: true });
     log(`initialized (session: ${sessionId ?? '(none — stateless serving)'})`);
 
@@ -243,7 +243,7 @@ async function main() {
     }
     log(`tools/list carries all ${EXISTING_TOOLS.length + NEW_TOOLS.length} expected tools`);
 
-    const stateFile = path.join(chronosDir, 'state.json');
+    const stateFile = path.join(synchronyDir, 'state.json');
 
     // ---- create_plan, save_plan, schedule_plan ----
     const created = toolJson(
@@ -310,7 +310,7 @@ async function main() {
 
     // ---- add_task -> edit_task -> run_task -> delete_task, on a second task ----
     const taskOne = toolJson(await callTool('add_task', { instance: INSTANCE, text: 'Smoke task one' }));
-    assert.ok(fs.existsSync(path.join(chronosDir, 'tasks', taskOne.captured)), 'add_task did not write the task file');
+    assert.ok(fs.existsSync(path.join(synchronyDir, 'tasks', taskOne.captured)), 'add_task did not write the task file');
 
     const taskTwo = toolJson(await callTool('add_task', { instance: INSTANCE, text: 'Smoke task two' }));
     await callTool('edit_task', { instance: INSTANCE, name: taskTwo.captured, text: 'Smoke task two, edited' });
@@ -323,14 +323,14 @@ async function main() {
       'run_task did not leave a spent series in state.json'
     );
     assert.ok(
-      fs.existsSync(path.join(chronosDir, 'tasks', taskTwo.captured)),
+      fs.existsSync(path.join(synchronyDir, 'tasks', taskTwo.captured)),
       'run_task removed the task from the inbox — it should stay until deleted by hand'
     );
 
     await callTool('delete_task', { instance: INSTANCE, name: taskTwo.captured });
-    assert.ok(!fs.existsSync(path.join(chronosDir, 'tasks', taskTwo.captured)), 'delete_task left the task in the inbox');
+    assert.ok(!fs.existsSync(path.join(synchronyDir, 'tasks', taskTwo.captured)), 'delete_task left the task in the inbox');
     assert.ok(
-      fs.existsSync(path.join(chronosDir, 'archive', 'tasks', taskTwo.captured)),
+      fs.existsSync(path.join(synchronyDir, 'archive', 'tasks', taskTwo.captured)),
       'delete_task did not move the task into the archive'
     );
     log('add_task, edit_task, run_task and delete_task round-trip on disk');
@@ -340,9 +340,9 @@ async function main() {
     assert.match(body, /Say hi, updated/, 'read_plan did not return the saved text');
 
     await callTool('archive_plan', { instance: INSTANCE, name: created.name });
-    assert.ok(!fs.existsSync(path.join(chronosDir, 'plans', created.name)), 'archive_plan left the plan in the library');
+    assert.ok(!fs.existsSync(path.join(synchronyDir, 'plans', created.name)), 'archive_plan left the plan in the library');
     assert.ok(
-      fs.existsSync(path.join(chronosDir, 'archive', 'plans', created.name)),
+      fs.existsSync(path.join(synchronyDir, 'archive', 'plans', created.name)),
       'archive_plan did not move the plan into the archive'
     );
     log('read_plan and archive_plan round-trip on disk');

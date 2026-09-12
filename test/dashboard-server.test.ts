@@ -52,7 +52,7 @@ function instance(overrides: Record<string, unknown> = {}): Record<string, unkno
 }
 
 before(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-dashboard-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-dashboard-'));
 });
 
 after(() => {

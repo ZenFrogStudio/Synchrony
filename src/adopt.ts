@@ -1,14 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as library from './library';
-import { ChronosPaths } from './roots';
+import { SynchronyPaths } from './roots';
 import { emptyState } from './state-file';
-import { ChronosState } from './types';
+import { SynchronyState } from './types';
 
 /**
  * The one-time move from the old machine-wide storage into a folder.
  *
- * Chronos used to keep a single library, task inbox and schedule in extension
+ * Synchrony used to keep a single library, task inbox and schedule in extension
  * storage, shared by every project. Making that data folder-specific after the
  * fact is guesswork — a plan named `nightly-audit.md` says nothing about which
  * repository it belongs to — so rather than split it up on a hunch, the whole
@@ -69,9 +69,9 @@ export interface AdoptionReport {
 
 export function adoptGlobal(
   legacy: LegacyPaths,
-  next: ChronosPaths,
-  state: ChronosState | undefined
-): { state: ChronosState; report: AdoptionReport } {
+  next: SynchronyPaths,
+  state: SynchronyState | undefined
+): { state: SynchronyState; report: AdoptionReport } {
   const report: AdoptionReport = {
     plans: 0,
     tasks: 0,
@@ -86,7 +86,7 @@ export function adoptGlobal(
   // other run.
   const copies = new Map<string, library.PlanFile>();
 
-  // A `chronos.libraryPath` pointing at the folder we are adopting into makes
+  // A `synchrony.libraryPath` pointing at the folder we are adopting into makes
   // source and destination the same directory, and copying a directory into
   // itself would duplicate every plan under a `-2` name. There is nothing to
   // move in that case: the files are already where they belong.
@@ -110,7 +110,7 @@ export function adoptGlobal(
 
   report.results = !sameDir(legacy.results, next.results) && copyTree(legacy.results, next.results);
 
-  const adopted: ChronosState = state ? { ...state, series: [...state.series] } : emptyState();
+  const adopted: SynchronyState = state ? { ...state, series: [...state.series] } : emptyState();
 
   adopted.series = adopted.series.map((series) => {
     const copy = copies.get(key(series.filePath));

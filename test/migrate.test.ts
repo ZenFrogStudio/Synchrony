@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { migrate } from '../src/migrate';
-import { ChronosState, SCHEMA_VERSION, TaskRun, TaskSeries } from '../src/types';
+import { SynchronyState, SCHEMA_VERSION, TaskRun, TaskSeries } from '../src/types';
 
 /**
  * The store used to demand exact version equality, so bumping SCHEMA_VERSION
@@ -46,7 +46,7 @@ describe('migrate — forward compatibility', () => {
   it('should_migrate_v1_state_forward_without_data_loss', () => {
     const state = v1([v1Series(), v1Series({ id: 'series-2' })], [v1Run()]);
 
-    const result = migrate(state) as ChronosState;
+    const result = migrate(state) as SynchronyState;
 
     assert.equal(result.schemaVersion, SCHEMA_VERSION);
     assert.equal(result.series.length, 2);
@@ -56,7 +56,7 @@ describe('migrate — forward compatibility', () => {
   it('should_accept_state_already_at_the_current_version', () => {
     const current = { schemaVersion: SCHEMA_VERSION, series: [v1Series()], runs: [] };
 
-    const result = migrate(current) as ChronosState;
+    const result = migrate(current) as SynchronyState;
 
     assert.equal(result.schemaVersion, SCHEMA_VERSION);
     assert.equal(result.series.length, 1);
@@ -67,8 +67,8 @@ describe('migrate — forward compatibility', () => {
 
     migrate(state);
 
-    assert.equal((state as ChronosState).schemaVersion, 1);
-    assert.equal((state as ChronosState).series[0].enabled, false);
+    assert.equal((state as SynchronyState).schemaVersion, 1);
+    assert.equal((state as SynchronyState).series[0].enabled, false);
   });
 });
 
@@ -78,7 +78,7 @@ describe('migrate — the v1 enabled/spent split', () => {
     // with a run on record was retired by the scheduler, not paused by a user.
     const state = v1([v1Series({ enabled: false })], [v1Run()]);
 
-    const result = migrate(state) as ChronosState;
+    const result = migrate(state) as SynchronyState;
 
     assert.equal(result.series[0].spent, true);
     assert.equal(result.series[0].enabled, true);
@@ -88,7 +88,7 @@ describe('migrate — the v1 enabled/spent split', () => {
     // No runs on record means the user paused it before it ever fired.
     const state = v1([v1Series({ enabled: false })], []);
 
-    const result = migrate(state) as ChronosState;
+    const result = migrate(state) as SynchronyState;
 
     assert.equal(result.series[0].enabled, false);
     assert.equal(result.series[0].spent, undefined);
@@ -101,14 +101,14 @@ describe('migrate — the v1 enabled/spent split', () => {
       recurrence: { daysOfWeek: [1, 2, 3, 4, 5], timeLocal: '09:00' }
     });
 
-    const result = migrate(v1([recurring], [v1Run()])) as ChronosState;
+    const result = migrate(v1([recurring], [v1Run()])) as SynchronyState;
 
     assert.equal(result.series[0].enabled, false);
     assert.equal(result.series[0].spent, undefined);
   });
 
   it('should_leave_an_active_one_shot_untouched', () => {
-    const result = migrate(v1([v1Series()], [])) as ChronosState;
+    const result = migrate(v1([v1Series()], [])) as SynchronyState;
 
     assert.equal(result.series[0].enabled, true);
     assert.equal(result.series[0].spent, undefined);
@@ -128,7 +128,7 @@ describe('migrate — refusals', () => {
     assert.equal(migrate({ schemaVersion: 1, runs: [] }), undefined);
   });
 
-  it('should_refuse_state_written_by_a_newer_chronos', () => {
+  it('should_refuse_state_written_by_a_newer_synchrony', () => {
     // Guessing at a future shape risks corrupting it on the next write.
     const future = { schemaVersion: SCHEMA_VERSION + 1, series: [], runs: [] };
 

@@ -2,7 +2,7 @@ import { recency } from './history';
 import { TaskRun, TaskSeries } from './types';
 
 /**
- * What Chronos is about to do, and what it has already done, across every plan.
+ * What Synchrony is about to do, and what it has already done, across every plan.
  *
  * Pure — no `vscode`, no store, no clock — because the ordering and the split
  * between "coming up" and "already happened" are the only real logic behind the

@@ -9,7 +9,7 @@ import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
 import * as library from './library';
 import { log, logConsolidation } from './log';
-import { ChronosPaths } from './roots';
+import { SynchronyPaths } from './roots';
 import { Scheduler } from './scheduler';
 import { createSeries, SeriesDefaults } from './series';
 import { coerceSetting, SettingGroup, settingGroups } from './settings';
@@ -63,7 +63,7 @@ type Inbound =
  * across reloads instead, and re-rendering a list this size is free.
  */
 export class Manager implements vscode.Disposable {
-  static readonly viewType = 'chronos.manager';
+  static readonly viewType = 'synchrony.manager';
 
   private panel: vscode.WebviewPanel | undefined;
   private watcher: fs.FSWatcher | undefined;
@@ -84,7 +84,7 @@ export class Manager implements vscode.Disposable {
     private readonly store: Store,
     private readonly scheduler: Scheduler,
     /** The active folder's layout. A thunk, so a folder switch needs no rebuild. */
-    private readonly paths: () => ChronosPaths,
+    private readonly paths: () => SynchronyPaths,
     /** Owned by `activate`, which is the only place that can move the store, the
      *  scheduler's lock and this panel together. */
     private readonly switchFolder: (folder: string) => Promise<void>,
@@ -102,13 +102,13 @@ export class Manager implements vscode.Disposable {
     // made in VS Code's own Settings editor, and what redraws a control after
     // the page's own write lands.
     this.configListener = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e.affectsConfiguration('chronos')) {
+      if (!e.affectsConfiguration('synchrony')) {
         return;
       }
       // The watcher is bound to a folder that this one setting moves. Nothing
       // else needs invalidating: every module reads config live, and `paths()`
       // is a thunk that re-resolves on each call.
-      if (e.affectsConfiguration('chronos.libraryPath')) {
+      if (e.affectsConfiguration('synchrony.libraryPath')) {
         this.restartWatching();
       }
       this.post();
@@ -144,7 +144,7 @@ export class Manager implements vscode.Disposable {
 
     const panel = vscode.window.createWebviewPanel(
       Manager.viewType,
-      'Chronos',
+      'Synchrony',
       { viewColumn: vscode.ViewColumn.Active, preserveFocus },
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')] }
     );
@@ -176,7 +176,7 @@ export class Manager implements vscode.Disposable {
    * Copies Markdown files from any source into the library and schedules the
    * copies. Every route in — right-click, a drop on the activity-bar view, the
    * file picker — lands here, so no schedule can point outside the library and
-   * the user's own file is never edited or moved by Chronos.
+   * the user's own file is never edited or moved by Synchrony.
    */
   async addPaths(filePaths: string[]): Promise<void> {
     const dir = this.paths().plans;
@@ -243,7 +243,7 @@ export class Manager implements vscode.Disposable {
   // ---------- library watching ----------
 
   /**
-   * Plans edited outside Chronos must not go stale in the manager. The webview
+   * Plans edited outside Synchrony must not go stale in the manager. The webview
    * owns dirty state, so it decides whether to reload — this only reports that
    * something changed. One watcher covers every plan, because every plan lives
    * in this one folder.
@@ -538,7 +538,7 @@ export class Manager implements vscode.Disposable {
         // No post() on success: the configuration listener above does it, and
         // doing both would redraw the field twice under the user's cursor.
         await vscode.workspace
-          .getConfiguration('chronos')
+          .getConfiguration('synchrony')
           .update(field.key, value, vscode.ConfigurationTarget.Global);
         return;
       }
@@ -546,7 +546,7 @@ export class Manager implements vscode.Disposable {
       // The escape hatch this page deliberately does not cover: workspace scope,
       // and the JSON view.
       case 'openNativeSettings':
-        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Z3n.chronos');
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Z3n.synchrony');
         return;
 
       default:
@@ -685,7 +685,7 @@ export class Manager implements vscode.Disposable {
       .getSeries()
       .filter((s) => library.samePath(s.filePath, filePath));
 
-    const detail = 'The file moves to .chronos/archive. Bring it back with Import.';
+    const detail = 'The file moves to .synchrony/archive. Bring it back with Import.';
     const choice = await vscode.window.showWarningMessage(
       scheduled.length > 0 ? `"${name}" is scheduled. Archive it?` : `Archive "${name}"?`,
       {
@@ -707,7 +707,7 @@ export class Manager implements vscode.Disposable {
 
     library.archivePlan(dir, this.paths().archivedPlans, name);
     this.post();
-    this.notify(`Archived ${library.titleOf(name)} to .chronos/archive/plans — Import brings it back.`);
+    this.notify(`Archived ${library.titleOf(name)} to .synchrony/archive/plans — Import brings it back.`);
   }
 
   /** A renamed plan must not strand the series pointing at its old path. */
@@ -747,7 +747,7 @@ export class Manager implements vscode.Disposable {
 
     const paths = this.paths();
     const dir = paths.plans;
-    const config = vscode.workspace.getConfiguration('chronos');
+    const config = vscode.workspace.getConfiguration('synchrony');
 
     this.panel.webview.postMessage({
       type: 'state',
@@ -824,13 +824,13 @@ export function defaultCwd(filePath: string): string {
 
 /**
  * The two defaults `createSeries` cannot work out for itself, read from the
- * editor. `series.ts` used to reach for `chronos.maxRetries` directly; it no
+ * editor. `series.ts` used to reach for `synchrony.maxRetries` directly; it no
  * longer imports `vscode` at all, so the reading happens here.
  */
 export function seriesDefaults(filePath: string): SeriesDefaults {
   return {
     cwd: defaultCwd(filePath),
-    maxRetries: vscode.workspace.getConfiguration('chronos').get<number>('maxRetries', 3)
+    maxRetries: vscode.workspace.getConfiguration('synchrony').get<number>('maxRetries', 3)
   };
 }
 

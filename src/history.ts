@@ -9,7 +9,7 @@ import {
 
 /**
  * How much run history is kept. Pure — no `vscode`, no store — because this is
- * the one place Chronos deletes something the user might still want, and that
+ * the one place Synchrony deletes something the user might still want, and that
  * rule should be a test rather than a hope.
  *
  * The store is one JSON file rewritten on every change, so it cannot grow

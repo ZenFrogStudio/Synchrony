@@ -7,7 +7,7 @@ import type { RetirementReport } from './retire';
 let channel: vscode.OutputChannel | undefined;
 
 export function initLog(context: vscode.ExtensionContext): void {
-  channel = vscode.window.createOutputChannel('Chronos');
+  channel = vscode.window.createOutputChannel('Synchrony');
   context.subscriptions.push(channel);
 }
 

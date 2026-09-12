@@ -1,12 +1,12 @@
 /**
- * The Chronos instance dashboard.
+ * The Synchrony instance dashboard.
  *
  * Polls `/api/instances`, merges what every editor window reported, and draws
  * it. Read-only by construction: there is no message back to any window, and
  * nothing here can change a schedule or stop a run.
  *
  * Every value that lands on the page goes through `textContent`. The instance
- * files are written by Chronos, but they carry plan names and error text that
+ * files are written by Synchrony, but they carry plan names and error text that
  * originated in a plan file or a coding agent's output, so none of it is
  * treated as markup.
  */
@@ -46,7 +46,7 @@ function render(data) {
   const quiet = instances.filter((i) => i.stale || i.status === 'stopped');
 
   renderSummary(instances, live, data.generatedAt);
-  fill('instances', instances.map(instanceRow), 'No Chronos window is reporting.');
+  fill('instances', instances.map(instanceRow), 'No Synchrony window is reporting.');
   fill(
     'running',
     across(live, 'activeRuns', (entry, instance) => workRow(entry, instance, 'running')),

@@ -10,7 +10,8 @@ import {
   instancesDir
 } from './dashboard-payload';
 import { log } from './log';
-import { ChronosPaths } from './roots';
+import { migrateHomeDir } from './migrate-name';
+import { SynchronyPaths } from './roots';
 import { Scheduler } from './scheduler';
 import { settingGroups, SettingGroup } from './settings';
 import { Store } from './store';
@@ -20,7 +21,7 @@ import { nowUtc } from './time';
  * This window's status, on disk where a browser can read it.
  *
  * Four or five editor windows are four or five extension hosts that cannot see
- * each other, so "what is Chronos doing right now" has no single answer inside
+ * each other, so "what is Synchrony doing right now" has no single answer inside
  * any one of them. Each window writes its own small JSON file into a shared
  * directory under the user's home, and `scripts/dashboard-server.js` reads the
  * lot. No IPC, no port per window, no process to keep alive: the filesystem is
@@ -52,7 +53,7 @@ export class DashboardExporter implements vscode.Disposable {
     private readonly store: Store,
     private readonly scheduler: Scheduler,
     /** Resolved per write: the active folder moves, and the payload names it. */
-    private readonly paths: () => ChronosPaths,
+    private readonly paths: () => SynchronyPaths,
     /** `contributes.configuration.properties`, straight from the manifest —
      *  the same source `Manager`'s Settings page is generated from. */
     configProperties: Record<string, unknown>,
@@ -70,6 +71,7 @@ export class DashboardExporter implements vscode.Disposable {
    * lag a quarter of a minute behind every schedule change.
    */
   start(): void {
+    migrateHomeDir();
     sweepAbandoned();
     this.write('active');
 
@@ -81,7 +83,7 @@ export class DashboardExporter implements vscode.Disposable {
       // own Settings UI — shows up in the heartbeat within `refresh`'s debounce
       // rather than waiting out the next 15s tick.
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('chronos')) {
+        if (e.affectsConfiguration('synchrony')) {
           this.refresh();
         }
       })
@@ -119,7 +121,7 @@ export class DashboardExporter implements vscode.Disposable {
 
   private write(status: 'active' | 'stopped'): void {
     const resolved = this.paths();
-    const config = vscode.workspace.getConfiguration('chronos');
+    const config = vscode.workspace.getConfiguration('synchrony');
 
     const payload = buildInstancePayload({
       instanceId: this.instanceId,

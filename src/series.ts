@@ -10,7 +10,7 @@ import { PermissionMode, TaskSeries } from './types';
  * way the manager does rather than assembling one of its own — two spellings of
  * "a new series" would drift the moment a field was added. The two genuinely
  * editor-shaped defaults are therefore passed in rather than read here:
- * `maxRetries` comes from `chronos.maxRetries`, and `cwd` from whichever
+ * `maxRetries` comes from `synchrony.maxRetries`, and `cwd` from whichever
  * workspace folder the caller decided owns the plan (`defaultCwd` in
  * `manager.ts` for the editor, the `--folder` for the server).
  */

@@ -12,8 +12,8 @@ export class StatusItem implements vscode.Disposable {
 
   constructor(private readonly store: Store) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    this.item.command = 'chronos.openManager';
-    this.item.name = 'Chronos';
+    this.item.command = 'synchrony.openManager';
+    this.item.name = 'Synchrony';
     this.listener = store.onDidChange(() => this.refresh());
     this.refresh();
     this.item.show();
@@ -31,14 +31,14 @@ export class StatusItem implements vscode.Disposable {
     const missed = runs.filter((r) => r.status === 'missed').length;
 
     if (running > 0) {
-      this.item.text = `$(sync~spin) Chronos ${running}`;
+      this.item.text = `$(sync~spin) Synchrony ${running}`;
       this.item.tooltip = `${running} task${running > 1 ? 's' : ''} running`;
       this.item.backgroundColor = undefined;
       return;
     }
 
     if (missed > 0) {
-      this.item.text = `$(warning) Chronos ${missed}`;
+      this.item.text = `$(warning) Synchrony ${missed}`;
       this.item.tooltip = `${missed} missed task${missed > 1 ? 's' : ''} awaiting a decision`;
       this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
       return;
@@ -53,7 +53,7 @@ export class StatusItem implements vscode.Disposable {
       .sort()[0];
 
     if (!next) {
-      this.item.text = '$(clock) Chronos';
+      this.item.text = '$(clock) Synchrony';
       this.item.tooltip = 'No scheduled tasks — click to open the manager';
       return;
     }
@@ -61,6 +61,6 @@ export class StatusItem implements vscode.Disposable {
     const when = new Date(next);
     const today = when.toDateString() === new Date().toDateString();
     this.item.text = `$(clock) ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    this.item.tooltip = `Next Chronos task ${today ? 'today' : when.toLocaleDateString()} at ${when.toLocaleTimeString()}`;
+    this.item.tooltip = `Next Synchrony task ${today ? 'today' : when.toLocaleDateString()} at ${when.toLocaleTimeString()}`;
   }
 }

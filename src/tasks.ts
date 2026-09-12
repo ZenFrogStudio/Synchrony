@@ -19,7 +19,7 @@ import { log } from './log';
 import { createNonce, Manager } from './manager';
 import { RequestWatcher } from './request-watcher';
 import { PlanRequest } from './requests';
-import { ChronosPaths } from './roots';
+import { SynchronyPaths } from './roots';
 import { Scheduler } from './scheduler';
 import { createSeries, defaultScheduledAt } from './series';
 import { Store } from './store';
@@ -34,17 +34,17 @@ import { Store } from './store';
  * the manager was the wrong answer; this is the front of the pipeline the
  * manager does not have — capture, before generate, schedule and run.
  *
- * A task is a `.md` file in the active folder's `.chronos/tasks/`. No new store
+ * A task is a `.md` file in the active folder's `.synchrony/tasks/`. No new store
  * and no schema bump: `library.ts` is already parameterised by directory,
  * `listPlans` skips subdirectories so `tasks/` never shows up as a plan, and a
  * task survives a state reset because it is just a file. The inbox is therefore
- * per-folder for free — it is whatever `.chronos/tasks/` holds.
+ * per-folder for free — it is whatever `.synchrony/tasks/` holds.
  *
  * It is a webview rather than a tree because a to-do list needs an always-there
  * text field, in-body buttons and coloured rows, none of which the TreeView API
  * can draw. The cost is that this view is no longer a native drop target — a
  * tree got real `Uri`s from the explorer and the OS shell, a webview cannot —
- * so drops go to the manager pane, and **Schedule with Chronos** and the file
+ * so drops go to the manager pane, and **Schedule with Synchrony** and the file
  * picker are unchanged.
  *
  * Generating a plan from a task is an *authoring* session, deliberately outside
@@ -58,7 +58,7 @@ import { Store } from './store';
  * There are two doors into that session, and the mode follows the one you came
  * in through. The row's **Generate plan** button is the ordinary one: it always
  * runs in plan mode, so the session writes a plan and cannot change anything,
- * and it asks its questions in the terminal in front of you. **Chronos: Generate
+ * and it asks its questions in the terminal in front of you. **Synchrony: Generate
  * Plan (Answer Remotely)** in the command palette routes the questions through
  * this session's own MCP server so they can be answered from another device, and
  * that costs plan mode — plan mode refuses an MCP tool call outright, so a routed
@@ -83,7 +83,7 @@ import { Store } from './store';
  * many stage plans as it needs, each written as its own file. A series has no
  * single moment of completion the way one plan does, so the session writes a
  * `series.txt` manifest last, and that file — not the first `.md` to land — is
- * what Chronos waits for, and is the running order it adopts them in. The plans
+ * what Synchrony waits for, and is the running order it adopts them in. The plans
  * then go on the schedule as a chain: the first an hour out, each one after it
  * armed fifteen minutes after the one before finishes, so there is time to read
  * them and switch the chain off before any of it runs. Terminal only, like
@@ -125,12 +125,12 @@ interface PendingPlan {
 /**
  * The gap between one plan in a generated chain finishing and the next starting.
  * The manager's own chain builder defaults to the same fifteen minutes, so a
- * chain Chronos writes behaves like one built by hand.
+ * chain Synchrony writes behaves like one built by hand.
  */
 const SERIES_GAP_MINUTES = 15;
 
 export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
-  static readonly viewType = 'chronos.tasks';
+  static readonly viewType = 'synchrony.tasks';
 
   private view: vscode.WebviewView | undefined;
   /**
@@ -159,7 +159,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   );
 
   private readonly config = vscode.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration('chronos.planModel')) {
+    if (e.affectsConfiguration('synchrony.planModel')) {
       this.post();
     }
   });
@@ -186,7 +186,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     private readonly extensionUri: vscode.Uri,
     /** The active folder's layout. A thunk, so switching folders re-points the
      *  inbox without rebuilding the view. */
-    private readonly paths: () => ChronosPaths,
+    private readonly paths: () => SynchronyPaths,
     private readonly store: Store,
     private readonly scheduler: Scheduler,
     private readonly manager: Manager
@@ -260,7 +260,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.view.webview.postMessage({
       type: 'state',
       models: CLAUDE_MODELS,
-      model: vscode.workspace.getConfiguration('chronos').get<string>('planModel', ''),
+      model: vscode.workspace.getConfiguration('synchrony').get<string>('planModel', ''),
       tasks: this.list().map((task) => ({
         name: task.name,
         label: task.label,
@@ -310,7 +310,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
           return;
         }
         await vscode.workspace
-          .getConfiguration('chronos')
+          .getConfiguration('synchrony')
           .update('planModel', message.value, vscode.ConfigurationTarget.Global);
         return;
       }
@@ -352,7 +352,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         }
         const choice = await vscode.window.showWarningMessage(
           `Archive "${firstLine(task.label)}"?`,
-          { modal: true, detail: 'The file moves to .chronos/archive.' },
+          { modal: true, detail: 'The file moves to .synchrony/archive.' },
           'Archive'
         );
         if (!choice) {
@@ -438,7 +438,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     const picked = await vscode.window.showQuickPick(
       tasks.map((task) => ({ label: firstLine(task.label), task })),
-      { placeHolder: 'Which task should Chronos plan? You will answer its questions remotely.' }
+      { placeHolder: 'Which task should Synchrony plan? You will answer its questions remotely.' }
     );
     if (!picked) {
       return;
@@ -452,7 +452,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   /**
    * A plan request, claimed by the watcher, becomes a routed planning session:
    * the requester is not at this keyboard, so the session asks its questions
-   * through Chronos and the answers come back over the same door the request
+   * through Synchrony and the answers come back over the same door the request
    * did. The outcome is written into the request file for the requester to read.
    */
   async generateFromRequest(request: PlanRequest): Promise<{ ok: boolean; note?: string }> {
@@ -501,7 +501,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('chronos');
+    const config = vscode.workspace.getConfiguration('synchrony');
     // Read, never asked: the answer was the same one as last time almost every
     // time, and a prompt on the fastest path in the product — capture, press the
     // lightbulb, start talking — is friction for a choice that rarely changes.
@@ -533,7 +533,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     // the session has been waiting at a terminal prompt is the worst outcome.
     if (routed && !askConfigPath) {
       void vscode.window.showWarningMessage(
-        'Chronos could not set up the back-channel for this planning session, so it ' +
+        'Synchrony could not set up the back-channel for this planning session, so it ' +
           'will ask its questions in the terminal instead.'
       );
     }
@@ -542,13 +542,13 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       exe: config.get<string>('claudePath', 'claude'),
       sourcePath: task.filePath,
       destDir: sessionDir,
-      // Set means the session asks through Chronos rather than through this
+      // Set means the session asks through Synchrony rather than through this
       // terminal, and delivers its plan the same way.
       askConfigPath,
       // Set means several stage plans and a manifest rather than one plan.
       series,
       // One grant covers task, staging folder and library, since all three are
-      // inside the folder's `.chronos` root.
+      // inside the folder's `.synchrony` root.
       allowDir: paths.root,
       model: model || undefined,
       shell: shellKind(vscode.env.shell, process.platform),
@@ -577,7 +577,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     const terminal = vscode.window.createTerminal({
       // Named apart, because the two sessions behave differently and a tab
       // strip holding both should say which is which.
-      name: `Chronos: ${series ? 'series' : 'plan'} ${routed ? '(remote) ' : ''}${firstLine(task.label).slice(0, 40)}`,
+      name: `Synchrony: ${series ? 'series' : 'plan'} ${routed ? '(remote) ' : ''}${firstLine(task.label).slice(0, 40)}`,
       cwd,
       iconPath: new vscode.ThemeIcon('lightbulb')
     });
@@ -603,7 +603,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    * The server path is taken from `extensionUri` — the install that is actually
    * running — so it re-points itself on every extension update. A client entry
    * registered by hand does not, which is the one thing that reliably breaks a
-   * Chronos MCP setup.
+   * Synchrony MCP setup.
    *
    * Nothing else about the session changes: the watcher pattern is `*.md`, so
    * `mcp.json` cannot be mistaken for a landed plan, and `discard()` already
@@ -631,14 +631,14 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       );
       return configPath;
     } catch (err) {
-      log.warn(`could not route this planning session's questions through Chronos: ${String(err)}`);
+      log.warn(`could not route this planning session's questions through Synchrony: ${String(err)}`);
       return undefined;
     }
   }
 
   /**
    * The end of a planning session. The signal is the *tab* closing rather than
-   * the CLI exiting: Chronos types `claude ...` into your own shell, so quitting
+   * the CLI exiting: Synchrony types `claude ...` into your own shell, so quitting
    * Claude only returns you to a prompt, and while that prompt is there the
    * session is genuinely resumable — the row staying amber until the tab goes is
    * the honest answer.
@@ -729,7 +729,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // alone rather than clearing a task whose plan never reached the library.
       log.error(`could not adopt the plan from ${pending.dir}`, err);
       void vscode.window.showWarningMessage(
-        `Chronos could not move the generated plan into your library. It is still in ${pending.dir}.`
+        `Synchrony could not move the generated plan into your library. It is still in ${pending.dir}.`
       );
       return;
     }
@@ -798,7 +798,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // alone rather than clearing a task whose plans never reached the library.
       log.error(`could not adopt the series from ${pending.dir}`, err);
       void vscode.window.showWarningMessage(
-        `Chronos could not move the generated plans into your library. They are still in ${pending.dir}.`
+        `Synchrony could not move the generated plans into your library. They are still in ${pending.dir}.`
       );
       return;
     }
@@ -859,7 +859,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    * enough to read the plans and switch the chain off.
    */
   private async chainAdopted(plans: library.PlanFile[]): Promise<void> {
-    const config = vscode.workspace.getConfiguration('chronos');
+    const config = vscode.workspace.getConfiguration('synchrony');
     // The folder the task was captured in is the folder its plans run against —
     // the same rule `generatePlan` and `runTask` already use.
     const defaults = {
@@ -890,9 +890,9 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     const at = new Date(startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     void vscode.window.showInformationMessage(
       ids.length > 1
-        ? `Chronos chained ${ids.length} plans. The first starts at ${at}, and each one after ` +
+        ? `Synchrony chained ${ids.length} plans. The first starts at ${at}, and each one after ` +
             `it runs ${SERIES_GAP_MINUTES} minutes after the one before finishes.`
-        : `Chronos scheduled 1 plan, starting at ${at}.`
+        : `Synchrony scheduled 1 plan, starting at ${at}.`
     );
   }
 
@@ -918,14 +918,14 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('chronos');
+    const config = vscode.workspace.getConfiguration('synchrony');
     const paths = this.paths();
 
     const command = explainCommand({
       exe: config.get<string>('claudePath', 'claude'),
       sourcePath: task.filePath,
       // The same grant a planning session gets: the task sits under the folder's
-      // `.chronos` root, outside the working directory.
+      // `.synchrony` root, outside the working directory.
       allowDir: paths.root,
       // The same setting, because this is the same kind of session — one you sit
       // at — rather than a scheduled run.
@@ -934,7 +934,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     });
 
     const terminal = vscode.window.createTerminal({
-      name: `Chronos: explain ${firstLine(task.label).slice(0, 40)}`,
+      name: `Synchrony: explain ${firstLine(task.label).slice(0, 40)}`,
       cwd: paths.folder,
       iconPath: new vscode.ThemeIcon('question')
     });
@@ -993,7 +993,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         // what "run it in auto mode" means and it should not move if the
         // default does.
         permissionMode: 'auto',
-        model: vscode.workspace.getConfiguration('chronos').get<string>('planModel', '') || undefined,
+        model: vscode.workspace.getConfiguration('synchrony').get<string>('planModel', '') || undefined,
         // `createSeries` dates a new series an hour out. Without this the job
         // would run now *and* again in an hour, from a plan nobody scheduled.
         spent: true

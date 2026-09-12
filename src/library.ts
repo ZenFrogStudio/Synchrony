@@ -4,7 +4,7 @@ import * as path from 'path';
 /**
  * The plan library: a folder of `.md` files. There is deliberately no index,
  * manifest or id table — an index is a second source of truth that drifts from
- * the filesystem the moment someone edits a file outside Chronos. The directory
+ * the filesystem the moment someone edits a file outside Synchrony. The directory
  * *is* the database.
  *
  * No `vscode` import, so every rule here is testable against a temp directory.
@@ -59,7 +59,7 @@ const WORD_LIMIT = 3;
  * model asked for three words will sometimes write nine — so the library is
  * kept scannable here rather than trusting the instruction that asked for it.
  *
- * Only ever applied to a name Chronos generated. A title the user typed, or one
+ * Only ever applied to a name Synchrony generated. A title the user typed, or one
  * an external agent chose, is left whole.
  */
 export function firstWords(title: string, count = WORD_LIMIT): string {
@@ -193,15 +193,15 @@ export function ensureLibrary(dir: string): boolean {
 export function seedLibrary(dir: string): void {
   createPlan(
     dir,
-    'Hello Chronos',
+    'Hello Synchrony',
     [
-      '# Hello Chronos',
+      '# Hello Synchrony',
       '',
       'Reply with exactly the word `OK` and then stop.',
       '',
       'Do not create, edit, move or delete any files. Do not run any shell',
       'commands. This plan exists so you can confirm scheduling works before',
-      'trusting Chronos with something real.',
+      'trusting Synchrony with something real.',
       ''
     ].join('\n')
   );
@@ -276,7 +276,7 @@ export function writePlan(dir: string, name: string, text: string): void {
 /**
  * Copies a file from anywhere on disk into the library, under a name derived
  * from its own. The source is read, never moved or linked — the user's file
- * stays exactly where it was, and the copy is what Chronos goes on to schedule,
+ * stays exactly where it was, and the copy is what Synchrony goes on to schedule,
  * edit and run.
  *
  * This is the single door into the library for outside files: everything that
@@ -349,8 +349,8 @@ export function archivePlan(dir: string, archiveDir: string, name: string): Plan
   try {
     fs.renameSync(from, target);
   } catch {
-    // A rename cannot cross a drive (EXDEV), and `chronos.libraryPath` can put
-    // the library on one while the archive stays under the folder's `.chronos`.
+    // A rename cannot cross a drive (EXDEV), and `synchrony.libraryPath` can put
+    // the library on one while the archive stays under the folder's `.synchrony`.
     fs.copyFileSync(from, target);
     fs.unlinkSync(from);
   }

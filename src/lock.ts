@@ -11,7 +11,7 @@ import * as fs from 'fs';
  *
  * One file on disk arbitrates instead. Whoever holds it schedules; the others
  * show the UI and stay out of the way. The lock lives inside the folder's
- * `.chronos`, so two windows on two different projects both schedule — they are
+ * `.synchrony`, so two windows on two different projects both schedule — they are
  * not competing for the same tasks.
  *
  * No `vscode` import, so the rules are testable against a temp directory.

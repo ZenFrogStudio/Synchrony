@@ -2,8 +2,8 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "//": "The second arg opens the sandbox as the dev host's workspace folder. Opening a folder *inside* the running dev host instead reloads the window and drops --extensionDevelopmentPath, which silently unloads Chronos.",
-      "name": "Run Chronos",
+      "//": "The second arg opens the sandbox as the dev host's workspace folder. Opening a folder *inside* the running dev host instead reloads the window and drops --extensionDevelopmentPath, which silently unloads Synchrony.",
+      "name": "Run Synchrony",
       "type": "extensionHost",
       "request": "launch",
       "args": [
@@ -15,7 +15,7 @@
     },
     {
       "//": "Escape hatch: launches whatever is already in dist/. Use if the task layer misbehaves — run `npm run compile` yourself first.",
-      "name": "Run Chronos (no build)",
+      "name": "Run Synchrony (no build)",
       "type": "extensionHost",
       "request": "launch",
       "args": [

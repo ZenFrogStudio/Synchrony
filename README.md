@@ -1,8 +1,8 @@
-# Chronos
+# Synchrony
 
 A precise scheduling system for coding-agent tasks, integrated within VS Code.
 
-Chronos translates Markdown plans into automated, scheduled executions. It unifies task capture, planning, and execution into a single, coherent workflow. One system. No fragmentation.
+Synchrony translates Markdown plans into automated, scheduled executions. It unifies task capture, planning, and execution into a single, coherent workflow. One system. No fragmentation.
 
 ![My image](media/Screenshot_1.png)
 
@@ -10,7 +10,7 @@ Chronos translates Markdown plans into automated, scheduled executions. It unifi
 
 A unified view for total control. The plan library resides on the left; execution details—schedule, working directory, permissions, and run history—on the right. 
 
-Access is immediate: via the activity bar, the status bar, or the command palette (`Chronos: Open Manager`).
+Access is immediate: via the activity bar, the status bar, or the command palette (`Synchrony: Open Manager`).
 
 **Integration**
 Plans are added via creation, context menu, drag-and-drop, or import. The source file is copied into the library and scheduled. The original remains untouched, preserving user intent and preventing unintended modifications.
@@ -28,13 +28,13 @@ Capture requires a single action: type and enter. From here, a task can be expla
 
 ## Project Isolation
 
-State is strictly localized. Each project maintains its own `.chronos` directory, containing plans, tasks, archives, results, and logs. 
+State is strictly localized. Each project maintains its own `.synchrony` directory, containing plans, tasks, archives, results, and logs. 
 
 This ensures that opening a project reveals only its relevant work. Schedules execute only when the project window is active, preventing unintended cross-project interference.
 
 ## The Plan Library
 
-The file system is the database. Plans reside as `.md` files in `.chronos/plans`. This eliminates synchronization errors and allows seamless external editing.
+The file system is the database. Plans reside as `.md` files in `.synchrony/plans`. This eliminates synchronization errors and allows seamless external editing.
 
 **Lifecycle**
 *   Completed one-shot plans are automatically archived.
@@ -44,16 +44,16 @@ The file system is the database. Plans reside as `.md` files in `.chronos/plans`
 
 ## Execution and Documentation
 
-Plans are piped directly to the selected coding-agent CLI via standard input. Chronos currently supports Claude Code, opencode, and Codex. This eliminates argument length limits, shell escaping issues, and pathing errors.
+Plans are piped directly to the selected coding-agent CLI via standard input. Synchrony currently supports Claude Code, opencode, and Codex. This eliminates argument length limits, shell escaping issues, and pathing errors.
 
 **Transcripts**
-Every execution generates a permanent Markdown record in `.chronos/results`. This document details the execution conditions, tool calls, agent narration, and final outcome (cost, duration, status). It is the definitive, auditable record of the system's action.
+Every execution generates a permanent Markdown record in `.synchrony/results`. This document details the execution conditions, tool calls, agent narration, and final outcome (cost, duration, status). It is the definitive, auditable record of the system's action.
 
 ![My image](media/Screenshot_3.png)
 
 ## Agent Integration (MCP)
 
-Chronos exposes its functionality via the Model Context Protocol. External agents can capture tasks, author plans, and manage schedules.
+Synchrony exposes its functionality via the Model Context Protocol. External agents can capture tasks, author plans, and manage schedules.
 
 Communication occurs strictly over standard input/output. No network ports or tokens are required, ensuring absolute local containment.
 
@@ -74,18 +74,18 @@ Parameters are explicit and minimal.
 
 | Setting | Default | Function |
 | :--- | :--- | :--- |
-| `chronos.claudePath` | `claude` | Path to the Claude Code executable. |
-| `chronos.opencodePath` | `opencode` | Path to the opencode executable. |
-| `chronos.codexPath` | `codex` | Path to the Codex executable. |
-| `chronos.libraryPath` | `.chronos/plans` | Directory for plan files. |
-| `chronos.resultsPath` | `.chronos/results` | Directory for run transcripts. |
-| `chronos.maxConcurrent` | `1` | Parallel agents in one repository. |
-| `chronos.maxRetries` | `3` | Attempts after a failure. |
-| `chronos.retryDelayMinutes` | `60` | Delay before retrying. |
-| `chronos.graceWindowMinutes` | `15` | Tolerance for late execution. |
-| `chronos.idleTimeoutMinutes` | `15` | Termination threshold for inactive runs. |
-| `chronos.maxRuntimeMinutes` | `60` | Hard ceiling on execution time. |
-| `chronos.logRetentionDays` | `30` | Transcript retention period. |
+| `synchrony.claudePath` | `claude` | Path to the Claude Code executable. |
+| `synchrony.opencodePath` | `opencode` | Path to the opencode executable. |
+| `synchrony.codexPath` | `codex` | Path to the Codex executable. |
+| `synchrony.libraryPath` | `.synchrony/plans` | Directory for plan files. |
+| `synchrony.resultsPath` | `.synchrony/results` | Directory for run transcripts. |
+| `synchrony.maxConcurrent` | `1` | Parallel agents in one repository. |
+| `synchrony.maxRetries` | `3` | Attempts after a failure. |
+| `synchrony.retryDelayMinutes` | `60` | Delay before retrying. |
+| `synchrony.graceWindowMinutes` | `15` | Tolerance for late execution. |
+| `synchrony.idleTimeoutMinutes` | `15` | Termination threshold for inactive runs. |
+| `synchrony.maxRuntimeMinutes` | `60` | Hard ceiling on execution time. |
+| `synchrony.logRetentionDays` | `30` | Transcript retention period. |
 
 ## Development
 

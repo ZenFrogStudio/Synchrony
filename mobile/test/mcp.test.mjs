@@ -37,15 +37,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** `<tmp>/proj/.chronos/` with the layout `ensureRoot` produces — no starter plan needed here. */
+/** `<tmp>/proj/.synchrony/` with the layout `ensureRoot` produces — no starter plan needed here. */
 function buildFixture() {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'chronos-mobile-test-'));
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'synchrony-mobile-test-'));
   const projectDir = path.join(tmpRoot, INSTANCE);
-  const chronosDir = path.join(projectDir, '.chronos');
+  const synchronyDir = path.join(projectDir, '.synchrony');
   for (const sub of ['plans', 'tasks', 'questions', 'requests', 'control', 'results', 'logs']) {
-    fs.mkdirSync(path.join(chronosDir, sub), { recursive: true });
+    fs.mkdirSync(path.join(synchronyDir, sub), { recursive: true });
   }
-  fs.writeFileSync(path.join(chronosDir, '.gitignore'), '*\n', 'utf8');
+  fs.writeFileSync(path.join(synchronyDir, '.gitignore'), '*\n', 'utf8');
   return { tmpRoot, projectDir };
 }
 
@@ -76,7 +76,7 @@ test('McpClient drives the real hub end-to-end over HTTP', async () => {
   const { tmpRoot, projectDir } = buildFixture();
   const hub = spawn(process.execPath, [hubEntry, '--folder', projectDir, '--port', String(PORT)], {
     cwd: REPO_ROOT,
-    env: { ...process.env, CHRONOS_HUB_TOKEN: TOKEN, CHRONOS_HUB_HOST: HOST },
+    env: { ...process.env, SYNCHRONY_HUB_TOKEN: TOKEN, SYNCHRONY_HUB_HOST: HOST },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 

@@ -97,7 +97,7 @@ export class Scheduler implements vscode.Disposable {
       // The run would land in this window's copy of the state, which the window
       // that actually schedules will never read. Better to refuse than to queue
       // something that silently never fires.
-      log.warn('run now ignored — another window holds the Chronos scheduler');
+      log.warn('run now ignored — another window holds the Synchrony scheduler');
       return;
     }
     await this.store.addRun({ ...newRun(series, nowUtc(), 1, newId()), manual: true });
@@ -137,12 +137,12 @@ export class Scheduler implements vscode.Disposable {
     if (!this.holdsLock) {
       // Another window took over while we were suspended. Anything we still
       // have running keeps running; we simply stop deciding.
-      log.info('another window now holds the Chronos scheduler — standing by');
+      log.info('another window now holds the Synchrony scheduler — standing by');
       this.deferred.clear();
       return false;
     }
 
-    log.info('holding the Chronos scheduler for this window');
+    log.info('holding the Synchrony scheduler for this window');
     await this.reconcile();
     return true;
   }
@@ -261,7 +261,7 @@ export class Scheduler implements vscode.Disposable {
     if (event.outcome.ok) {
       if (event.outcome.denials > 0) {
         vscode.window.showWarningMessage(
-          `Chronos: ${runLabel(this.store, run)} finished with ${event.outcome.denials} ` +
+          `Synchrony: ${runLabel(this.store, run)} finished with ${event.outcome.denials} ` +
             'permission denial(s) — part of the plan may not have run.'
         );
       }
@@ -307,7 +307,7 @@ export class Scheduler implements vscode.Disposable {
 
     vscode.window
       .showErrorMessage(
-        `Chronos: ${series.fileName} failed${
+        `Synchrony: ${series.fileName} failed${
           retriesUsed > 0 ? ` after ${retriesUsed} retries` : ''
         }.`,
         'Show Logs'
@@ -328,7 +328,7 @@ export class Scheduler implements vscode.Disposable {
   private announceBroken(fileName: string, problem: string): void {
     log.error(`unscheduled ${fileName} — unusable repeat rule: ${problem}`);
     vscode.window.showErrorMessage(
-      `Chronos: unscheduled "${fileName}" — its repeat rule is unusable (${problem}). ` +
+      `Synchrony: unscheduled "${fileName}" — its repeat rule is unusable (${problem}). ` +
         'Set its schedule again to start it back up.'
     );
   }
@@ -336,7 +336,7 @@ export class Scheduler implements vscode.Disposable {
   private announceMissed(count: number, reason: MissedReason): void {
     const plural = count > 1;
     vscode.window.showWarningMessage(
-      `Chronos: ${count} task${plural ? 's' : ''} missed ${plural ? 'their' : 'its'} ` +
+      `Synchrony: ${count} task${plural ? 's' : ''} missed ${plural ? 'their' : 'its'} ` +
         `scheduled time while ${
           reason === 'sleep' ? 'your machine was asleep' : 'VS Code was closed'
         }.`
@@ -350,5 +350,5 @@ function runLabel(store: Store, run: TaskRun): string {
 }
 
 function config(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration('chronos');
+  return vscode.workspace.getConfiguration('synchrony');
 }

@@ -17,7 +17,7 @@
   const librarySashEl = /** @type {HTMLElement} */ (document.getElementById('library-sash'));
   const activitySashEl = /** @type {HTMLElement} */ (document.getElementById('activity-sash'));
   const MARK_URI = /** @type {HTMLMetaElement} */ (
-    document.querySelector('meta[name="chronos-mark"]')).content;
+    document.querySelector('meta[name="synchrony-mark"]')).content;
 
   const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -341,7 +341,7 @@
   }
 
   /**
-   * The Chronos mark, standing where the countdown clock used to. It turns while
+   * The Synchrony mark, standing where the countdown clock used to. It turns while
    * a run is live and is still the rest of the time, which makes it the header's
    * only moving part — `headStatus` beneath it carries the actual words, both
    * for a reader and for a screen reader, so the mark stays decorative.
@@ -420,10 +420,10 @@
     // A broken CLI outranks a dormant scheduler: it breaks every window, not
     // just this one.
     if (state.setupProblem) {
-      setupEl.textContent = `Chronos cannot reach the Claude CLI. ${state.setupProblem}`;
+      setupEl.textContent = `Synchrony cannot reach the Claude CLI. ${state.setupProblem}`;
       setupEl.hidden = false;
     } else if (state.schedulerElsewhere) {
-      // The folder is named because, now that Chronos data is per folder, this
+      // The folder is named because, now that Synchrony data is per folder, this
       // can only mean a second window on *this* folder. Seeing it in a window on
       // a different project would be a bug, and you should be able to tell.
       setupEl.textContent =
@@ -453,7 +453,7 @@
    * arrowing must walk the list you can actually see rather than `state.plans`.
    *
    * Nothing to hide here any more. A one-shot that completed has had its file
-   * moved to `.chronos/archive/plans`, so it is not in `state.plans` at all —
+   * moved to `.synchrony/archive/plans`, so it is not in `state.plans` at all —
    * a failed one is, and stays visible, because it is still there to be fixed
    * and run again. Its runs stay under Runs either way.
    */
@@ -738,7 +738,7 @@
   // ---------- settings ----------
 
   /**
-   * Every `chronos.*` setting, on the page rather than behind VS Code's own
+   * Every `synchrony.*` setting, on the page rather than behind VS Code's own
    * Settings editor. The shape comes from the host, which builds it from
    * package.json's configuration schema — nothing about which setting exists,
    * what type it is or what it may hold is decided here.
@@ -822,7 +822,7 @@
   function firstRunEmptyState() {
     return `<div class="empty-first-run">
       <h2 class="empty-title">Schedule Claude Code tasks from Markdown plans</h2>
-      <p>Chronos runs a plan file with the Claude CLI on a schedule you choose —
+      <p>Synchrony runs a plan file with the Claude CLI on a schedule you choose —
         once, daily, or on set weekdays — and saves a transcript of every run.</p>
       <p>Two ways to add a plan:</p>
       <ul class="empty-ways">

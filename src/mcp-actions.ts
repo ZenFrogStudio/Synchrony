@@ -13,7 +13,7 @@ import {
   schedulerIsLive,
   Verdict
 } from './mcp-tools';
-import { ChronosPaths, ensureRoot, resolveLinks } from './roots';
+import { SynchronyPaths, ensureRoot, resolveLinks } from './roots';
 import { createSeries, newId, stampRepeatEnd } from './series';
 import { readState, updateState } from './state-file';
 import { nowUtc } from './time';
@@ -27,7 +27,7 @@ import { isTaskName, listUnclaimed, PlanRequest, writeRequest } from './requests
  * Both used to carry their own copy of "resolve the plan, contain the cwd, check
  * the timing, build the series, write it" — the same thirty lines, which is
  * exactly the kind of pair that drifts. They live here once, as pure functions
- * of a `ChronosPaths`, so a rule tightened for one door is tightened for both,
+ * of a `SynchronyPaths`, so a rule tightened for one door is tightened for both,
  * and so the tests can drive them without a transport.
  *
  * Nothing here imports `vscode`. Every function takes the folder's paths rather
@@ -110,7 +110,7 @@ export function describeRun(run: TaskRun) {
 }
 
 /** `QUEUED_NOTE` when no window is watching this folder, otherwise undefined. */
-export function queuedNote(paths: ChronosPaths, now: number = Date.now()): string | undefined {
+export function queuedNote(paths: SynchronyPaths, now: number = Date.now()): string | undefined {
   return schedulerIsLive(readLock(paths.lock), now) ? undefined : QUEUED_NOTE;
 }
 
@@ -120,7 +120,7 @@ export function queuedNote(paths: ChronosPaths, now: number = Date.now()): strin
  * else, computed from the files rather than from a window's memory so it is
  * the same answer for a folder with no window open.
  */
-export function summarizeInstance(paths: ChronosPaths, now: number = Date.now()) {
+export function summarizeInstance(paths: SynchronyPaths, now: number = Date.now()) {
   const lock = readLock(paths.lock);
   const live = schedulerIsLive(lock, now);
   const { state } = readState(paths.state);
@@ -185,13 +185,13 @@ export function summarizeInstance(paths: ChronosPaths, now: number = Date.now())
 ///////////////////////////*Writes*////////////////////////////
 
 /** Called before every write, never before a read. */
-export function ensureWritable(paths: ChronosPaths): ChronosPaths {
+export function ensureWritable(paths: SynchronyPaths): SynchronyPaths {
   ensureRoot(paths);
   return paths;
 }
 
 /** Captures a one-line task into the folder's inbox. Capture only; nothing runs. */
-export function captureTask(paths: ChronosPaths, text: string): Verdict<library.PlanFile> {
+export function captureTask(paths: SynchronyPaths, text: string): Verdict<library.PlanFile> {
   const clean = text.trim();
   if (!clean) {
     return refuse('A task needs some text.');
@@ -204,7 +204,7 @@ export function captureTask(paths: ChronosPaths, text: string): Verdict<library.
  * every check, so a refused call leaves an unconfigured folder untouched.
  */
 export function scheduleSeries(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   args: ScheduleArgs,
   options: ScheduleOptions
 ): Verdict<{ series: TaskSeries; queued?: string }> {
@@ -270,7 +270,7 @@ export function scheduleSeries(
  * Returns the request as written plus whether anything is there to pick it up.
  */
 export function requestPlan(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   input: { task: string; series?: boolean; model?: string; source?: string }
 ): Verdict<{ request: PlanRequest; live: boolean; note: string }> {
   if (!isTaskName(input.task)) {
@@ -320,7 +320,7 @@ const MAX_TEXT_BYTES = 1_000_000;
  * names a series that exists and would not loop back on itself.
  */
 export function editSeries(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   id: string,
   rawPatch: unknown,
   opts: { allowPermissionMode: boolean }
@@ -370,7 +370,7 @@ export function editSeries(
  * whatever it was itself waiting on. Lifted from the stdio server's
  * `unschedule` tool, which now calls this instead of carrying its own copy.
  */
-export function removeSeries(paths: ChronosPaths, id: string): Verdict<{ fileName: string }> {
+export function removeSeries(paths: SynchronyPaths, id: string): Verdict<{ fileName: string }> {
   const { state } = readState(paths.state);
   const series = state.series.find((s) => s.id === id);
   if (!series) {
@@ -400,7 +400,7 @@ export function removeSeries(paths: ChronosPaths, id: string): Verdict<{ fileNam
  * no window open at all gets a task to fire.
  */
 export function runSeriesNow(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   seriesId: string,
   opts: { dismissRunId?: string } = {}
 ): Verdict<{ run: ReturnType<typeof describeRun>; note: string }> {
@@ -423,7 +423,7 @@ export function runSeriesNow(
 
 /** Re-runs whatever series a past run belongs to, right away. */
 export function rerunRun(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   runId: string
 ): Verdict<{ run: ReturnType<typeof describeRun>; note: string }> {
   const { state } = readState(paths.state);
@@ -438,7 +438,7 @@ export function rerunRun(
 }
 
 /** Drops one run from the history. Refused while it is still in flight. */
-export function dismissRun(paths: ChronosPaths, runId: string): Verdict<{ id: string }> {
+export function dismissRun(paths: SynchronyPaths, runId: string): Verdict<{ id: string }> {
   const { state } = readState(paths.state);
   const run = state.runs.find((r) => r.id === runId);
   if (!run) {
@@ -457,7 +457,7 @@ export function dismissRun(paths: ChronosPaths, runId: string): Verdict<{ id: st
 
 ///////////////////////////*Plan library*////////////////////////////
 
-export function createPlanAction(paths: ChronosPaths, title: string, body?: string): Verdict<library.PlanFile> {
+export function createPlanAction(paths: SynchronyPaths, title: string, body?: string): Verdict<library.PlanFile> {
   const clean = typeof title === 'string' ? title.trim() : '';
   if (!clean) {
     return refuse('Give the plan a name.');
@@ -466,7 +466,7 @@ export function createPlanAction(paths: ChronosPaths, title: string, body?: stri
 }
 
 /** Mirrors the manager's own drop cap: a plan is a prompt, not a data dump. */
-export function savePlanAction(paths: ChronosPaths, name: string, text: string): Verdict<void> {
+export function savePlanAction(paths: SynchronyPaths, name: string, text: string): Verdict<void> {
   if (typeof text !== 'string' || text.length > MAX_TEXT_BYTES) {
     return refuse(`A plan cannot be larger than ${MAX_TEXT_BYTES.toLocaleString()} characters.`);
   }
@@ -485,7 +485,7 @@ export function savePlanAction(paths: ChronosPaths, name: string, text: string):
  * because the manager already holds its state in memory.
  */
 export function renamePlanAction(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   name: string,
   newTitle: string
 ): Verdict<library.PlanFile> {
@@ -524,7 +524,7 @@ export function renamePlanAction(
  * the file, folded into one `updateState` since nothing here holds a live copy
  * of the state to act on between the two.
  */
-export function archivePlanAction(paths: ChronosPaths, name: string): Verdict<library.PlanFile> {
+export function archivePlanAction(paths: SynchronyPaths, name: string): Verdict<library.PlanFile> {
   let filePath: string;
   try {
     filePath = library.planPath(paths.plans, name);
@@ -556,7 +556,7 @@ export function archivePlanAction(paths: ChronosPaths, name: string): Verdict<li
 ///////////////////////////*Task inbox*////////////////////////////
 
 /** Mirrors `savePlanAction`'s cap: a task file is Markdown, not an upload. */
-export function editTaskAction(paths: ChronosPaths, name: string, text: string): Verdict<void> {
+export function editTaskAction(paths: SynchronyPaths, name: string, text: string): Verdict<void> {
   if (typeof text !== 'string' || text.length > MAX_TEXT_BYTES) {
     return refuse(`A task cannot be larger than ${MAX_TEXT_BYTES.toLocaleString()} characters.`);
   }
@@ -568,7 +568,7 @@ export function editTaskAction(paths: ChronosPaths, name: string, text: string):
   return { ok: true, value: undefined };
 }
 
-export function deleteTaskAction(paths: ChronosPaths, name: string): Verdict<library.PlanFile> {
+export function deleteTaskAction(paths: SynchronyPaths, name: string): Verdict<library.PlanFile> {
   try {
     return {
       ok: true,
@@ -588,7 +588,7 @@ export function deleteTaskAction(paths: ChronosPaths, name: string): Verdict<lib
  * the inbox and the returned note says so.
  */
 export function runTaskAction(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   name: string,
   opts: { model?: string } = {}
 ): Verdict<{ series: ReturnType<typeof describeSeries>; note: string }> {
@@ -617,7 +617,7 @@ export function runTaskAction(
   });
 
   const note =
-    `${queuedNote(paths) ?? RUN_NOW_NOTE} "${name}" stays in the inbox — Chronos only clears it ` +
+    `${queuedNote(paths) ?? RUN_NOW_NOTE} "${name}" stays in the inbox — Synchrony only clears it ` +
     'automatically when it is run from the Tasks panel.';
   return { ok: true, value: { series: describeSeries(series), note } };
 }
@@ -641,7 +641,7 @@ export interface ChainPlansArgs {
  * rule exists.
  */
 export function chainPlansAction(
-  paths: ChronosPaths,
+  paths: SynchronyPaths,
   args: ChainPlansArgs,
   opts: { maxRetries: number }
 ): Verdict<{ series: ReturnType<typeof describeSeries>[] }> {

@@ -252,7 +252,7 @@ describe('generateCommand', () => {
   });
 
   it('should_ask_claude_to_name_the_file_after_the_change', () => {
-    // Chronos cannot name the plan before it exists — guessing from the task
+    // Synchrony cannot name the plan before it exists — guessing from the task
     // text is what filled the library with truncated request lines.
     const command = generateCommand(generatable({ sourcePath: TASK, destDir: STAGING }));
 
@@ -432,9 +432,9 @@ const routed = (overrides: Partial<Parameters<typeof generateCommand>[0]> = {}) 
     generatable({ sourcePath: TASK, destDir: STAGING, askConfigPath: ASK_CONFIG, ...overrides })
   );
 
-describe('generateCommand — questions routed through Chronos', () => {
+describe('generateCommand — questions routed through Synchrony', () => {
   it('should_register_the_ask_server_with_the_cli', () => {
-    // Without this the session has no `chronos-ask` tools at all, and the
+    // Without this the session has no `synchrony-ask` tools at all, and the
     // instruction below names tools that do not exist.
     assert.ok(routed().includes(`--mcp-config '${ASK_CONFIG}'`));
   });
@@ -675,7 +675,7 @@ describe('explainCommand', () => {
 
   it('should_grant_access_to_the_library_that_holds_the_task', () => {
     // The working directory is the repo; the task lives in the folder's
-    // `.chronos` root, outside it. Without the grant Claude cannot read it.
+    // `.synchrony` root, outside it. Without the grant Claude cannot read it.
     const command = explainCommand(explainable());
 
     assert.equal(command.match(/--add-dir/g)?.length, 1);
@@ -803,19 +803,19 @@ describe('shellKind', () => {
 describe('mcp client config', () => {
   // The awkward paths on purpose, as in `mcp-clients.test.ts`: a config that
   // parses cleanly and points at nothing fails silently at both ends.
-  const SERVER_JS = 'C:\\Users\\Ada Lovelace\\globalStorage\\z3n.chronos\\mcp-server.js';
+  const SERVER_JS = 'C:\\Users\\Ada Lovelace\\globalStorage\\z3n.synchrony\\mcp-server.js';
   const FOLDER = 'D:\\03-Software\\My Project';
 
   const parse = (json: string) => JSON.parse(json) as {
     mcpServers: Record<string, { command: string; args: string[] }>;
   };
 
-  it('should_name_the_plain_server_chronos_and_run_it_with_node', () => {
-    const config = parse(mcpClientConfig('chronos', SERVER_JS, ['--folder', FOLDER]));
+  it('should_name_the_plain_server_synchrony_and_run_it_with_node', () => {
+    const config = parse(mcpClientConfig('synchrony', SERVER_JS, ['--folder', FOLDER]));
 
-    assert.deepEqual(Object.keys(config.mcpServers), ['chronos']);
-    assert.equal(config.mcpServers.chronos.command, 'node');
-    assert.deepEqual(config.mcpServers.chronos.args, [SERVER_JS, '--folder', FOLDER]);
+    assert.deepEqual(Object.keys(config.mcpServers), ['synchrony']);
+    assert.equal(config.mcpServers.synchrony.command, 'node');
+    assert.deepEqual(config.mcpServers.synchrony.args, [SERVER_JS, '--folder', FOLDER]);
   });
 
   it('should_key_the_ask_config_off_the_name_it_is_given', () => {
@@ -849,7 +849,7 @@ describe('mcp client config', () => {
   it('should_produce_json_a_client_can_actually_parse', () => {
     // These are Windows paths full of backslashes; built by hand, one unescaped
     // separator makes a file that parses and points nowhere.
-    const json = mcpClientConfig('chronos', SERVER_JS, ['--folder', FOLDER]);
+    const json = mcpClientConfig('synchrony', SERVER_JS, ['--folder', FOLDER]);
 
     assert.doesNotThrow(() => JSON.parse(json));
     assert.ok(json.includes('\\\\'), 'the path separators are not JSON-escaped');

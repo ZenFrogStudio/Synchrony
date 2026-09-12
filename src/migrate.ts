@@ -1,4 +1,4 @@
-import { ChronosState, SCHEMA_VERSION } from './types';
+import { SynchronyState, SCHEMA_VERSION } from './types';
 
 /**
  * Schema migration. Pure — no `vscode` import — so the ladder can be exercised
@@ -10,12 +10,12 @@ import { ChronosState, SCHEMA_VERSION } from './types';
  * migration path.
  */
 
-/** Structurally a Chronos state of *some* version, before any upgrading. */
-function isChronosShaped(raw: unknown): raw is ChronosState {
+/** Structurally a Synchrony state of *some* version, before any upgrading. */
+function isSynchronyShaped(raw: unknown): raw is SynchronyState {
   if (!raw || typeof raw !== 'object') {
     return false;
   }
-  const state = raw as Partial<ChronosState>;
+  const state = raw as Partial<SynchronyState>;
   return (
     typeof state.schemaVersion === 'number' &&
     Array.isArray(state.series) &&
@@ -27,15 +27,15 @@ function isChronosShaped(raw: unknown): raw is ChronosState {
  * Upgrades stored state to the current schema, or returns undefined if the
  * shape is unrecognisable and the caller should back it up instead.
  *
- * State from a *newer* Chronos is also refused: guessing at a shape written by
+ * State from a *newer* Synchrony is also refused: guessing at a shape written by
  * a future version risks corrupting it on the next write.
  */
-export function migrate(raw: unknown): ChronosState | undefined {
-  if (!isChronosShaped(raw)) {
+export function migrate(raw: unknown): SynchronyState | undefined {
+  if (!isSynchronyShaped(raw)) {
     return undefined;
   }
 
-  let state: ChronosState = raw;
+  let state: SynchronyState = raw;
   let version = state.schemaVersion;
   if (version > SCHEMA_VERSION || version < 1) {
     return undefined;
@@ -68,7 +68,7 @@ export function migrate(raw: unknown): ChronosState | undefined {
  * not paused by the user, so it is re-read as spent-and-enabled. A disabled
  * one-shot with no runs was genuinely paused and is left alone.
  */
-function v1ToV2(state: ChronosState): ChronosState {
+function v1ToV2(state: SynchronyState): SynchronyState {
   const hasRun = new Set(state.runs.map((run) => run.seriesId));
 
   return {

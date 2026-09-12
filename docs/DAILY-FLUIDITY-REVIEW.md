@@ -1,15 +1,15 @@
-# Daily Chronos fluidity review
+# Daily Synchrony fluidity review
 
 You are carrying this out unattended. Everything that needed deciding has been
 decided below — follow it as written, produce the report, and do not stop to ask
 questions. This review **changes no code**. Every file it writes lands inside
-`.chronos`, which carries a `.gitignore` of `*` written by `ensureRoot`
+`.synchrony`, which carries a `.gitignore` of `*` written by `ensureRoot`
 (`src/roots.ts:83`), so the run leaves the git working tree exactly as it found
 it: nothing to commit, nothing to clean up in the morning.
 
 ## Why this exists
 
-The mission of Chronos is to provide the most fluid user experience for
+The mission of Synchrony is to provide the most fluid user experience for
 scheduling and managing coding agent tasks in VS Code. That is a claim about
 friction, and friction is invisible from the inside — the person who built a
 journey stops counting its steps after the tenth time through it. This review
@@ -39,12 +39,12 @@ advisory.
    changed.
 2. **Do not touch git beyond reading.** `log`, `diff`, `show`, `status` are fine.
    No `add`, `commit`, `push`, `checkout`, `stash`, `branch`.
-3. **Write to exactly two places, both under `.chronos`:**
-   - `.chronos/audits/` — one dated report, this run.
-   - `.chronos/tasks/` — at most three new `.md` files.
+3. **Write to exactly two places, both under `.synchrony`:**
+   - `.synchrony/audits/` — one dated report, this run.
+   - `.synchrony/tasks/` — at most three new `.md` files.
 
-   Nothing else. In particular never write `.chronos/plans/`,
-   `.chronos/state.json`, `.chronos/archive` or `.chronos/.pending`. Writing
+   Nothing else. In particular never write `.synchrony/plans/`,
+   `.synchrony/state.json`, `.synchrony/archive` or `.synchrony/.pending`. Writing
    `state.json` is how this plan would put its own conclusions on the schedule,
    and not doing it is the point: a person decides what runs.
 4. **Never delete or edit an existing file** anywhere — including existing tasks
@@ -61,7 +61,7 @@ advisory.
 ## Step 1 — establish what changed since yesterday
 
 This is the step that makes a daily cadence affordable. Read the **newest** file
-in `.chronos/audits/` in full before looking at any source. All three naming
+in `.synchrony/audits/` in full before looking at any source. All three naming
 families count: `*-codebase-audit.md`, `*-security-review.md` and
 `*-fluidity-review.md`. Note its date. Then:
 
@@ -82,7 +82,7 @@ review**, skip the full route. Re-verify the still-open backlog, write the short
 report described under "A quiet day is a success", create no tasks, and stop.
 Most days will be this day, and that is the design working, not failing.
 
-A first run with no previous report is normal: `mkdir -p .chronos/audits`, treat
+A first run with no previous report is normal: `mkdir -p .synchrony/audits`, treat
 every finding as new, and walk the full route.
 
 ## Step 2 — walk the fixed fluidity route
@@ -111,7 +111,7 @@ written and will drift — **find the construct, not the line.**
   `src/status.ts`, `src/activity.ts`, `src/outcome.ts`, `media/manager.js`,
   `media/tasks.js`. Anything that fails silently is a fluidity finding.
 - **Time to first value.** What a new user sees before anything works: the setup
-  banner (`#setup`, `media/manager.html:16`), the seeded Hello Chronos plan
+  banner (`#setup`, `media/manager.html:16`), the seeded Hello Synchrony plan
   (`seedLibrary`, `src/library.ts:193`), and the empty states in both webviews.
   Is the first successful run reachable without reading the README?
 - **The schedule editor.** `repeatOf` (`media/manager.js:265`), `scheduleSection`
@@ -144,7 +144,7 @@ written and will drift — **find the construct, not the line.**
   cheapest class of real finding and the most common in a fast-moving repo.
 - **New features, not only repairs.** The mission asks for improvements *or new
   features*. Reserve attention each run for the absent thing: a step the user has
-  to do outside Chronos, a journey with no affordance at all. A proposed feature
+  to do outside Synchrony, a journey with no affordance at all. A proposed feature
   is held to the same bar as a defect — it must name the journey it shortens and
   by how many actions.
 
@@ -188,15 +188,15 @@ across the whole backlog.
 
 ## Step 5 — write the report
 
-Write to `.chronos/audits/<YYYY-MM-DD>-fluidity-review.md`, using the **local**
-date, matching the naming of `.chronos/results`. If that name is taken — the user
+Write to `.synchrony/audits/<YYYY-MM-DD>-fluidity-review.md`, using the **local**
+date, matching the naming of `.synchrony/results`. If that name is taken — the user
 pressed **Run now** on a day the schedule also fired — append `-2`, `-3` and so
 on rather than overwriting.
 
 Use exactly this structure:
 
 ```markdown
-# Chronos fluidity review — <YYYY-MM-DD>
+# Synchrony fluidity review — <YYYY-MM-DD>
 
 Version <package.json version> · commit <short sha> · <N> commits since <previous review date>
 Checks run: typecheck <pass/fail/unavailable>, tests <pass/fail/unavailable>
@@ -253,7 +253,7 @@ it. Zero is a valid day.
 
 The task inbox is a folder of `.md` files with no index. The sidebar renders each
 file's first non-empty line as its row (`taskLabel`, `src/library.ts:152`), and
-Chronos derives file names with `toPlanFileName` (`src/library.ts:41`). Match
+Synchrony derives file names with `toPlanFileName` (`src/library.ts:41`). Match
 that convention exactly or the row looks wrong:
 
 - **Content:** one line of plain text, no heading, no bullet, ending in a
@@ -266,16 +266,16 @@ that convention exactly or the row looks wrong:
   characters, plus `.md`.
 - **Collisions:** if the name is taken, append `-2`, `-3` … Never overwrite.
 
-Nothing else in `.chronos/tasks/` is touched. Existing tasks are the user's.
+Nothing else in `.synchrony/tasks/` is touched. Existing tasks are the user's.
 
 ## De-duplication — the rule the whole thing depends on
 
 At a daily cadence this is not a nicety; without it the inbox is unusable inside
 a week. Before writing anything, read:
 
-- **every** existing file in `.chronos/tasks/`, and
+- **every** existing file in `.synchrony/tasks/`, and
 - the "Captured as tasks" and "Fix plans written" sections of **every** report in
-  `.chronos/audits/`, across all three naming families.
+  `.synchrony/audits/`, across all three naming families.
 
 If a finding was already captured — even under different wording, even by the
 security or audit plan — it does not become a task again. It may still appear in
@@ -294,7 +294,7 @@ trusting that a finding in it is real.
 
 - `node_modules/`, `dist/`, `dist-test/`, the committed `.vsix` files.
 - The historical `docs/*-PLAN.md` design documents.
-- Anything in `.chronos/results`, `.chronos/logs` or `.chronos/archive` — run
+- Anything in `.synchrony/results`, `.synchrony/logs` or `.synchrony/archive` — run
   output, not code.
 - **Security, which belongs to the weekly security review.**
 - General performance and correctness that the user does not feel as friction,

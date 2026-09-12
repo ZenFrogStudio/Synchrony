@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-12
+
+The first published release, and the end of the `-rc` version scheme. Eighty-six
+release candidates were built as `0.8.0-rc.N`, which is valid SemVer but is not
+a valid VS Code extension version: the Marketplace accepts `major.minor.patch`
+with integers and nothing else, and rejects any prerelease suffix on upload.
+Renaming the `.vsix` file does not help, because the version it reads lives in
+the manifest inside the package. Versions from here are plain `x.y.z`.
+
 A visual redesign of the manager, which has been the extension's only UI since
 the sidebar was removed. It was a flat stack of identically weighted sections, so
 nothing answered *when does this run next?* at a glance and the run history — the

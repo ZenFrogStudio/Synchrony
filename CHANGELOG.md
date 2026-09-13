@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-13
+
+### Added
+
+- **Unschedule from the phone's plan editor.** When a plan already has a series,
+  the editor's button row now reads Unschedule instead of offering Schedule a
+  second time. Tapping it asks for confirmation (worded the same as the Schedule
+  tab's) and removes that series; once the snapshot refreshes the button flips
+  back to Schedule.
+
+### Fixed
+
+- **`schedule_plan` refuses to mint a second series against a plan file that
+  already has one.** Both the phone's Schedule button and the MCP tool could
+  put the same plan on the schedule twice, leaving two series pointed at one
+  file. `scheduleSeries` now checks for an existing series before writing
+  anything — the same one-series-per-file rule `chain_plans` already follows —
+  and refuses with a pointer to `update_series` / `unschedule_series`.
+
 ## [0.9.7] - 2026-09-13
 
 ### Fixed

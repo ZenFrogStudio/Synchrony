@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { archivePlan, createPlan, InstanceSnapshot, PlanFile, readPlan, renamePlan, savePlan, schedulePlan } from '../lib/api';
+import { archivePlan, createPlan, InstanceSnapshot, PlanFile, readPlan, renamePlan, savePlan, schedulePlan, unscheduleSeries } from '../lib/api';
 import { relativeTime } from '../lib/relativeTime';
 import { palette, shared } from '../lib/theme';
 import { Banner, Button, Chip, ConfirmSheet, PromptModal, Row, Sheet, sheetStyles } from '../components/ui';
@@ -104,6 +104,7 @@ function PlanEditor({
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(plan.title);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmUnschedule, setConfirmUnschedule] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [when, setWhen] = useState<WhenValue>({ repeat: 'once', at: new Date().toISOString() });
 
@@ -180,6 +181,17 @@ function PlanEditor({
     }
   }
 
+  async function handleUnschedule() {
+    if (!series) return;
+    setConfirmUnschedule(false);
+    try {
+      await unscheduleSeries(instance, series.id);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not unschedule that plan.');
+    }
+  }
+
   return (
     <View style={shared.screen}>
       <Row>
@@ -225,7 +237,11 @@ function PlanEditor({
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         <Button label="Rename" variant="ghost" onPress={() => setRenaming(true)} />
-        <Button label="Schedule" variant="ghost" onPress={() => setScheduling(true)} />
+        {series ? (
+          <Button label="Unschedule" variant="danger" onPress={() => setConfirmUnschedule(true)} />
+        ) : (
+          <Button label="Schedule" variant="ghost" onPress={() => setScheduling(true)} />
+        )}
         <Button label="Archive" variant="danger" onPress={() => setConfirmArchive(true)} />
       </View>
 
@@ -247,6 +263,16 @@ function PlanEditor({
         destructive
         onCancel={() => setConfirmArchive(false)}
         onConfirm={handleArchive}
+      />
+
+      <ConfirmSheet
+        visible={confirmUnschedule}
+        title="Unschedule"
+        message="Removes this series and its run history."
+        confirmLabel="Unschedule"
+        destructive
+        onCancel={() => setConfirmUnschedule(false)}
+        onConfirm={handleUnschedule}
       />
 
       <ConfirmSheet

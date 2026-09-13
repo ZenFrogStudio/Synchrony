@@ -124,6 +124,17 @@ describe('mcp-actions — scheduleSeries', () => {
     assert.equal(series[0].permissionMode, 'auto');
   });
 
+  it('should_refuse_a_second_series_for_a_plan_already_on_the_schedule', () => {
+    const opts = { maxRetries: 3, allowPermissionMode: false };
+    const first = scheduleSeries(paths, { name: 'nightly.md', at: inAnHour() }, opts);
+    assert.equal(first.ok, true, JSON.stringify(first));
+
+    const second = scheduleSeries(paths, { name: 'nightly.md', at: inAnHour() }, opts);
+    assert.equal(second.ok, false);
+    if (!second.ok) assert.match(second.reason, /already on the schedule/);
+    assert.equal(readState(paths.state).state.series.length, 1, 'the second call wrote nothing');
+  });
+
   it('should_refuse_a_plan_that_is_not_in_the_library_and_write_nothing', () => {
     const out = scheduleSeries(paths, { name: 'missing.md', at: inAnHour() }, {
       maxRetries: 3,

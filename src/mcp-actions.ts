@@ -218,6 +218,16 @@ export function scheduleSeries(
     return refuse(`There is no plan named "${args.name}" in this library. Call list_plans for the ones there are.`);
   }
 
+  // One series per plan file — the same rule chainPlansAction follows, so a
+  // plan already on the schedule keeps its history instead of gaining a twin.
+  const { state: existing } = readState(paths.state);
+  const dupe = existing.series.find((s) => library.samePath(s.filePath, filePath));
+  if (dupe) {
+    return refuse(
+      `${library.titleOf(args.name)} is already on the schedule. Edit that series with update_series, or remove it with unschedule_series first.`
+    );
+  }
+
   const where = args.cwd === undefined ? undefined : planCwd(args.cwd, paths.folder, resolveLinks);
   if (where && !where.ok) {
     return refuse(where.reason);

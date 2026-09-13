@@ -131,6 +131,48 @@ export function armings(
 }
 
 /**
+ * Followers parked waiting for their turn: enabled, spent, linked to a plan
+ * that still exists, and not yet run since that plan last finished. The
+ * dashboard counts these as scheduled — a five-plan chain is five plans on
+ * the schedule, not one.
+ *
+ * The "already had its turn" test is the same one `armings` uses, so a chain
+ * that has finished drops out of the count the way it drops out of arming:
+ * its followers stay `enabled + spent + chain` in the store for good, and
+ * without the run check a finished five-plan chain would read "4 scheduled"
+ * forever.
+ */
+export function parkedFollowers(
+  series: readonly TaskSeries[],
+  runs: readonly TaskRun[]
+): TaskSeries[] {
+  const byId = new Map(series.map((s) => [s.id, s]));
+
+  return series.filter((follower) => {
+    const link = follower.chain;
+    if (!link || !follower.enabled || !follower.spent) {
+      return false;
+    }
+
+    // Waiting on nothing: the next tick switches it off.
+    const before = byId.get(link.after);
+    if (!before) {
+      return false;
+    }
+
+    const last = newestFinished(runs.filter((r) => r.seriesId === before.id));
+    if (!last) {
+      return true;
+    }
+
+    const finishedAtMs = Date.parse(recency(last));
+    return !runs.some(
+      (r) => r.seriesId === follower.id && Date.parse(r.scheduledAt) >= finishedAtMs
+    );
+  });
+}
+
+/**
  * Turns an ordered list of series into a chain: the first one starts the whole
  * thing at a clock time, and each of the rest waits on the one before it.
  *

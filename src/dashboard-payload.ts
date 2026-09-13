@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import { buildActivity } from './activity';
+import { parkedFollowers } from './chain';
 import type { SettingGroup } from './settings';
 import { truncate } from './time';
 import { RunStatus, TaskRun, TaskSeries, isFinished } from './types';
@@ -45,7 +46,9 @@ export const DASHBOARD_ERROR_MAX_CHARS = 200;
 export const ABANDONED_MS = 24 * 60 * 60_000;
 
 export interface DashboardCounts {
-  /** Series on the schedule: enabled, and with an occurrence still to come. */
+  /** Series on the schedule: enabled, and with an occurrence still to come.
+   *  Chain followers parked for their turn count too — they are spent while
+   *  they wait, but a five-plan chain is five plans on the schedule. */
   scheduled: number;
   running: number;
   pending: number;
@@ -181,7 +184,8 @@ export function buildInstancePayload(facts: InstanceFacts): DashboardInstance {
     resultsPath: facts.resultsPath,
     costLast7Days: facts.costLast7Days,
     counts: {
-      scheduled: series.filter((s) => s.enabled && !s.spent).length,
+      // No double count: `parkedFollowers` only ever returns spent series.
+      scheduled: series.filter((s) => s.enabled && !s.spent).length + parkedFollowers(series, runs).length,
       running: runs.filter((r) => r.status === 'running').length,
       pending: runs.filter((r) => r.status === 'pending').length,
       missed: runs.filter((r) => r.status === 'missed').length,

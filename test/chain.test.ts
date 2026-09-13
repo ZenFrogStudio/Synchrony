@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { armings, chainPatches, downstream, isInChain, spliceChain, wouldCycle } from '../src/chain';
+import {
+  armings,
+  chainPatches,
+  downstream,
+  isInChain,
+  parkedFollowers,
+  spliceChain,
+  wouldCycle
+} from '../src/chain';
 import { Action } from '../src/decide';
 import { TaskRun, TaskSeries } from '../src/types';
 
@@ -157,6 +165,77 @@ describe('chain — arming the next plan', () => {
     for (const outcome of [run(), run({ status: 'failed' }), run({ status: 'cancelled' })]) {
       assert.deepEqual(armings([series(), retired], [outcome], NOW), []);
     }
+  });
+});
+
+describe('chain — followers still waiting for their turn', () => {
+  // What the dashboard adds to its scheduled count. A follower waits as
+  // `spent`, so without this a five-plan chain reads as one plan scheduled.
+  const third = follower({
+    id: 'third',
+    fileName: 'deploy.md',
+    chain: { after: 'next', delayMinutes: 5, stopOnFailure: true }
+  });
+  const ids = (found: TaskSeries[]) => found.map((s) => s.id);
+
+  it('should_count_every_follower_before_the_chain_has_started', () => {
+    assert.deepEqual(ids(parkedFollowers([series(), follower(), third], [])), ['next', 'third']);
+  });
+
+  it('should_leave_out_a_follower_that_has_been_armed', () => {
+    // The head is done and `next` has its own time now. It is on the schedule
+    // the ordinary way — enabled and not spent — so counting it here would
+    // count it twice. `third` still waits on `next`.
+    const armed = follower({ spent: false, nextRunAt: new Date(NOW + 15 * MINUTE).toISOString() });
+
+    assert.deepEqual(ids(parkedFollowers([series(), armed, third], [run()])), ['third']);
+  });
+
+  it('should_count_nothing_once_the_whole_chain_has_run', () => {
+    // Every follower keeps `enabled + spent + chain` after its turn — nothing
+    // prunes a chained plan — so only the runs say the chain is over.
+    const nextRun = run({
+      id: 'run-2',
+      seriesId: 'next',
+      scheduledAt: new Date(NOW - 15 * MINUTE).toISOString(),
+      finishedAt: new Date(NOW - 10 * MINUTE).toISOString()
+    });
+    const thirdRun = run({
+      id: 'run-3',
+      seriesId: 'third',
+      scheduledAt: new Date(NOW - 5 * MINUTE).toISOString(),
+      finishedAt: new Date(NOW - MINUTE).toISOString()
+    });
+
+    assert.deepEqual(parkedFollowers([series(), follower(), third], [run(), nextRun, thirdRun]), []);
+  });
+
+  it('should_count_a_follower_again_when_the_plan_before_it_runs_again', () => {
+    // "Run now" on the head: the follower's old run is from before this finish.
+    const own = run({
+      id: 'run-2',
+      seriesId: 'next',
+      scheduledAt: new Date(NOW - 2 * 60 * MINUTE).toISOString(),
+      finishedAt: new Date(NOW - 100 * MINUTE).toISOString()
+    });
+    const first = run({ finishedAt: new Date(NOW - 3 * 60 * MINUTE).toISOString() });
+    const again = run({ id: 'run-3', finishedAt: new Date(NOW - MINUTE).toISOString() });
+
+    assert.deepEqual(ids(parkedFollowers([series(), follower()], [first, own, again])), ['next']);
+  });
+
+  it('should_leave_out_a_follower_the_user_has_paused', () => {
+    assert.deepEqual(parkedFollowers([series(), follower({ enabled: false })], []), []);
+  });
+
+  it('should_leave_out_a_follower_whose_predecessor_is_gone', () => {
+    const orphan = follower({ chain: { after: 'deleted', delayMinutes: 15, stopOnFailure: true } });
+
+    assert.deepEqual(parkedFollowers([orphan], []), []);
+  });
+
+  it('should_leave_out_a_spent_one_shot_that_is_not_in_a_chain', () => {
+    assert.deepEqual(parkedFollowers([series({ spent: true })], []), []);
   });
 });
 

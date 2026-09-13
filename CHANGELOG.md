@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-09-13
+
+### Fixed
+
+- **The dashboard's scheduled count now includes chain followers parked for
+  their turn.** A follower waits as `spent` — that is the deliberate parking
+  state — and the count filtered every spent series out, so a five-plan chain
+  read as 1 scheduled while five plans were on the schedule. A new
+  `parkedFollowers` helper in `chain.ts` picks out the followers still owed a
+  turn using the same "already had its turn" rule `armings` uses, and the count
+  adds them. Only followers still waiting are added: a finished chain's
+  followers stay `enabled + spent + chain` in the store for good, so a plain
+  "count anything chained" would have left a finished five-plan chain reading
+  "4 scheduled" forever. `nextRunAt` and the upcoming list are unchanged.
+
 ## [0.9.5] - 2026-09-13
 
 ### Fixed

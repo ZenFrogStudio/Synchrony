@@ -123,6 +123,40 @@ describe('dashboard payload — counts', () => {
     assert.equal(payload.counts.scheduled, 1);
   });
 
+  it('should_count_parked_chain_followers_as_scheduled_until_they_have_run', () => {
+    // A follower waits as `spent`, and stays that way after its turn too. A
+    // five-plan chain is five plans on the schedule before it starts, and none
+    // once every link has had its run.
+    const ids = ['p1', 'p2', 'p3', 'p4', 'p5'];
+    const chain = ids.map((id, index) =>
+      series(
+        index === 0
+          ? { id, fileName: `${id}.md` }
+          : {
+              id,
+              fileName: `${id}.md`,
+              spent: true,
+              chain: { after: ids[index - 1], delayMinutes: 5, stopOnFailure: true }
+            }
+      )
+    );
+
+    assert.equal(build({ series: chain }).counts.scheduled, 5);
+
+    // Each ran an hour after the one before it, and the head is a fired one-shot.
+    const finished = chain.map((s) => ({ ...s, spent: true }));
+    const runs = ids.map((id, index) =>
+      run({
+        id: `run-${id}`,
+        seriesId: id,
+        scheduledAt: at(-(10 - index) * HOUR),
+        finishedAt: at(-(10 - index) * HOUR + 30 * MINUTE)
+      })
+    );
+
+    assert.equal(build({ series: finished, runs }).counts.scheduled, 0);
+  });
+
   it('should_count_running_pending_and_missed_runs_separately', () => {
     const payload = build({
       runs: [

@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-13
+
+### Fixed
+
+- **A flood of plan requests no longer opens a terminal for every one of them
+  at once.** Every unclaimed file in `.synchrony/requests/` was claimed in a
+  single sweep, and each claim opens a terminal and starts a billable planning
+  session — so a plan looping on the request tool, or a remote caller retrying
+  a failure it misread, made two hundred terminals with the editor unusable
+  while it happened. `synchrony.maxConcurrent` never applied: that is the
+  scheduler's budget, and these are planning sessions, not scheduled runs. A
+  sweep now takes the oldest `MAX_PER_SWEEP` (five) and schedules another pass
+  for the rest, with a warning in the log saying how many were left behind.
+  There is still deliberately no age limit on a request: one written while no
+  window was open runs as soon as one is.
+
 ## [0.9.2] - 2026-09-12
 
 ### Changed

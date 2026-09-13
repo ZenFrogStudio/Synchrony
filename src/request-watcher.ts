@@ -21,6 +21,14 @@ import { SynchronyPaths } from './roots';
 const DEBOUNCE_MS = 200;
 /** How long a non-leader waits before it claims what the leader left. */
 const FOLLOWER_DELAY_MS = 1500;
+/**
+ * How many requests one sweep claims. Each claim opens a terminal and starts a
+ * billable planning session, and nothing else limits this channel —
+ * `synchrony.maxConcurrent` is the scheduler's budget, and these never pass
+ * through it. A person drives this channel, so more than a handful arriving at
+ * once is already a sign something is looping; the rest wait for the next sweep.
+ */
+export const MAX_PER_SWEEP = 5;
 
 export type RequestHandler = (request: PlanRequest) => Promise<{ ok: boolean; note?: string }>;
 
@@ -66,9 +74,9 @@ export class RequestWatcher {
     this.watcher = undefined;
   }
 
-  /** Claims and serves everything unclaimed. Re-entrancy guarded: a sweep that
-   *  opens a terminal can take a while, and a second one would double-claim nothing
-   *  but would double-log. */
+  /** Claims and serves the oldest `MAX_PER_SWEEP` unclaimed requests. Re-entrancy
+   *  guarded: a sweep that opens a terminal can take a while, and a second one
+   *  would double-claim nothing but would double-log. */
   private async sweep(): Promise<void> {
     if (this.sweeping) return;
     const dir = this.paths().requests;
@@ -88,7 +96,14 @@ export class RequestWatcher {
     if (this.sweeping) return;
     this.sweeping = true;
     try {
-      for (const id of listUnclaimed(dir)) {
+      const pending = listUnclaimed(dir);
+      const left = pending.length - MAX_PER_SWEEP;
+      if (left > 0) {
+        log.warn(
+          `${pending.length} plan requests are waiting; serving the oldest ${MAX_PER_SWEEP} and leaving ${left} for the next sweep`
+        );
+      }
+      for (const id of pending.slice(0, MAX_PER_SWEEP)) {
         const claim = claimRequest(dir, id);
         if (!claim.claimed) continue; // Another window got it, or it was corrupt and is already marked.
         log.info(`claimed plan request ${id} for ${claim.request.task}`);
@@ -100,6 +115,13 @@ export class RequestWatcher {
         }
         finishRequest(dir, id, outcome);
         log.info(`plan request ${id}: ${outcome.ok ? 'opened' : 'failed'}${outcome.note ? ` — ${outcome.note}` : ''}`);
+      }
+      if (left > 0) {
+        // Only a file landing starts a sweep, so what was left would otherwise
+        // sit until the next request arrives. After the loop, not before: a
+        // sweep that fires while this one is still running is dropped.
+        clearTimeout(this.debounce);
+        this.debounce = setTimeout(() => void this.sweep(), DEBOUNCE_MS);
       }
     } finally {
       this.sweeping = false;

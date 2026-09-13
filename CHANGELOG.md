@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`.vscodeignore` now excludes `.chronos/**` as well as `.synchrony/**`.**
+  With the pre-rename build still installed, a live `.chronos/` sat in this
+  repository at package time and the first 0.9.1 package shipped with it —
+  plans, results and 78 run transcripts. That asset was on the GitHub release
+  for under an hour with no downloads, and has been replaced by a clean
+  package. A source guard now ties `.vscodeignore` to both folder names.
+
 ## [0.9.1] - 2026-09-12
 
 ### Fixed

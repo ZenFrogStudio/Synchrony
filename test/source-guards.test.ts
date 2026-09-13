@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { CLAUDE_MODELS } from '../src/agents';
+import { LEGACY_ROOT_DIR, ROOT_DIR } from '../src/migrate-name';
 
 /**
  * Rules about the source itself, for properties no unit test can observe.
@@ -691,5 +692,20 @@ describe('source guards', () => {
       /\.detail\s*\{[^}]*flex-direction:\s*column/,
       '.detail must be a flex column or the box cannot stretch'
     );
+  });
+
+  it('should_keep_the_project_data_folder_out_of_the_package_under_every_name_it_has_had', () => {
+    // Synchrony runs on its own repository, so a real data folder sits in the
+    // root at package time — plans, run transcripts, results. `.vscodeignore`
+    // is the only thing between it and the .vsix, and it named `.synchrony/`
+    // but not `.chronos/`: 0.9.1 shipped with 78 transcripts inside. Tied to
+    // the constants so the next rename cannot reopen it.
+    const ignored = fs
+      .readFileSync(path.join(ROOT, '.vscodeignore'), 'utf8')
+      .split(/\r?\n/)
+      .map((line) => line.trim());
+    for (const dir of [ROOT_DIR, LEGACY_ROOT_DIR]) {
+      assert.ok(ignored.includes(`${dir}/**`), `.vscodeignore does not exclude ${dir}/**`);
+    }
   });
 });

@@ -7,6 +7,11 @@
 # it out of git, but vsce reads this file and nothing else, so without this
 # line every install ships one developer's private work.
 .synchrony/**
+# The same folder under its pre-rename name. An older build left installed
+# beside this one kept a live `.chronos/` here, and the line above did not
+# cover it: the 0.9.1 package went out with 78 run transcripts inside. Listed
+# by name rather than as `.*/**` so it stays greppable.
+.chronos/**
 favicon.ico
 # The raw manager and Tasks captures. Nothing in the extension loads them, and
 # they are the unblurred originals: a real working-directory path and a real

@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-09-13
+
+### Fixed
+
+- **A task with a planning session already open refuses a second one.** The
+  row's buttons were disabled while a task showed `generating`, but only on the
+  webview side; the palette command and hub `request_plan` requests never
+  looked at `awaitingPlan`, so picking the same task twice opened two terminals
+  and, later, landed two plans for one task — and the requester was told
+  `ok: true` both times. A new `planning()` helper on `TaskView` reads the same
+  pending set `post()` builds, and `generatePlan` now checks it at the top, so
+  one guard covers every door and the second attempt gets a warning instead of
+  a terminal. `generateFromRequest` checks it as well, before calling in,
+  because it has to write `ok: false` with an "already open" note into the
+  request file rather than report success for a session that quietly declined.
+
 ## [0.9.6] - 2026-09-13
 
 ### Fixed

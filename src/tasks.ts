@@ -270,6 +270,11 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     });
   }
 
+  /** True while some open planning session is already working this task. */
+  private planning(taskName: string): boolean {
+    return [...this.awaitingPlan.values()].some((p) => p.taskName === taskName);
+  }
+
   private list(): InboxTask[] {
     return library.listPlans(this.paths().tasks).map((file) => ({
       name: file.name,
@@ -465,6 +470,11 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // to put the rest. Refused here with a reason rather than silently downgraded.
       return { ok: false, note: 'a remote request cannot produce a series; ask for one plan' };
     }
+    if (this.planning(task.name)) {
+      // Said here, not left to `generatePlan`: it declines quietly, and the
+      // requester would otherwise be told the session opened.
+      return { ok: false, note: `a planning session is already open for ${task.name}` };
+    }
     await this.generatePlan(task, true, false, request.model);
     this.post();
     return { ok: true, note: `routed planning session opened for ${task.name}` };
@@ -492,6 +502,12 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   ): Promise<void> {
     if (!fs.existsSync(task.filePath)) {
       void vscode.window.showWarningMessage('That task no longer exists.');
+      return;
+    }
+    // One check for every door: the palette command has no other guard, and
+    // the row's buttons are only disabled on the webview side.
+    if (this.planning(task.name)) {
+      void vscode.window.showWarningMessage('A planning session is already open for that task.');
       return;
     }
     if (routed && series) {

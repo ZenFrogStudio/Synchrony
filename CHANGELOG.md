@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-09-13
+
+### Fixed
+
+- **Tasks run from the phone now clear from the inbox when their run
+  completes.** The link between a task and the series running it lived only in
+  the Tasks panel's memory, so a task run through the MCP `run_task` action
+  stayed in the inbox forever (the returned note even said so), and a window
+  reload mid-run stranded a panel-run task the same way. The link is now a
+  `taskName` field on the series itself, persisted in `state.json`, set by both
+  the panel and the MCP action. The leading window's existing settle pass reads
+  it on every store change, deletes the task file once the run completes, and
+  clears the marker. A failed or stopped run still leaves the task where it was.
+  Optional and additive — no migration, no schema bump.
+
 ## [0.10.2] - 2026-09-13
 
 ### Fixed

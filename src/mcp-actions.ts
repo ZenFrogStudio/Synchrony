@@ -592,10 +592,10 @@ export function deleteTaskAction(paths: SynchronyPaths, name: string): Verdict<l
 /**
  * Imports an inbox task into the plan library and fires it right away, in
  * `auto` mode, `spent` so it never fires again on its own — mirroring
- * `TaskView.runTask`. The one thing this cannot mirror: that method also
- * clears the task from the inbox once its run lands, through a link held only
- * in that view's own memory. There is no such link here, so the task stays in
- * the inbox and the returned note says so.
+ * `TaskView.runTask`, down to the `taskName` marker on the series. That marker
+ * is what clears the task: the leading window's `settleRuns` sees it on its
+ * next store reload and deletes the task file once the run completes. Nothing
+ * here deletes the file, because this process never knows when the run ends.
  */
 export function runTaskAction(
   paths: SynchronyPaths,
@@ -617,7 +617,7 @@ export function runTaskAction(
   const series = createSeries(
     plan.filePath,
     { cwd: paths.folder, maxRetries: 0 },
-    { permissionMode: 'auto', model: opts.model || undefined, spent: true }
+    { permissionMode: 'auto', model: opts.model || undefined, spent: true, taskName: name }
   );
   const run: TaskRun = { ...newRun(series, nowUtc(), 1, newId()), manual: true };
 
@@ -627,8 +627,8 @@ export function runTaskAction(
   });
 
   const note =
-    `${queuedNote(paths) ?? RUN_NOW_NOTE} "${name}" stays in the inbox — Synchrony only clears it ` +
-    'automatically when it is run from the Tasks panel.';
+    `${queuedNote(paths) ?? RUN_NOW_NOTE} "${name}" is cleared from the inbox automatically ` +
+    'once the run completes; a failed run leaves it there.';
   return { ok: true, value: { series: describeSeries(series), note } };
 }
 

@@ -142,12 +142,11 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   private readonly awaitingPlan = new Map<string, PendingPlan>();
 
   /**
-   * Task file name → the series a Run launched for it. Held in memory only, for
-   * the same reason as `awaitingPlan`: a window reload loses the link, the run
-   * carries on in the manager, and the task is simply left in the inbox rather
-   * than cleared.
+   * True while `settleRuns` is mid-loop. `updateSeries` fires `onDidChange`
+   * synchronously, which would re-enter the loop and settle the same series
+   * twice — once here and once in the nested call.
    */
-  private readonly running = new Map<string, string>();
+  private settling = false;
 
   /**
    * Closing the planning terminal is the only end-of-session signal VS Code
@@ -191,7 +190,12 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     private readonly scheduler: Scheduler,
     private readonly manager: Manager
   ) {
-    this.runs = this.store.onDidChange(() => this.settleRuns());
+    // Every change, not just a settled one: the running dot reads from the
+    // store now, and a run started from the phone arrives as a store reload.
+    this.runs = this.store.onDidChange(() => {
+      this.settleRuns().catch((err) => log.error('settling task runs failed', err));
+      this.post();
+    });
     this.requests = new RequestWatcher(
       this.paths,
       () => this.scheduler.leading,
@@ -265,7 +269,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         name: task.name,
         label: task.label,
         generating: pending.has(task.name),
-        running: this.running.has(task.name)
+        running: this.taskInFlight(task.name)
       }))
     });
   }
@@ -273,6 +277,15 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   /** True while some open planning session is already working this task. */
   private planning(taskName: string): boolean {
     return [...this.awaitingPlan.values()].some((p) => p.taskName === taskName);
+  }
+
+  /**
+   * True while a series still carries this task's marker — a Run from this
+   * panel or from the phone, not yet settled. Read from the store rather than
+   * from memory so it survives a window reload and sees the MCP process's writes.
+   */
+  private taskInFlight(taskName: string): boolean {
+    return this.store.getSeries().some((s) => s.taskName === taskName);
   }
 
   private list(): InboxTask[] {
@@ -976,7 +989,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       void vscode.window.showWarningMessage('That task no longer exists.');
       return;
     }
-    if (this.running.has(task.name)) {
+    if (this.taskInFlight(task.name)) {
       return; // Already in flight. The button is disabled; the keyboard is not.
     }
     // Checked here rather than left to `runNow`, which only logs: a button that
@@ -1012,13 +1025,14 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         model: vscode.workspace.getConfiguration('synchrony').get<string>('planModel', '') || undefined,
         // `createSeries` dates a new series an hour out. Without this the job
         // would run now *and* again in an hour, from a plan nobody scheduled.
-        spent: true
+        spent: true,
+        // The link back to the inbox row, on the record itself so `settleRuns`
+        // finds it after a window reload and the MCP action can set the same one.
+        taskName: task.name
       }
     );
     await this.store.addSeries(series);
 
-    // Before `runNow`, so the first store change it causes already finds the link.
-    this.running.set(task.name, series.id);
     await this.scheduler.runNow(series.id);
     log.info(`running task ${task.name} directly as ${plan.name} in ${paths.folder}`);
 
@@ -1033,36 +1047,50 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
    * done, so its file goes; anything else leaves the task where it was, because a
    * failed run has not done the work and the row is the only thing that would
    * remind you.
+   *
+   * The marker lives on the series in `state.json`, so every window on the
+   * folder sees it. Only the leader acts on it: otherwise each window would race
+   * to delete the same file. The leader is also the window that ran the job, so
+   * it is the one that knows the run has actually finished. No `post()` here —
+   * the constructor's listener posts on every store change, and clearing the
+   * marker is one.
    */
-  private settleRuns(): void {
-    if (!this.running.size) {
+  private async settleRuns(): Promise<void> {
+    if (!this.scheduler.leading || this.settling) {
       return;
     }
-    let changed = false;
-
-    for (const [taskName, seriesId] of [...this.running]) {
-      const state = jobState(this.store.getRunsForSeries(seriesId));
-      if (state === 'in-flight') {
-        continue;
-      }
-      this.running.delete(taskName);
-      changed = true;
-
-      if (state === 'completed') {
-        try {
-          library.removePlan(this.paths().tasks, taskName);
-          log.info(`run for task ${taskName} completed; cleared the task`);
-        } catch (err) {
-          // A task already deleted by hand must not turn this into an error notice.
-          log.warn(`could not clear task ${taskName}: ${String(err)}`);
-        }
-      } else {
-        log.info(`run for task ${taskName} did not complete; the task stays in the inbox`);
-      }
+    const owed = this.store.getSeries().filter((s) => s.taskName);
+    if (!owed.length) {
+      return;
     }
 
-    if (changed) {
-      this.post();
+    this.settling = true;
+    try {
+      for (const series of owed) {
+        const taskName = series.taskName as string;
+        const state = jobState(this.store.getRunsForSeries(series.id));
+        if (state === 'in-flight') {
+          continue;
+        }
+        // Cleared before the file goes, so a throw below cannot leave a marker
+        // that would try again on every change. `Object.assign` writes the key
+        // as `undefined` and `JSON.stringify` drops it — see `stampRepeatEnd`.
+        await this.store.updateSeries(series.id, { taskName: undefined });
+
+        if (state === 'completed') {
+          try {
+            library.removePlan(this.paths().tasks, taskName);
+            log.info(`run for task ${taskName} completed; cleared the task`);
+          } catch (err) {
+            // A task already deleted by hand must not turn this into an error notice.
+            log.warn(`could not clear task ${taskName}: ${String(err)}`);
+          }
+        } else {
+          log.info(`run for task ${taskName} did not complete; the task stays in the inbox`);
+        }
+      }
+    } finally {
+      this.settling = false;
     }
   }
 }

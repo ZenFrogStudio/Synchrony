@@ -573,10 +573,11 @@ describe('mcp-actions — task inbox', () => {
     if (out.ok) {
       assert.equal(out.value.series.spent, true);
       assert.equal(out.value.series.permissionMode, 'auto');
-      assert.match(out.value.note, /stays in the inbox/);
+      assert.match(out.value.note, /cleared from the inbox/);
     }
 
-    // The task itself is never cleared — only the Tasks panel does that.
+    // The action never deletes the task file itself — the leading window's
+    // settle pass does that once the run completes, by way of `taskName`.
     assert.equal(fs.existsSync(path.join(paths.tasks, 'fix-the-lock.md')), true);
     assert.equal(fs.existsSync(path.join(paths.plans, 'fix-the-lock.md')), true);
 
@@ -584,6 +585,7 @@ describe('mcp-actions — task inbox', () => {
     assert.equal(series.length, 1);
     assert.equal(series[0].maxRetries, 0);
     assert.equal(series[0].cwd, folder);
+    assert.equal(series[0].taskName, 'fix-the-lock.md');
     assert.equal(runs.length, 1);
     assert.equal(runs[0].manual, true);
     assert.equal(runs[0].seriesId, series[0].id);

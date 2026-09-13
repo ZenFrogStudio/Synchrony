@@ -108,6 +108,14 @@ export interface TaskSeries {
    * so it needs no migration and no SCHEMA_VERSION bump.
    */
   repeatEndedAt?: string;
+  /**
+   * The inbox task this series was minted to run, when it still owes that task
+   * a clearance: the leading window's TaskView deletes the task file once the
+   * run completes, then removes this marker. Set by both the Tasks panel and
+   * the MCP `run_task` action, so a phone-run task clears too. Optional and
+   * additive, like `chain` above — no migration, no SCHEMA_VERSION bump.
+   */
+  taskName?: string;
   maxRetries: number;
   createdAt: string;
 }

@@ -1067,7 +1067,10 @@ server.listen(PORT, HOST, () => {
   note(`synchrony-hub ${VERSION} listening on http://${HOST}:${PORT}`);
   note(`serving ${found.length} instance(s): ${found.map((i) => i.name).join(', ') || '(none yet)'}`);
   note(`token file: ${TOKEN_FILE}`);
-  note(`connector URL (put your tunnel's https host in front of the path): http://${HOST}:${PORT}/${TOKEN}/mcp`);
+  // The shape of the URL, never the token itself: this line runs on every
+  // start, and stderr is routinely captured to a file. `loadToken` prints the
+  // secret exactly once, when it mints it, and a restart must not print it again.
+  note(`connector URL (put your tunnel's https host in front of the path): http://${HOST}:${PORT}/<token>/mcp — the token is in the file above`);
 });
 
 const shutdown = () => {

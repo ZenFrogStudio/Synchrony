@@ -709,6 +709,21 @@ describe('source guards', () => {
     }
   });
 
+  it('should_never_print_the_hub_token_on_an_ordinary_start', () => {
+    // `loadToken` prints the token once, when it mints it, and promises a
+    // restart says nothing. The listen callback used to break that by printing
+    // the full connector URL — `/<token>/mcp` — on every start, so anywhere
+    // stderr is captured rather than watched (`npm run hub > hub.log 2>&1`, a
+    // supervisor, a scrollback buffer) the credential sat on disk in plaintext.
+    // That token is not read-only: `schedule_plan` on the hub allows
+    // `bypassPermissions`, in every project it serves. `hub.ts` listens at
+    // import time, so nothing can drive it in a unit test; the interpolation
+    // is the defect, and it is exactly the kind a later edit puts back.
+    const hub = fs.readFileSync(path.join(SRC, 'hub.ts'), 'utf8');
+
+    assert.ok(!hub.includes('${TOKEN}'), 'src/hub.ts interpolates the hub token into a string');
+  });
+
   it('should_open_settings_for_the_id_the_manifest_actually_declares', () => {
     // The Settings button filters by `@ext:<publisher>.<name>`, a string the
     // manager has no way to derive. When the publisher changed from Z3n to

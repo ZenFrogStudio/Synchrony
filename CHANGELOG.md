@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-09-13
+
+### Fixed
+
+- **The hub no longer prints its token on every start.** `loadToken` prints
+  the token once, when it mints it, and its comment promises a restart says
+  nothing. The `server.listen` callback broke that: its "connector URL" line
+  interpolated the full `/<token>/mcp` path on every start, minted or not, so
+  anywhere stderr is captured rather than watched — `npm run hub > hub.log
+  2>&1`, a process supervisor, a terminal scrollback buffer — the credential
+  was on disk in plaintext. That token is not read-only: `schedule_plan` on
+  the hub allows `bypassPermissions`, in every project the hub serves.
+
+  The line now prints the shape of the path with `<token>` in place of the
+  secret and points at the token file, which the line above it already names.
+  A source guard in `test/source-guards.test.ts` asserts `src/hub.ts` never
+  interpolates `${TOKEN}` into a string, so the line cannot quietly come back.
+  Nothing else in the hub changed: the constant-time compare, the plain 404 for
+  an unauthorised request, the token-in-path scheme and the owner's
+  `allowPermissionMode` are all as they were.
+
 ## [0.9.4] - 2026-09-13
 
 ### Fixed

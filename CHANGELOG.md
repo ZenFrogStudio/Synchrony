@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-13
+
+### Fixed
+
+- **The 0.8.0 notes now document the hub and the plan-request channel.** Both
+  shipped in that release with no entry of their own, so the later 0.8.0
+  entries — tool parity, the control channel, the phone remote — referred to a
+  hub the changelog had never introduced. The new entry covers `src/hub.ts`,
+  the `.chronos/requests/` handshake in `src/requests.ts`, the `RequestWatcher`
+  every window runs, and `ensureRoot` creating `requests/` in every tree. The
+  same release's MCP-client-picker entry still ended with a pre-hub claim that
+  there was "no HTTP endpoint, no port and no token"; it now scopes that to the
+  stdio server and names the hub as where those live.
+
 ## [0.10.0] - 2026-09-13
 
 ### Added
@@ -270,6 +284,34 @@ logic out; one of the moves also narrowed a guard.
   hub existed. Neither file is touched: the hub's per-machine bearer token is
   the model going forward, and the older code is simply left dormant.
 
+- **A machine-wide hub, and the plan-request channel every window now serves.**
+  The stdio MCP server is the door an agent uses: spawned per project, no
+  network. `src/hub.ts` is the door the *owner* uses from somewhere else — a
+  phone, a published board, another machine. It is one MCP server over
+  Streamable HTTP for every project on this PC, so every tool takes an
+  `instance` argument naming the folder it means; it is started from a clone
+  with `npm run hub`, and guarded by a per-machine bearer token, carried in the
+  `Authorization` header or as the first path segment for a connector that has
+  nowhere else to put it. It holds no state of its own: every call re-reads the
+  folder it names and writes back through the same `mcp-actions.ts` the stdio
+  server uses, so a window on that folder notices exactly as it would for any
+  other writer.
+
+  Plan generation is the one thing the `.chronos` tree cannot express as a
+  plain file write. A task is a file and a series is a line in `state.json`,
+  and any process can write either — but a planning session is a terminal
+  running the `claude` CLI, and only an extension host can open one. So
+  `src/requests.ts` adds a request channel: a remote caller writes `<id>.json`
+  into `.chronos/requests/`, and a live window on that folder claims it by
+  atomic rename — `<id>.claimed.json`, then `<id>.done.json` with the outcome
+  merged in. Exactly one window wins; a second window's rename fails because
+  the source is gone, and that failure is how it learns it lost. Every window
+  now runs a `RequestWatcher` (`src/request-watcher.ts`) on that folder: the
+  window leading the scheduler claims first, a follower waits 1.5 s and takes
+  only what is still unclaimed, and a sweep at start serves any request
+  written while no window was open. `ensureRoot` in `src/roots.ts` now creates
+  `requests/` alongside the other folders in every project tree.
+
 - **A dashboard HTML artifact with embedded CSS.**
   `dashboard/artifact.html` mirrors the browser dashboard without depending on
   an external stylesheet, so artifact viewers can render the existing design
@@ -485,9 +527,10 @@ logic out; one of the moves also narrowed a guard.
 
   The command is now a picker over eight clients, and copies the shape the one
   you picked actually wants, naming the file to paste it into and the one-line
-  CLI equivalent where the client has one. There is still no HTTP endpoint, no
-  port and no token: the server stays stdio-only, and an off-machine device
-  reaches it the way it always has, by driving a client running on this PC.
+  CLI equivalent where the client has one. The stdio server itself stays
+  stdio-only — no port and no token of its own — so a client on this PC reaches
+  it the way it always has. The HTTP endpoint, port and bearer token now exist
+  one level up: the machine-wide hub, added later in this same release.
 
 - **Read and write hints on all fifteen MCP tools.** Clients that decide for
   themselves what to auto-approve — Codex's `default_tools_approval_mode`, VS

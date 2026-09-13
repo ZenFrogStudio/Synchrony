@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-09-13
+
+### Fixed
+
+- **`docs/HUB.md` is now tracked in git.** The 0.8.0 notes and
+  `mobile/README.md` both send readers to it for hub setup, but `.gitignore`
+  ignored all of `docs/`, so the file never reached GitHub and nobody without
+  a local copy could follow the pointer. The ignore rule is now `docs/*` with a
+  `!docs/HUB.md` exception; the rest of `docs/` stays private, and
+  `.vscodeignore` still keeps the folder out of the packaged extension.
+
 ## [0.10.1] - 2026-09-13
 
 ### Fixed

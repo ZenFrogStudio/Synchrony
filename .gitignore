@@ -23,10 +23,16 @@ media/screenshots.png
 media/screenshots-2.png
 
 # Plans stay on disk and never go to GitHub. Three places they land:
-# `.chronos/plans` (covered above), `docs/` — which holds nothing but the design
-# plans and the prompt text the scheduler runs — and wherever
-# `chronos.libraryPath` is pointed, so any `plans/` folder at any depth counts.
-# This is deliberately whole-folder rather than a list of filenames, so a plan
-# written tomorrow is ignored without anyone remembering to add it.
-docs/
+# `.chronos/plans` (covered above), `docs/` — which holds the design plans and
+# the prompt text the scheduler runs — and wherever `chronos.libraryPath` is
+# pointed, so any `plans/` folder at any depth counts. This is deliberately
+# whole-folder rather than a list of filenames, so a plan written tomorrow is
+# ignored without anyone remembering to add it.
+#
+# One exception: `docs/HUB.md` is the hub setup guide the changelog and
+# `mobile/README.md` point readers to, so it must reach GitHub. Git will not
+# look inside a folder ignored as `docs/`, so the pattern is `docs/*` with a
+# negation — that lets the one file through and keeps everything else out.
+docs/*
+!docs/HUB.md
 plans/

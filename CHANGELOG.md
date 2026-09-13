@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-12
+
+### Changed
+
+- **The publisher is now `ZenFrog`, not `Z3n`.** The extension id becomes
+  `ZenFrog.synchrony` (the editor files it as `zenfrog.synchrony`). To the
+  editor and the Marketplace that is a new extension: `Z3n.synchrony` does not
+  update into it, and an install of it left in place activates beside this one.
+  So `z3n.synchrony` joins the retired ids — named in the start-up warning with
+  its **Uninstall** button, removed by `npm run reinstall` — and the manager's
+  Settings button now filters by the new id.
+- **MCP clients registered against an earlier id keep working.** A client
+  config points at the launcher shim in that id's `globalStorage` folder, which
+  nothing rewrote after a rename — so it kept naming an install folder that
+  uninstalling the old copy deleted. Activation now refreshes the shim in every
+  retired id's storage folder that has one, alongside its own.
+
 ### Fixed
 
 - **`.vscodeignore` now excludes `.chronos/**` as well as `.synchrony/**`.**

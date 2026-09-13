@@ -13,7 +13,7 @@ import { MCP_CLIENTS } from './mcp-clients';
 import { migrate } from './migrate';
 import { sweepQuestions } from './questions';
 import { retireCompletedPlans } from './retire';
-import { MigrateOutcome, migrateRoot, oldCopies } from './migrate-name';
+import { MigrateOutcome, migrateRoot, oldCopies, RETIRED_IDS } from './migrate-name';
 import { SynchronyPaths, ensureRoot, pathsFor, sweepPending } from './roots';
 import { probeAgent, Runner } from './runner';
 import { Scheduler } from './scheduler';
@@ -311,8 +311,8 @@ export function deactivate(): void {
 }
 
 /**
- * A build installed under a previous id (`z3n.chronos`, `onemedialabs.chronus`)
- * is a separate extension to the editor, so it activates right alongside this
+ * A build installed under a previous id (`z3n.synchrony`, `z3n.chronos`,
+ * `onemedialabs.chronus`) is a separate extension to the editor, so it activates right alongside this
  * one. Two schedulers then compete for one folder's lock, and the loser's only
  * vocabulary for that is "another window is open on this same folder" — which
  * sends the user hunting for a window that does not exist. Name the actual
@@ -438,6 +438,19 @@ function mcpLauncherPath(context: vscode.ExtensionContext): string {
     if (readIfPresent(launcher) !== shim) {
       fs.writeFileSync(launcher, shim, 'utf8');
       log.info(`pointed the MCP launcher at ${real}`);
+    }
+    // A client registered while this extension had an earlier id spawns the
+    // shim in *that* id's storage, and nothing else ever rewrites it — so it
+    // still names the old install folder, which uninstalling the old copy
+    // removes. Only where a shim already exists: storage for an id that was
+    // never registered would be litter.
+    for (const id of RETIRED_IDS) {
+      const old = path.join(path.dirname(dir), id, 'mcp-server.js');
+      const current = readIfPresent(old);
+      if (current !== undefined && current !== shim) {
+        fs.writeFileSync(old, shim, 'utf8');
+        log.info(`re-pointed the ${id} MCP launcher at ${real}`);
+      }
     }
     return launcher;
   } catch (err) {

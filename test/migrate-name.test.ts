@@ -10,6 +10,7 @@ import {
   migrateHomeDir,
   migrateRoot,
   oldCopies,
+  RETIRED_IDS,
   ROOT_DIR,
   rootDirFor
 } from '../src/migrate-name';
@@ -82,24 +83,32 @@ describe('rename — home directory', () => {
 });
 
 describe('rename — older builds still installed', () => {
-  const self = { id: 'Z3n.synchrony', name: 'synchrony', version: '0.9.1' };
+  const self = { id: 'ZenFrog.synchrony', name: 'synchrony', version: '0.9.2' };
+  const z3n = { id: 'z3n.synchrony', name: 'synchrony', version: '0.9.1' };
   const chronos = { id: 'z3n.chronos', name: 'chronos', version: '0.8.0-rc.86' };
   const chronus = { id: 'onemedialabs.chronus', name: 'chronus', version: '0.8.0-rc.9' };
   const unrelated = { id: 'ms-python.python', name: 'python', version: '2026.1.0' };
 
   it('should_report_every_previous_id_and_nothing_else', () => {
-    const found = oldCopies([unrelated, chronos, self, chronus], self.id);
-    assert.deepEqual(found, [chronos, chronus]);
+    const found = oldCopies([unrelated, chronos, self, z3n, chronus], self.id);
+    assert.deepEqual(found, [chronos, z3n, chronus]);
   });
 
   it('should_not_report_itself_whatever_the_editor_does_to_the_case', () => {
-    // The manifest says `Z3n`; the editor's registry says `z3n`.
-    assert.deepEqual(oldCopies([{ ...self, id: 'z3n.synchrony' }], 'Z3n.synchrony'), []);
+    // The manifest says `ZenFrog`; the editor's registry says `zenfrog`.
+    assert.deepEqual(oldCopies([{ ...self, id: 'zenfrog.synchrony' }], 'ZenFrog.synchrony'), []);
   });
 
-  it('should_report_the_same_name_under_another_publisher', () => {
-    const marketplace = { id: 'someone-else.synchrony', name: 'synchrony', version: '0.9.0' };
-    assert.deepEqual(oldCopies([self, marketplace], self.id), [marketplace]);
+  it('should_report_the_same_name_under_the_previous_publisher', () => {
+    // The publisher change alone, with nothing else renamed — the 0.9.1 → 0.9.2 case.
+    assert.deepEqual(oldCopies([self, z3n], self.id), [z3n]);
+  });
+
+  it('should_list_every_retired_id_in_the_form_the_editor_names_storage_folders', () => {
+    for (const id of RETIRED_IDS) {
+      assert.equal(id, id.toLowerCase(), `${id} is not lower-case`);
+      assert.ok(oldCopies([{ id, name: id.split('.')[1], version: '0' }], self.id).length === 1);
+    }
   });
 
   it('should_report_nothing_when_only_this_build_is_installed', () => {

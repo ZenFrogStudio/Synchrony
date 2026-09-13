@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { CLAUDE_MODELS } from '../src/agents';
-import { LEGACY_ROOT_DIR, ROOT_DIR } from '../src/migrate-name';
+import { LEGACY_ROOT_DIR, RETIRED_IDS, ROOT_DIR } from '../src/migrate-name';
 
 /**
  * Rules about the source itself, for properties no unit test can observe.
@@ -707,5 +707,19 @@ describe('source guards', () => {
     for (const dir of [ROOT_DIR, LEGACY_ROOT_DIR]) {
       assert.ok(ignored.includes(`${dir}/**`), `.vscodeignore does not exclude ${dir}/**`);
     }
+  });
+
+  it('should_open_settings_for_the_id_the_manifest_actually_declares', () => {
+    // The Settings button filters by `@ext:<publisher>.<name>`, a string the
+    // manager has no way to derive. When the publisher changed from Z3n to
+    // ZenFrog the literal did not follow, and the button opened an empty page.
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    const manager = fs.readFileSync(path.join(SRC, 'manager.ts'), 'utf8');
+    assert.ok(
+      manager.includes(`'@ext:${manifest.publisher}.${manifest.name}'`),
+      `src/manager.ts does not open settings for @ext:${manifest.publisher}.${manifest.name}`
+    );
+    // Its retired form must not be one of the ids still being warned about.
+    assert.ok(!RETIRED_IDS.includes(`${manifest.publisher}.${manifest.name}`.toLowerCase()));
   });
 });

@@ -546,7 +546,7 @@ export class Manager implements vscode.Disposable {
       // The escape hatch this page deliberately does not cover: workspace scope,
       // and the JSON view.
       case 'openNativeSettings':
-        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Z3n.synchrony');
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ZenFrog.synchrony');
         return;
 
       default:

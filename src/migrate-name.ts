@@ -75,9 +75,16 @@ export interface InstalledExtension {
 /**
  * Package names this product has shipped under. Ids are `publisher.name`, and
  * both halves have changed (`onemedialabs.chronus` → `z3n.chronos` →
- * `z3n.synchrony`), so the name is matched on its own.
+ * `z3n.synchrony` → `zenfrog.synchrony`), so the name is matched on its own.
  */
 const PRODUCT_NAMES = ['chronus', 'chronos', 'synchrony'];
+
+/**
+ * Every id before the current one, lower-cased the way the editor names each
+ * id's folder under `globalStorage/`. `reinstall.js` carries the same list for
+ * the build, where this module cannot be imported.
+ */
+export const RETIRED_IDS = ['onemedialabs.chronus', 'onemedialabs.chronos', 'z3n.chronos', 'z3n.synchrony'];
 
 /**
  * Older builds still installed under a previous id. The editor sees each id as

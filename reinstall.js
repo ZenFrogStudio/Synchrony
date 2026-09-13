@@ -47,11 +47,13 @@ if (!found) {
   process.exit(1);
 }
 
-// Ids this extension shipped under before `z3n.synchrony`. The editor treats
-// each as its own extension, so one left installed activates alongside the new
-// build — two schedulers on one folder, and the loser reports "another window"
-// that does not exist. That is exactly how rc.86 sat next to 0.9.0 for a day.
-const RETIRED_IDS = ['onemedialabs.chronus', 'onemedialabs.chronos', 'z3n.chronos'];
+// Ids this extension shipped under before `zenfrog.synchrony`. The editor
+// treats each as its own extension, so one left installed activates alongside
+// the new build — two schedulers on one folder, and the loser reports "another
+// window" that does not exist. That is exactly how rc.86 sat next to 0.9.0 for
+// a day. Mirrors RETIRED_IDS in src/migrate-name.ts, which cannot be imported
+// from a plain build script.
+const RETIRED_IDS = ['onemedialabs.chronus', 'onemedialabs.chronos', 'z3n.chronos', 'z3n.synchrony'];
 
 const listed = spawnSync(found, ['--list-extensions'], { shell: true, encoding: 'utf8' });
 const installed = (listed.stdout || '').split(/\r?\n/).map((id) => id.trim().toLowerCase());

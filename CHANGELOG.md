@@ -8,6 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-13
+
+### Fixed
+
+- **A chained plan's hourly recovery retry now has a ceiling.** Past
+  `maxRetries`, a plan inside a chain queued another attempt at the next top of
+  the hour, and nothing bounded that: every later failure landed in the same
+  branch and queued another hour. It was worse than it looked. `decide` never
+  marks a recovery run missed — it moves a stale one to the next hour on
+  purpose, so a chain is not stopped by a closed window — which meant the report
+  that would normally surface the problem never arrived. And "retryable" is
+  wider than an outage: any non-zero exit that is not an auth failure, and a
+  watchdog kill for hanging, count too. A chained plan that reliably hung was
+  killed at the idle timeout, retried three times, then retried every hour —
+  twenty-four billable runs a day against a real repository, indefinitely, with
+  nothing reported, and the pending run surviving editor restarts.
+
+  `retry.ts` now gives recovery a ceiling of `MAX_RECOVERY_ATTEMPTS` (36)
+  hourly attempts past `maxRetries`, then falls through to the ordinary report.
+  A count rather than a wall-clock cutoff because it needs no new state —
+  `attempt` already counts every retry — and because a count bounds the thing
+  that costs money: an hour that passed while the window was shut is moved on
+  without running and is not counted, so a closed weekend does not spend the
+  budget. Thirty-six hourly attempts is a day and a half at the least, enough
+  to cross an overnight outage and the working day after it. When the ceiling
+  is reached the failure notice says the plan's hourly chain recovery has given
+  up, and the same line goes in the log, so it does not read as one more failed
+  retry among the dozens before it. `decide`'s handling of a stale recovery run
+  is unchanged; once `retry.ts` stops minting them the unbounded case cannot
+  arise.
+
 ## [0.9.3] - 2026-09-13
 
 ### Fixed

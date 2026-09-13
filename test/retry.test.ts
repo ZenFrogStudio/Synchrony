@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { nextTopOfHour, retryPlan } from '../src/retry';
+import { MAX_RECOVERY_ATTEMPTS, nextTopOfHour, retryPlan } from '../src/retry';
 import { TaskRun, TaskSeries } from '../src/types';
 
 /**
@@ -120,6 +120,29 @@ describe('retry — a plan inside a chain', () => {
     const result = plan(follower(), [series()], { attempt: 4 });
 
     assert.equal(result.kind, 'recovery');
+  });
+
+  it('should_give_up_once_the_recovery_ceiling_is_passed', () => {
+    // Every recovery attempt is a billable run against a real repository, and
+    // `decide` never marks one missed — so a plan that is never going to work,
+    // say one that hangs until the watchdog kills it, would otherwise run every
+    // hour forever with nothing reported. The ordinary retries come first, so
+    // the ceiling sits past `maxRetries`.
+    const failing = series();
+    const spent = failing.maxRetries + MAX_RECOVERY_ATTEMPTS + 1;
+    const result = plan(failing, [follower()], { attempt: spent, chainRecovery: true });
+
+    assert.equal(result.kind, 'report');
+  });
+
+  it('should_still_recover_just_inside_the_ceiling', () => {
+    // The cap bounds the feature; it must not defeat it.
+    const failing = series();
+    const last = failing.maxRetries + MAX_RECOVERY_ATTEMPTS;
+    const result = plan(failing, [follower()], { attempt: last, chainRecovery: true });
+
+    assert.equal(result.kind, 'recovery');
+    assert.equal(result.kind === 'recovery' && result.attempt, last + 1);
   });
 
   it('should_give_up_on_a_failure_that_retrying_cannot_help', () => {

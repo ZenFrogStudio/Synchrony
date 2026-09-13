@@ -305,13 +305,16 @@ export class Scheduler implements vscode.Disposable {
       return;
     }
 
+    // A recovery run landing here means the hourly retry has stopped — the
+    // ceiling in `retry.ts`, or a failure retrying cannot help — and the chain
+    // now reads this failure as the plan's outcome. Said so, or it reads as one
+    // more failed retry among the dozens before it.
+    const reason = run.chainRecovery
+      ? `${series.fileName} failed after ${retriesUsed} retries and its hourly chain recovery has given up.`
+      : `${series.fileName} failed${retriesUsed > 0 ? ` after ${retriesUsed} retries` : ''}.`;
+    log.error(`run ${run.id}: ${reason}`);
     vscode.window
-      .showErrorMessage(
-        `Synchrony: ${series.fileName} failed${
-          retriesUsed > 0 ? ` after ${retriesUsed} retries` : ''
-        }.`,
-        'Show Logs'
-      )
+      .showErrorMessage(`Synchrony: ${reason}`, 'Show Logs')
       .then((choice) => {
         if (choice === 'Show Logs') {
           log.show();

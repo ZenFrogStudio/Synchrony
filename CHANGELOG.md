@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-09-14
+
+### Security
+
+- **The hub never prints its token.** The token is the credential — claude.ai
+  connectors carry it inside the URL — and the hub used to write it to stderr
+  in two places: the start-up connector URL on every run, and once more raw
+  when it minted the token on first run. Either would land the secret in
+  plaintext wherever that output is captured (a background service log, the
+  tunnel script, terminal scrollback). Both are gone: the connector URL now
+  shows a literal `<token>` placeholder, and minting only says which file the
+  token was written to. `scripts/hub-up.ps1` is unchanged; it reads the token
+  file directly and is run on demand for pairing, not at every start.
+
 ## [0.11.4] - 2026-09-14
 
 ### Added

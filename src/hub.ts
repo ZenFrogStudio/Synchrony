@@ -131,8 +131,8 @@ if (!ROOTS.length && !FOLDERS.length) {
 
 /**
  * The token: from the environment, else from the token file, else minted and
- * written there once. Printed to stderr only when minted, so a restart says
- * nothing and the secret is on screen exactly once.
+ * written there once. The token itself is never printed — stderr is routinely
+ * captured to a file — so the log only says where the token file is.
  */
 function loadToken(): string {
   const fromEnv = process.env.SYNCHRONY_HUB_TOKEN?.trim();
@@ -151,7 +151,6 @@ function loadToken(): string {
   fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true });
   fs.writeFileSync(TOKEN_FILE, `${minted}\n`, { encoding: 'utf8', mode: 0o600 });
   note(`minted a new token and wrote it to ${TOKEN_FILE}`);
-  note(`token: ${minted}`);
   return minted;
 }
 
@@ -1094,9 +1093,9 @@ server.listen(PORT, HOST, () => {
   note(`serving ${found.length} instance(s): ${found.map((i) => i.name).join(', ') || '(none yet)'}`);
   note(`token file: ${TOKEN_FILE}`);
   // The shape of the URL, never the token itself: this line runs on every
-  // start, and stderr is routinely captured to a file. `loadToken` prints the
-  // secret exactly once, when it mints it, and a restart must not print it again.
-  note(`connector URL (put your tunnel's https host in front of the path): http://${HOST}:${PORT}/<token>/mcp — the token is in the file above`);
+  // start, and stderr is routinely captured to a file. Nothing in the hub
+  // prints the token; the pairing script reads it from the token file.
+  note(`connector URL (put your tunnel's https host in front of the path, and the token from the file above in place of <token>): http://${HOST}:${PORT}/<token>/mcp`);
 });
 
 const shutdown = () => {

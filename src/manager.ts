@@ -22,6 +22,7 @@ type Inbound =
   | { type: 'drop'; items: string[] }
   | { type: 'dropText'; files: { name: string; text: string }[] }
   | { type: 'createPlan' }
+  | { type: 'importPlans' }
   | { type: 'renamePlan'; name: string }
   | { type: 'archivePlan'; name: string }
   | { type: 'loadPlan'; name: string }
@@ -211,6 +212,41 @@ export class Manager implements vscode.Disposable {
     }
   }
 
+  /**
+   * The schedule-free way in: copies picked Markdown files into the library and
+   * stops there. No series is created — that absence is the whole point, since
+   * every other route (`addPaths`) schedules on arrival. This is how a plan comes
+   * back from the archive without being forced onto the calendar.
+   */
+  async importPlans(): Promise<void> {
+    const picked = await vscode.window.showOpenDialog({
+      canSelectMany: true,
+      openLabel: 'Import',
+      filters: { Markdown: ['md'] }
+    });
+    if (!picked?.length) {
+      return;
+    }
+
+    const dir = this.paths().plans;
+    const imported: string[] = [];
+    let last = '';
+
+    for (const { fsPath } of picked) {
+      const plan = library.importFile(dir, fsPath);
+      log.info(`copied ${fsPath} into the library as ${plan.name} (not scheduled)`);
+      imported.push(plan.title);
+      last = plan.name;
+    }
+
+    this.post();
+    this.select(last);
+    this.notify(
+      `Copied ${imported.join(', ')} into your library — not scheduled. ` +
+        'Use the Schedule button when you are ready.'
+    );
+  }
+
   /** Re-attaches to a panel VS Code restored after a window reload. */
   restore(panel: vscode.WebviewPanel): void {
     panel.webview.options = {
@@ -376,6 +412,9 @@ export class Manager implements vscode.Disposable {
         });
         return;
       }
+
+      case 'importPlans':
+        return this.importPlans();
 
       case 'revealLibrary':
         fs.mkdirSync(dir, { recursive: true });
@@ -759,7 +798,7 @@ export class Manager implements vscode.Disposable {
       .getSeries()
       .filter((s) => library.samePath(s.filePath, filePath));
 
-    const detail = 'The file moves to .synchrony/archive. Bring it back by dropping it on this window.';
+    const detail = 'The file moves to .synchrony/archive. Bring it back with Import.';
     const choice = await vscode.window.showWarningMessage(
       scheduled.length > 0 ? `"${name}" is scheduled. Archive it?` : `Archive "${name}"?`,
       {
@@ -781,7 +820,7 @@ export class Manager implements vscode.Disposable {
 
     library.archivePlan(dir, this.paths().archivedPlans, name);
     this.post();
-    this.notify(`Archived ${library.titleOf(name)} to .synchrony/archive/plans — drop it back on this window to restore it.`);
+    this.notify(`Archived ${library.titleOf(name)} to .synchrony/archive/plans — Import brings it back.`);
   }
 
   /** A renamed plan must not strand the series pointing at its old path. */

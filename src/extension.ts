@@ -242,6 +242,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('synchrony.openManager', () => manager.open()),
     vscode.commands.registerCommand('synchrony.selectFolder', () => selectFolder(switchFolder)),
     vscode.commands.registerCommand('synchrony.addFiles', () => addFiles(manager)),
+    // Opens the manager first so the copied plan is seen landing in the list.
+    vscode.commands.registerCommand('synchrony.importFile', async () => {
+      manager.open();
+      await manager.importPlans();
+    }),
     vscode.commands.registerCommand(
       'synchrony.scheduleFile',
       async (uri?: vscode.Uri, uris?: vscode.Uri[]) => {

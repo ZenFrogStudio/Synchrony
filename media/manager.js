@@ -834,11 +834,13 @@
       <h2 class="empty-title">Schedule Claude Code tasks from Markdown plans</h2>
       <p>Synchrony runs a plan file with the Claude CLI on a schedule you choose —
         once, daily, or on set weekdays — and saves a transcript of every run.</p>
-      <p>Two ways to add a plan:</p>
+      <p>Three ways to add a plan:</p>
       <ul class="empty-ways">
         <li><strong>New plan</strong> in the sidebar — create one in your library and edit it here.</li>
         <li><strong>Drop a <code>.md</code> file</strong> anywhere on this window to schedule
           a plan you already have.</li>
+        <li><strong>Import</strong> a <code>.md</code> file to copy it into your library
+          without scheduling it.</li>
       </ul>
     </div>`;
   }
@@ -2328,6 +2330,7 @@
     applySizes();
   });
 
+  document.getElementById('import-plan').addEventListener('click', () => send({ type: 'importPlans' }));
   document.getElementById('reveal-library').addEventListener('click', () => send({ type: 'revealLibrary' }));
   document.getElementById('reveal-results').addEventListener('click', () => send({ type: 'revealResults' }));
   document.getElementById('reveal-archive').addEventListener('click', () => send({ type: 'revealArchive' }));
@@ -2475,13 +2478,13 @@
       (f) => f.name.toLowerCase().endsWith('.md') && f.size < 1_000_000
     );
     if (!files.length) {
-      showNotice('Could not read the dropped files — copy them into .synchrony/plans instead.');
+      showNotice('Could not read the dropped files — use Import instead.');
       return;
     }
 
     Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() })))
       .then((copies) => send({ type: 'dropText', files: copies }))
-      .catch(() => showNotice('Could not read the dropped files — copy them into .synchrony/plans instead.'));
+      .catch(() => showNotice('Could not read the dropped files — use Import instead.'));
   });
 
   // ---------- inbound ----------

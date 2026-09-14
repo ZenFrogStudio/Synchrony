@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-09-14
+
+### Added
+
+- **Import copies a plan into the library without scheduling it.** Every
+  other way in — dropping a `.md` file, right-click → "Schedule with
+  Synchrony", the "Schedule Markdown File..." picker — also puts the copy on
+  the schedule, which made restoring a plan from `.synchrony/archive/plans`
+  force it onto the calendar. A new Import button in the manager's library
+  header and a "Synchrony: Import Markdown File..." palette command copy the
+  picked file(s) in and stop there: the row reads "Not scheduled" until you
+  press Schedule. The archive dialog, its notice, the first-run text and the
+  drop-failure notices point at Import again, now that it exists.
+
 ## [0.11.3] - 2026-09-14
 
 ### Fixed

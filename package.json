@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -61,6 +61,10 @@
         "command": "synchrony.addFiles",
         "title": "Synchrony: Schedule Markdown File...",
         "icon": "$(add)"
+      },
+      {
+        "command": "synchrony.importFile",
+        "title": "Synchrony: Import Markdown File..."
       },
       {
         "command": "synchrony.scheduleFile",

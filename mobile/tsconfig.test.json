@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "strict": true
   },
-  "include": ["lib/mcp.ts", "test/mcp.test.mjs"]
+  "include": ["lib/mcp.ts", "lib/pairing.ts", "test/mcp.test.mjs", "test/pairing.test.mjs"]
 }

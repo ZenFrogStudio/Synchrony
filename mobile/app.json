@@ -20,6 +20,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Synchrony uses the camera to scan the pairing QR code printed by hub-up." }]
+    ]
   }
 }

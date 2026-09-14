@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState } from 'react';
+import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { checkHealth, McpClient, McpError } from '../lib/mcp';
+import { parseConnectorUrl } from '../lib/pairing';
 import { Route } from '../lib/routes';
 import { setClient, STORAGE_KEY } from '../lib/session';
 import { palette, shared } from '../lib/theme';
@@ -10,31 +12,19 @@ interface Props {
   navigate: (route: Route) => void;
 }
 
-/** `https://<host>/<token>/mcp` — the shape `scripts/hub-up.ps1` prints. */
-function parseConnectorUrl(raw: string): { ok: true; url: string } | { ok: false; reason: string } {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw.trim());
-  } catch {
-    return { ok: false, reason: 'That does not look like a URL.' };
-  }
-  if (parsed.protocol !== 'https:') {
-    return { ok: false, reason: 'The connector URL must start with https://.' };
-  }
-  if (!/^\/[^/]+\/mcp\/?$/.test(parsed.pathname)) {
-    return { ok: false, reason: 'The connector URL should look like https://<host>/<token>/mcp.' };
-  }
-  return { ok: true, url: parsed.toString() };
-}
-
 export default function Pair({ navigate }: Props) {
   const [pasted, setPasted] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [scanning, setScanning] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  // `onBarcodeScanned` fires on every frame the code stays in view; only the
+  // first hit per scan session may connect.
+  const scanHandled = useRef(false);
 
-  const handleConnect = async () => {
+  const connect = async (raw: string) => {
     setError(undefined);
-    const shape = parseConnectorUrl(pasted);
+    const shape = parseConnectorUrl(raw);
     if (!shape.ok) {
       setError(shape.reason);
       return;
@@ -53,6 +43,29 @@ export default function Pair({ navigate }: Props) {
     } finally {
       setConnecting(false);
     }
+  };
+
+  const handleScan = async () => {
+    setError(undefined);
+    if (!permission?.granted) {
+      const asked = await requestPermission();
+      if (!asked.granted) {
+        setError('Camera permission denied — paste the URL instead.');
+        return;
+      }
+    }
+    scanHandled.current = false;
+    setScanning(true);
+  };
+
+  // The payload lands in the text box exactly as a paste would, so the user
+  // can see (and fix) what was read. It is never logged — it carries the token.
+  const handleBarcode = (result: BarcodeScanningResult) => {
+    if (scanHandled.current) return;
+    scanHandled.current = true;
+    setScanning(false);
+    setPasted(result.data);
+    connect(result.data);
   };
 
   return (
@@ -91,7 +104,7 @@ export default function Pair({ navigate }: Props) {
       ) : null}
 
       <TouchableOpacity
-        onPress={handleConnect}
+        onPress={() => connect(pasted)}
         disabled={connecting || !pasted.trim()}
         style={{
           marginTop: 20,
@@ -107,6 +120,45 @@ export default function Pair({ navigate }: Props) {
           <Text style={{ color: palette.text, fontWeight: '600' }}>Connect</Text>
         )}
       </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={handleScan}
+        disabled={connecting}
+        style={{
+          marginTop: 12,
+          backgroundColor: palette.surface,
+          borderWidth: 1,
+          borderColor: palette.border,
+          borderRadius: 10,
+          paddingVertical: 14,
+          alignItems: 'center'
+        }}
+      >
+        <Text style={{ color: palette.text, fontWeight: '600' }}>Scan QR code</Text>
+      </TouchableOpacity>
+
+      {scanning ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: palette.background
+          }}
+        >
+          <CameraView
+            style={{ flex: 1 }}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={handleBarcode}
+          />
+          <TouchableOpacity onPress={() => setScanning(false)} style={{ padding: 16, alignItems: 'center' }}>
+            <Text style={{ color: palette.text, fontWeight: '600' }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }

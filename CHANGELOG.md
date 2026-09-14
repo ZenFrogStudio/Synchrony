@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-14
+
+### Added
+
+- **The phone's pairing screen can scan the QR code `hub:up` prints.** The
+  screen, `hub-up.ps1`, `mobile/README.md` and `docs/HUB.md` all said "scan or
+  paste", but the app had no camera code, and a normal phone camera just opens
+  the URL in a browser, which does nothing. A new "Scan QR code" button below
+  Connect opens a full-screen camera (`expo-camera`, works in Expo Go), reads
+  the QR, drops the URL into the text box exactly as a paste would, and
+  connects. The scanned text goes through the same `https://<host>/<token>/mcp`
+  check as a paste — now in `mobile/lib/pairing.ts` with its own Node tests —
+  so a random Wi-Fi or product QR just shows the usual inline reason, and the
+  URL is never logged because it carries the token. Denying camera permission
+  shows "Camera permission denied — paste the URL instead." and paste keeps
+  working.
+
 ## [0.11.6] - 2026-09-14
 
 ### Changed

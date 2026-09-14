@@ -759,7 +759,7 @@ export class Manager implements vscode.Disposable {
       .getSeries()
       .filter((s) => library.samePath(s.filePath, filePath));
 
-    const detail = 'The file moves to .synchrony/archive. Bring it back with Import.';
+    const detail = 'The file moves to .synchrony/archive. Bring it back by dropping it on this window.';
     const choice = await vscode.window.showWarningMessage(
       scheduled.length > 0 ? `"${name}" is scheduled. Archive it?` : `Archive "${name}"?`,
       {
@@ -781,7 +781,7 @@ export class Manager implements vscode.Disposable {
 
     library.archivePlan(dir, this.paths().archivedPlans, name);
     this.post();
-    this.notify(`Archived ${library.titleOf(name)} to .synchrony/archive/plans — Import brings it back.`);
+    this.notify(`Archived ${library.titleOf(name)} to .synchrony/archive/plans — drop it back on this window to restore it.`);
   }
 
   /** A renamed plan must not strand the series pointing at its old path. */

@@ -837,8 +837,8 @@
       <p>Two ways to add a plan:</p>
       <ul class="empty-ways">
         <li><strong>New plan</strong> in the sidebar — create one in your library and edit it here.</li>
-        <li><strong>Drop a <code>.md</code> file</strong> anywhere on this window, or use
-          <strong>Import</strong>, to schedule a plan you already have.</li>
+        <li><strong>Drop a <code>.md</code> file</strong> anywhere on this window to schedule
+          a plan you already have.</li>
       </ul>
     </div>`;
   }
@@ -2475,13 +2475,13 @@
       (f) => f.name.toLowerCase().endsWith('.md') && f.size < 1_000_000
     );
     if (!files.length) {
-      showNotice('Could not read the dropped files — use Import instead.');
+      showNotice('Could not read the dropped files — copy them into .synchrony/plans instead.');
       return;
     }
 
     Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() })))
       .then((copies) => send({ type: 'dropText', files: copies }))
-      .catch(() => showNotice('Could not read the dropped files — use Import instead.'));
+      .catch(() => showNotice('Could not read the dropped files — copy them into .synchrony/plans instead.'));
   });
 
   // ---------- inbound ----------

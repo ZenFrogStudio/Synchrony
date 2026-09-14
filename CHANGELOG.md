@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-09-14
+
+### Fixed
+
+- **Retired the last mentions of the removed Import button.** The first-run
+  empty state, the archive dialog and its notice, and the two drop-failure
+  notices all still told you to use Import, which no longer exists. The
+  first-run text and the archive messages now point at dropping a `.md` file
+  on the window; the drop-failure notices point at copying the file into
+  `.synchrony/plans`, which the manager watches.
+
 ## [0.11.2] - 2026-09-14
 
 ### Fixed

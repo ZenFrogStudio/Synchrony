@@ -652,11 +652,16 @@
         ${
           rest.length
             ? `<div class="chain-add">${rest
-                .map(
-                  (p) =>
-                    `<button class="button is-quiet" type="button" data-action="chain-add"
-                      data-name="${esc(p.name)}">${esc(p.title)}</button>`
-                )
+                .map((p) => {
+                  // Still clickable: taking it closes the gap in its old chain.
+                  // The mark is the warning.
+                  const chained = isChained(seriesForPlan(p));
+                  return `<button class="button is-quiet" type="button" data-action="chain-add"
+                      data-name="${esc(p.name)}"
+                      ${chained ? 'title="Already in a chain — adding it here takes it out of that one"' : ''}>${esc(p.title)}${
+                        chained ? '<span class="chain-flag">in a chain</span>' : ''
+                      }</button>`;
+                })
                 .join('')}</div>`
             : '<p class="plan-meta">Every plan in the library is already in the chain.</p>'
         }

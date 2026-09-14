@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { buildActivity } from './activity';
 import { AGENTS, DEFAULT_AGENT } from './agents';
-import { appendPatch, chainPatches, chainTail, isInChain } from './chain';
+import { appendPatch, chainPatches, chainTail, isInChain, spliceForRechain } from './chain';
 import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
 import * as library from './library';
@@ -636,6 +636,18 @@ export class Manager implements vscode.Disposable {
       ids.push(series.id);
     }
 
+    // A plan taken out of another chain leaves a gap there: close it before
+    // its own link is rewritten below, while the old link can still be read.
+    // Otherwise its old followers would arm whenever it finishes in this chain.
+    const all = this.store.getSeries();
+    const splices = spliceForRechain(all, ids);
+    for (const { id, patch } of splices) {
+      await this.store.updateSeries(id, patch);
+    }
+    const unscheduled = splices
+      .filter(({ patch }) => patch.enabled === false)
+      .map(({ id }) => library.titleOf(all.find((s) => s.id === id)!.fileName));
+
     for (const { id, patch } of chainPatches(
       ids,
       new Date(start).toISOString(),
@@ -653,7 +665,12 @@ export class Manager implements vscode.Disposable {
     this.post();
     this.notify(
       `Chained ${names.length} plans. ${library.titleOf(names[0])} starts it off; ` +
-        `each plan after it runs ${message.gapMinutes} minute(s) after the one before finishes.`
+        `each plan after it runs ${message.gapMinutes} minute(s) after the one before finishes.` +
+        (unscheduled.length === 1
+          ? ` ${unscheduled[0]} was waiting on one of these and is no longer scheduled.`
+          : unscheduled.length > 1
+            ? ` ${unscheduled.join(', ')} were waiting on one of these and are no longer scheduled.`
+            : '')
     );
   }
 

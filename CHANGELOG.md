@@ -8,7 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-09-14
+## [0.11.1] - 2026-09-14
+
+### Changed
+
+- **The chain builder marks plans already in a chain.** The "Add a plan" list
+  now shows "in a chain" next to any plan that already belongs to one, with a
+  tooltip warning that adding it here takes it out of that chain. The button
+  still works; the mark is the warning.
+
+### Fixed
+
+- **Taking a plan into a new chain now splices its old chain.** Before, the
+  plan's own link was rewritten but the old chain's followers still waited on
+  it — so they armed whenever it finished inside the *new* chain. Now each
+  follower left behind is relinked to the nearest plan ahead of it that was
+  not taken (keeping its own delay and stop-on-failure), the same repair
+  deleting a chained plan already does. A follower with nothing left ahead
+  of it — the old chain's head was taken, or everything before it was — is
+  unlinked and switched off rather than quietly promoted to a clock time, and
+  the creation notice says so. The hub's `chain_plans` tool does the same and
+  returns a `note` when a follower was switched off.
 
 ### Added
 

@@ -235,6 +235,47 @@ export function spliceChain(series: readonly TaskSeries[], removedId: string): S
 }
 
 /**
+ * Closes the gaps left in existing chains when `takenIds` are pulled into a
+ * new chain. Same repair as `spliceChain`, generalised to a set: each
+ * remaining follower is relinked to the nearest predecessor that was NOT
+ * taken; with no survivor ahead of it, it is unlinked and switched off
+ * rather than silently promoted to a clock time.
+ *
+ * Must run before `chainPatches` rewrites the taken plans' own links — the
+ * walk up the old chain reads them.
+ */
+export function spliceForRechain(
+  series: readonly TaskSeries[],
+  takenIds: readonly string[]
+): SeriesPatch[] {
+  const taken = new Set(takenIds);
+  const byId = new Map(series.map((s) => [s.id, s]));
+
+  return series
+    .filter((s) => !taken.has(s.id) && s.chain && taken.has(s.chain.after))
+    .map((s) => {
+      // Walk up through the taken plans to whatever was ahead of them. A loop
+      // through `seen` cannot happen in a well-formed chain, but the walk must
+      // still end if one has crept in.
+      const seen = new Set<string>();
+      let ahead = byId.get(s.chain!.after);
+      while (ahead && taken.has(ahead.id) && !seen.has(ahead.id)) {
+        seen.add(ahead.id);
+        ahead = ahead.chain ? byId.get(ahead.chain.after) : undefined;
+      }
+      const survivor = ahead && !taken.has(ahead.id) ? ahead : undefined;
+
+      return {
+        id: s.id,
+        // Only the predecessor changes, as in `spliceChain`.
+        patch: survivor
+          ? { chain: { ...s.chain!, after: survivor.id } }
+          : { chain: undefined, enabled: false }
+      };
+    });
+}
+
+/**
  * Whether this plan is part of a chain at all — as a follower, which carries the
  * link, or as the head, which does not and is only identifiable by something
  * else waiting on it.

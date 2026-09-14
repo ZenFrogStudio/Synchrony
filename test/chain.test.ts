@@ -9,6 +9,7 @@ import {
   isInChain,
   parkedFollowers,
   spliceChain,
+  spliceForRechain,
   wouldCycle
 } from '../src/chain';
 import { Action } from '../src/decide';
@@ -427,6 +428,65 @@ describe('chain — closing a gap', () => {
 
   it('should_leave_a_chain_alone_when_something_outside_it_is_removed', () => {
     assert.deepEqual(spliceChain([head, middle, last], 'elsewhere'), []);
+  });
+});
+
+describe('spliceForRechain', () => {
+  // The old chain a → b → c → d, and an unrelated chain x → y.
+  const a = series({ id: 'a' });
+  const b = series({ id: 'b', chain: { after: 'a', delayMinutes: 15, stopOnFailure: true } });
+  const c = series({ id: 'c', chain: { after: 'b', delayMinutes: 5, stopOnFailure: false } });
+  const d = series({ id: 'd', chain: { after: 'c', delayMinutes: 30, stopOnFailure: true } });
+  const x = series({ id: 'x' });
+  const y = series({ id: 'y', chain: { after: 'x', delayMinutes: 0, stopOnFailure: true } });
+  const all = [a, b, c, d, x, y];
+
+  it('should_relink_a_taken_middle_plans_follower_to_the_plan_before_it', () => {
+    const patches = spliceForRechain(all, ['b']);
+
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].id, 'c');
+    // The follower's own gap and failure rule survive, as in `spliceChain`.
+    assert.deepEqual(patches[0].patch, {
+      chain: { after: 'a', delayMinutes: 5, stopOnFailure: false }
+    });
+  });
+
+  it('should_unlink_and_switch_off_the_follower_of_a_taken_head', () => {
+    const patches = spliceForRechain(all, ['a']);
+
+    assert.deepEqual(patches, [{ id: 'b', patch: { chain: undefined, enabled: false } }]);
+  });
+
+  it('should_unlink_and_switch_off_a_follower_with_nothing_left_ahead_of_it', () => {
+    // a → b → c, taking a and b: c cannot point at either, and there is no
+    // survivor ahead of it to inherit.
+    const patches = spliceForRechain([a, b, c], ['a', 'b']);
+
+    assert.deepEqual(patches, [{ id: 'c', patch: { chain: undefined, enabled: false } }]);
+  });
+
+  it('should_relink_past_a_taken_run_to_the_nearest_survivor', () => {
+    // a → b → c → d, taking b and c: d skips both and lands on a.
+    const patches = spliceForRechain(all, ['b', 'c']);
+
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].id, 'd');
+    assert.equal(patches[0].patch.chain?.after, 'a');
+    assert.equal(patches[0].patch.chain?.delayMinutes, 30);
+  });
+
+  it('should_never_patch_a_taken_plan_and_leave_unrelated_chains_alone', () => {
+    const patches = spliceForRechain(all, ['b', 'c']);
+
+    assert.ok(!patches.some((p) => p.id === 'b' || p.id === 'c'));
+    assert.ok(!patches.some((p) => p.id === 'x' || p.id === 'y'));
+  });
+
+  it('should_return_nothing_when_no_chain_references_a_taken_plan', () => {
+    assert.deepEqual(spliceForRechain(all, ['elsewhere']), []);
+    // The tail of a chain has nothing behind it: taking it leaves no gap.
+    assert.deepEqual(spliceForRechain(all, ['d']), []);
   });
 });
 

@@ -1,5 +1,13 @@
 import * as fs from 'fs';
-import { appendPatch, chainPatches, chainTail, isInChain, spliceChain, wouldCycle } from './chain';
+import {
+  appendPatch,
+  chainPatches,
+  chainTail,
+  isInChain,
+  spliceChain,
+  spliceForRechain,
+  wouldCycle
+} from './chain';
 import { newRun } from './decide';
 import { seriesEdit } from './edit';
 import * as library from './library';
@@ -654,7 +662,7 @@ export function chainPlansAction(
   paths: SynchronyPaths,
   args: ChainPlansArgs,
   opts: { maxRetries: number }
-): Verdict<{ series: ReturnType<typeof describeSeries>[] }> {
+): Verdict<{ series: ReturnType<typeof describeSeries>[]; note?: string }> {
   const names = Array.isArray(args.names) ? args.names.filter((n): n is string => typeof n === 'string') : [];
   const start = Date.parse(args.startIso);
 
@@ -728,8 +736,21 @@ export function chainPlansAction(
   );
 
   const result: TaskSeries[] = [];
+  const unscheduled: string[] = [];
   updateState(ensureWritable(paths).state, (current) => {
     current.series.push(...minted);
+    // Before the links are rewritten, while a taken plan's old link — the one
+    // its old followers are relinked through — is still readable. Same order
+    // `Manager.chainPlans` uses, for the same reason.
+    for (const { id, patch } of spliceForRechain(current.series, ids)) {
+      const follower = current.series.find((s) => s.id === id);
+      if (follower) {
+        Object.assign(follower, patch);
+        if (patch.enabled === false) {
+          unscheduled.push(library.titleOf(follower.fileName));
+        }
+      }
+    }
     for (const { id, patch } of patches) {
       const target = current.series.find((s) => s.id === id);
       if (target) {
@@ -744,7 +765,13 @@ export function chainPlansAction(
     }
   });
 
-  return { ok: true, value: { series: result.map(describeSeries) } };
+  const note =
+    unscheduled.length === 1
+      ? `${unscheduled[0]} was waiting on one of these in another chain and is no longer scheduled.`
+      : unscheduled.length > 1
+        ? `${unscheduled.join(', ')} were waiting on one of these in another chain and are no longer scheduled.`
+        : undefined;
+  return { ok: true, value: { series: result.map(describeSeries), note } };
 }
 
 export interface AppendToChainArgs {

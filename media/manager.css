@@ -696,6 +696,13 @@ select.field-input {
   max-width: 560px;
 }
 
+/* A plan already in some other chain. Taking it is allowed; this is the warning. */
+.chain-add .chain-flag {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* --- Keyboard shortcuts, at the foot of the Settings page ---
    Two columns: the keys, and what they do. Where each key works is folded into
    the description rather than given a third column, so a narrow detail pane

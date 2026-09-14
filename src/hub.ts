@@ -882,7 +882,9 @@ function buildServer(): McpServer {
     scoped(args, (inst) => {
       const { instance: _instance, ...rest } = args;
       const out = chainPlansAction(inst.paths, rest as ChainPlansArgs, { maxRetries: DEFAULT_MAX_RETRIES });
-      return out.ok ? replyJson({ instance: inst.name, series: out.value.series }) : refuse(out.reason);
+      return out.ok
+        ? replyJson({ instance: inst.name, series: out.value.series, note: out.value.note })
+        : refuse(out.reason);
     })
   );
 

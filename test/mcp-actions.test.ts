@@ -656,6 +656,58 @@ describe('mcp-actions — chainPlansAction', () => {
     );
     assert.equal(out.ok, false);
   });
+
+  it('should_splice_the_old_chain_when_a_middle_plan_is_taken_into_a_new_one', () => {
+    fs.writeFileSync(path.join(paths.plans, 'd.md'), '# d.md\n', 'utf8');
+    const first = chainPlansAction(
+      paths,
+      { names: ['a.md', 'b.md', 'c.md'], startIso: inAnHour(), gapMinutes: 15, stopOnFailure: true },
+      { maxRetries: 3 }
+    );
+    assert.equal(first.ok, true, JSON.stringify(first));
+    if (!first.ok) return;
+    const [a] = first.value.series;
+
+    const out = chainPlansAction(
+      paths,
+      { names: ['d.md', 'b.md'], startIso: inAnHour(), gapMinutes: 5, stopOnFailure: false },
+      { maxRetries: 3 }
+    );
+    assert.equal(out.ok, true, JSON.stringify(out));
+    if (!out.ok) return;
+    assert.equal(out.value.note, undefined, 'nothing was switched off');
+
+    // c was waiting on b; it now waits on a instead of on a plan that runs
+    // inside the new chain.
+    const stored = readState(paths.state).state.series;
+    const c = stored.find((s) => s.fileName === 'c.md');
+    assert.equal(c?.chain?.after, a.id);
+    assert.equal(c?.enabled, true);
+    assert.equal(stored.length, 4);
+  });
+
+  it('should_switch_off_the_old_follower_when_a_chains_head_is_taken', () => {
+    fs.writeFileSync(path.join(paths.plans, 'd.md'), '# d.md\n', 'utf8');
+    const first = chainPlansAction(
+      paths,
+      { names: ['a.md', 'b.md'], startIso: inAnHour(), gapMinutes: 15, stopOnFailure: true },
+      { maxRetries: 3 }
+    );
+    assert.equal(first.ok, true, JSON.stringify(first));
+
+    const out = chainPlansAction(
+      paths,
+      { names: ['d.md', 'a.md'], startIso: inAnHour(), gapMinutes: 5, stopOnFailure: false },
+      { maxRetries: 3 }
+    );
+    assert.equal(out.ok, true, JSON.stringify(out));
+    if (!out.ok) return;
+    assert.match(out.value.note ?? '', /no longer scheduled/);
+
+    const b = readState(paths.state).state.series.find((s) => s.fileName === 'b.md');
+    assert.equal(b?.chain, undefined);
+    assert.equal(b?.enabled, false);
+  });
 });
 
 describe('mcp-actions — appendToChainAction', () => {

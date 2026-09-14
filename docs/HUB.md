@@ -47,6 +47,7 @@ Every tool takes `instance` except `list_instances`.
 | `add_task` | write | capture a one-line task into the inbox |
 | `request_plan` | write | ask a live window to open a routed planning session for a task |
 | `schedule_plan` | write | put a plan on the schedule — time, repeat, engine, model, permission mode |
+| `chain_plans`, `append_to_chain` | write | link plans to run one after another; put one more plan on the end of an existing chain (the new link copies the last link's delay and stop-on-failure) |
 | `answer_question` | write | answer what a planning session asked |
 
 `permissionMode` is accepted here and refused on the stdio server: the token
@@ -121,5 +122,4 @@ paste it anywhere public, and rotate it (see above) if it leaks.
 
 ## What is not here yet
 
-Chaining from the hub (`after` on `schedule_plan`), `update_schedule` /
-`unschedule`, and starting the hub from the extension itself.
+Starting the hub from the extension itself.

@@ -272,6 +272,11 @@
     return series ? series.fileName.replace(/\.md$/i, '') : 'a plan that is gone';
   }
 
+  /** Whether a series is in any chain — the host's `isInChain`: a follower
+   *  carries the link, and a head is only known by something waiting on it. */
+  const inAnyChain = (id) =>
+    state.series.some((x) => (x.id === id && x.chain) || (x.chain && x.chain.after === id));
+
   const repeatOf = (s) =>
     !s.recurrence
       ? 'once'
@@ -922,6 +927,14 @@
    * starts this one, and Unlink is how you take it back off the chain.
    */
   function chainField(s) {
+    // Plans that could go on the end of this chain: anything not already in a
+    // chain, the same rule the host applies. The selected plan is chained, so it
+    // is never offered to itself.
+    const addable = state.plans.filter((p) => {
+      const ps = seriesForPlan(p);
+      return !ps || !inAnyChain(ps.id);
+    });
+
     return `<div class="field is-wide">
       <span class="field-label">Runs after</span>
       <div class="field-row">
@@ -937,6 +950,14 @@
           ${s.chain.stopOnFailure ? 'checked' : ''} />
         <span class="field-label">Stop the chain if that plan fails</span>
       </label>
+      ${
+        addable.length
+          ? `<select class="field-input" data-field="chainAppend" data-focus-key="chain-append">
+              <option value="" selected>Add a plan to this chain…</option>
+              ${addable.map((p) => `<option value="${esc(p.name)}">${esc(p.title)}</option>`).join('')}
+            </select>`
+          : ''
+      }
     </div>`;
   }
 
@@ -1836,6 +1857,12 @@
       return patch(series.id, {
         chain: { ...series.chain, stopOnFailure: /** @type {HTMLInputElement} */ (el).checked }
       });
+    }
+
+    // No local state: the host's re-render puts the select back on its placeholder.
+    if (field === 'chainAppend') {
+      if (el.value) send({ type: 'chainAppend', id: series.id, name: el.value });
+      return;
     }
 
     if (field === 'repeat') {

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  appendPatch,
   armings,
   chainPatches,
+  chainTail,
   downstream,
   isInChain,
   parkedFollowers,
@@ -458,5 +460,63 @@ describe('chain — walking it', () => {
 
   it('should_allow_a_link_that_does_not', () => {
     assert.equal(wouldCycle([a, b, c, loose], 'loose', 'c'), false);
+  });
+});
+
+describe('chain — finding the end of one', () => {
+  const a = series({ id: 'a' });
+  const b = series({ id: 'b', chain: { after: 'a', delayMinutes: 1, stopOnFailure: true } });
+  const c = series({ id: 'c', chain: { after: 'b', delayMinutes: 1, stopOnFailure: true } });
+
+  it('should_find_the_tail_from_the_head', () => {
+    assert.equal(chainTail([a, b, c], 'a')?.id, 'c');
+  });
+
+  it('should_return_the_member_itself_when_nothing_runs_after_it', () => {
+    assert.equal(chainTail([a, b, c], 'c')?.id, 'c');
+  });
+
+  it('should_walk_to_the_tail_from_the_middle', () => {
+    assert.equal(chainTail([a, b, c], 'b')?.id, 'c');
+  });
+
+  it('should_find_nothing_for_an_unknown_id', () => {
+    assert.equal(chainTail([a, b, c], 'nope'), undefined);
+  });
+
+  it('should_find_nothing_when_the_links_form_a_loop', () => {
+    // A loop has no end. Callers refuse rather than append behind a plan that
+    // can never be armed.
+    const x = series({ id: 'x', chain: { after: 'y', delayMinutes: 0, stopOnFailure: true } });
+    const y = series({ id: 'y', chain: { after: 'x', delayMinutes: 0, stopOnFailure: true } });
+
+    assert.equal(chainTail([x, y], 'x'), undefined);
+  });
+});
+
+describe('chain — appending to one', () => {
+  it('should_copy_the_gap_and_failure_rule_from_the_tails_own_link', () => {
+    const tail = series({ id: 'c', chain: { after: 'b', delayMinutes: 45, stopOnFailure: false } });
+
+    assert.deepEqual(appendPatch(tail).chain, { after: 'c', delayMinutes: 45, stopOnFailure: false });
+  });
+
+  it('should_default_to_straight_away_and_stop_on_failure_when_the_tail_has_no_link', () => {
+    // Unreachable through the UI — every chain has a follower carrying a link —
+    // so this is the defensive answer, matching the builder's own defaults.
+    assert.deepEqual(appendPatch(series({ id: 'a' })).chain, {
+      after: 'a',
+      delayMinutes: 0,
+      stopOnFailure: true
+    });
+  });
+
+  it('should_park_the_new_follower_as_a_one_shot', () => {
+    const patch = appendPatch(series({ id: 'a' }));
+
+    assert.equal(patch.recurrence, null);
+    assert.equal(patch.enabled, true);
+    assert.equal(patch.spent, true);
+    assert.equal('nextRunAt' in patch, false);
   });
 });

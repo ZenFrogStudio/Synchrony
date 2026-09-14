@@ -272,6 +272,40 @@ export function wouldCycle(series: readonly TaskSeries[], id: string, after: str
   return after === id || downstream(series, id).some((s) => s.id === after);
 }
 
+/** The last series in the chain this member belongs to — the one nothing waits on. */
+export function chainTail(series: readonly TaskSeries[], id: string): TaskSeries | undefined {
+  let current = series.find((s) => s.id === id);
+  const seen = new Set<string>();
+  while (current && !seen.has(current.id)) {
+    const here = current;
+    seen.add(here.id);
+    const next = series.find((s) => s.chain?.after === here.id);
+    if (!next) return here;
+    current = next;
+  }
+  return undefined; // a loop has no tail; callers refuse
+}
+
+/**
+ * What a series appended behind `tail` looks like: parked, one-shot, its link
+ * copied from the tail's own (a tail with no link: straight away, stop on
+ * failure). Mirrors the follower branch of `chainPatches` so what a parked
+ * follower looks like is spelled in one place. Leaves engine, model and
+ * permissions alone — appending does not re-home the chain's setup.
+ */
+export function appendPatch(tail: TaskSeries): Partial<TaskSeries> {
+  return {
+    chain: {
+      after: tail.id,
+      delayMinutes: tail.chain?.delayMinutes ?? 0,
+      stopOnFailure: tail.chain?.stopOnFailure ?? true
+    },
+    recurrence: null,
+    enabled: true,
+    spent: true
+  };
+}
+
 /** The newest run of a series that is over, whatever became of it. */
 function newestFinished(runs: readonly TaskRun[]): TaskRun | undefined {
   return runs

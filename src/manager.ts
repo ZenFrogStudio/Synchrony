@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { buildActivity } from './activity';
 import { AGENTS, DEFAULT_AGENT } from './agents';
-import { chainPatches } from './chain';
+import { appendPatch, chainPatches, chainTail, isInChain } from './chain';
 import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
 import * as library from './library';
@@ -39,6 +39,8 @@ type Inbound =
       model?: string;
       permissionMode?: string;
     }
+  /** `id` is any member of the chain; the plan goes on behind its tail. */
+  | { type: 'chainAppend'; id: string; name: string }
   | { type: 'updateSeries'; id: string; patch: Partial<TaskSeries> }
   | { type: 'browseCwd'; id: string }
   | { type: 'runNow'; seriesId: string; dismissRunId?: string }
@@ -400,6 +402,9 @@ export class Manager implements vscode.Disposable {
       case 'chainPlans':
         return this.chainPlans(dir, message);
 
+      case 'chainAppend':
+        return this.chainAppend(dir, message);
+
       case 'updateSeries': {
         const { patch, rejected } = seriesEdit(message.patch);
         if (rejected.length) {
@@ -649,6 +654,58 @@ export class Manager implements vscode.Disposable {
     this.notify(
       `Chained ${names.length} plans. ${library.titleOf(names[0])} starts it off; ` +
         `each plan after it runs ${message.gapMinutes} minute(s) after the one before finishes.`
+    );
+  }
+
+  /**
+   * Puts one more plan on the end of an existing chain. The new link copies
+   * its gap and failure rule from the chain's last link — tweakable afterwards
+   * from the plan's own Schedule section. The same reuse rule as `chainPlans`:
+   * a plan already on the schedule keeps its series and only its timing changes.
+   */
+  private async chainAppend(
+    dir: string,
+    message: Extract<Inbound, { type: 'chainAppend' }>
+  ): Promise<void> {
+    const filePath = library.planPath(dir, message.name);
+    if (!fs.existsSync(filePath)) {
+      this.notify(`${library.titleOf(message.name)} is no longer in the library.`);
+      return;
+    }
+
+    // The webview already enforces all of this; it is checked again here because
+    // this is the side of the boundary where it counts.
+    const all = this.store.getSeries();
+    if (!all.some((s) => s.id === message.id)) {
+      this.notify('No scheduled task has that id.');
+      return;
+    }
+    const tail = chainTail(all, message.id);
+    if (!tail) {
+      this.notify("That chain's links form a loop and cannot be extended.");
+      return;
+    }
+
+    // One check covers a plan already in this chain, its head (something waits
+    // on it, so no loop is possible either) and a member of another chain.
+    const existing = all.find((s) => library.samePath(s.filePath, filePath));
+    if (existing && isInChain(all, existing.id)) {
+      this.notify('That plan is already part of a chain.');
+      return;
+    }
+
+    let targetId = existing?.id;
+    if (!targetId) {
+      const series = createSeries(filePath, seriesDefaults(filePath));
+      await this.store.addSeries(series);
+      targetId = series.id;
+    }
+    await this.store.updateSeries(targetId, appendPatch(tail));
+
+    log.info(`appended ${message.name} to the chain after ${tail.fileName}`);
+    this.post();
+    this.notify(
+      `Added ${library.titleOf(message.name)} to the chain — it runs after ${tail.fileName}.`
     );
   }
 

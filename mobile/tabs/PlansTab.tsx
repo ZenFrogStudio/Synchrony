@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { archivePlan, createPlan, InstanceSnapshot, PlanFile, readPlan, renamePlan, savePlan, schedulePlan, unscheduleSeries } from '../lib/api';
+import {
+  appendToChain,
+  archivePlan,
+  createPlan,
+  InstanceSnapshot,
+  PlanFile,
+  readPlan,
+  renamePlan,
+  savePlan,
+  schedulePlan,
+  unscheduleSeries
+} from '../lib/api';
 import { relativeTime } from '../lib/relativeTime';
 import { palette, shared } from '../lib/theme';
 import { Banner, Button, Chip, ConfirmSheet, PromptModal, Row, Sheet, sheetStyles } from '../components/ui';
@@ -38,6 +49,8 @@ export default function PlansTab({ snapshot, refresh }: Props) {
         instance={instance}
         plan={openPlan}
         series={series.find((s) => s.plan === openPlan.name)}
+        plans={plans}
+        allSeries={series}
         onClose={() => setOpenPlan(null)}
         onChanged={refresh}
       />
@@ -87,12 +100,16 @@ function PlanEditor({
   instance,
   plan,
   series,
+  plans,
+  allSeries,
   onClose,
   onChanged
 }: {
   instance: string;
   plan: PlanFile;
   series?: InstanceSnapshot['series'][number];
+  plans: PlanFile[];
+  allSeries: InstanceSnapshot['series'];
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -107,6 +124,19 @@ function PlanEditor({
   const [confirmUnschedule, setConfirmUnschedule] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [when, setWhen] = useState<WhenValue>({ repeat: 'once', at: new Date().toISOString() });
+  const [appending, setAppending] = useState(false);
+
+  // In a chain either way: a follower carries `runsAfter`, and a head is only
+  // known by something waiting on it. The hub walks to the tail from either.
+  const inChain = (id?: string) =>
+    !!id && allSeries.some((s) => (s.id === id && s.runsAfter) || s.runsAfter?.seriesId === id);
+  const chained = !!series && inChain(series.id);
+  // Plans that could go on the end: anything not already in a chain — the same
+  // rule the hub applies before it writes.
+  const addable = plans.filter((p) => {
+    const ps = allSeries.find((s) => s.plan === p.name);
+    return p.name !== plan.name && (!ps || !inChain(ps.id));
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -192,6 +222,17 @@ function PlanEditor({
     }
   }
 
+  async function handleAppend(name: string) {
+    if (!series) return;
+    setAppending(false);
+    try {
+      await appendToChain(instance, series.id, name);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add that plan to the chain.');
+    }
+  }
+
   return (
     <View style={shared.screen}>
       <Row>
@@ -242,6 +283,7 @@ function PlanEditor({
         ) : (
           <Button label="Schedule" variant="ghost" onPress={() => setScheduling(true)} />
         )}
+        {chained ? <Button label="Add to chain" variant="ghost" onPress={() => setAppending(true)} /> : null}
         <Button label="Archive" variant="danger" onPress={() => setConfirmArchive(true)} />
       </View>
 
@@ -294,6 +336,29 @@ function PlanEditor({
         <Row style={{ marginTop: 20, gap: 12 }}>
           <Button label="Cancel" variant="ghost" onPress={() => setScheduling(false)} style={{ flex: 1 }} />
           <Button label="Schedule" onPress={handleSchedule} disabled={!isValidWhen(when)} style={{ flex: 1 }} />
+        </Row>
+      </Sheet>
+
+      <Sheet visible={appending} onClose={() => setAppending(false)}>
+        <Text style={sheetStyles.title}>Add to chain</Text>
+        <Text style={{ color: palette.textDim, marginTop: 4 }}>
+          Runs after the last plan in the chain, with the same gap and failure rule.
+        </Text>
+        <ScrollView style={{ maxHeight: 320, marginTop: 12 }}>
+          {addable.length === 0 ? (
+            <Text style={{ color: palette.textDim }}>Every plan is already in a chain.</Text>
+          ) : (
+            addable.map((p) => (
+              <Pressable key={p.name} onPress={() => handleAppend(p.name)} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                <View style={[shared.card, { marginBottom: 8 }]}>
+                  <Text style={{ color: palette.text }}>{p.title}</Text>
+                </View>
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
+        <Row style={{ marginTop: 12 }}>
+          <Button label="Cancel" variant="ghost" onPress={() => setAppending(false)} style={{ flex: 1 }} />
         </Row>
       </Sheet>
     </View>

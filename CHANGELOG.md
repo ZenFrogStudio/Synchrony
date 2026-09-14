@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-09-14
+
+### Added
+
+- **Add plan to chain.** Append one plan to the end of an existing chain,
+  from a chained plan's Schedule section on the desktop ("Add a plan to this
+  chain…"), the phone's plan editor ("Add to chain"), and the hub's new
+  `append_to_chain` tool. The new link copies its delay and stop-on-failure
+  from the chain's last link — tweakable afterwards from the plan's own
+  Schedule section. A plan already on the schedule keeps its series and run
+  history; only its timing changes. A plan already in any chain is refused.
+  Until now the only way to add one more plan to a chain was to unlink
+  everything and rebuild it.
+
 ## [0.10.3] - 2026-09-13
 
 ### Fixed

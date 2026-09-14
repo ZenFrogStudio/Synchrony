@@ -15,6 +15,7 @@ import {
 import { DashboardInstance, instancesDir, STALE_MS } from './dashboard-payload';
 import * as library from './library';
 import {
+  appendToChainAction,
   archivePlanAction,
   captureTask,
   ChainPlansArgs,
@@ -881,6 +882,29 @@ function buildServer(): McpServer {
     scoped(args, (inst) => {
       const { instance: _instance, ...rest } = args;
       const out = chainPlansAction(inst.paths, rest as ChainPlansArgs, { maxRetries: DEFAULT_MAX_RETRIES });
+      return out.ok ? replyJson({ instance: inst.name, series: out.value.series }) : refuse(out.reason);
+    })
+  );
+
+  tool(server, 'append_to_chain', {
+    title: 'Append a plan to a chain',
+    annotations: WRITES,
+    description:
+      'Adds one plan to the end of an existing chain. The new link copies its delay and ' +
+      "stop-on-failure from the chain's last link; a plan already on the schedule keeps its " +
+      'series and history. Refused if the plan is already part of a chain.',
+    inputSchema: z.object({
+      instance: instanceArg,
+      seriesId: z.string().describe('Any series in the chain, from read_instance'),
+      name: z.string().describe('Plan file name to append, from list_plans')
+    })
+  }, async (args) =>
+    scoped(args, (inst) => {
+      const out = appendToChainAction(
+        inst.paths,
+        { seriesId: args.seriesId, name: args.name },
+        { maxRetries: DEFAULT_MAX_RETRIES }
+      );
       return out.ok ? replyJson({ instance: inst.name, series: out.value.series }) : refuse(out.reason);
     })
   );

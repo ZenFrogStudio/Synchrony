@@ -325,6 +325,14 @@ export const runTask = (
 export const chainPlans = (instance: string, args: ChainPlansArgs): Promise<{ instance: string; series: Series[] }> =>
   client().callJson('chain_plans', { instance, ...args });
 
+/** `seriesId` is any member of the chain; the plan goes on behind its tail. */
+export const appendToChain = (
+  instance: string,
+  seriesId: string,
+  name: string
+): Promise<{ instance: string; series: Series }> =>
+  client().callJson('append_to_chain', { instance, seriesId, name });
+
 export const cancelRun = (instance: string, runId: string): Promise<string> =>
   callText('cancel_run', { instance, runId });
 

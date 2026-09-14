@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { holdLock } from '../src/lock';
 import {
+  appendToChainAction,
   archivePlanAction,
   captureTask,
   chainPlansAction,
@@ -653,6 +654,116 @@ describe('mcp-actions — chainPlansAction', () => {
       { names: ['a.md', 'b.md'], startIso: inAnHour(), gapMinutes: 1441, stopOnFailure: false },
       { maxRetries: 3 }
     );
+    assert.equal(out.ok, false);
+  });
+});
+
+describe('mcp-actions — appendToChainAction', () => {
+  const opts = { maxRetries: 3 };
+
+  /** A two-plan chain a → b, built the way a user would build it. */
+  function chainAB(gapMinutes = 20) {
+    const out = chainPlansAction(
+      paths,
+      { names: ['a.md', 'b.md'], startIso: inAnHour(), gapMinutes, stopOnFailure: false },
+      opts
+    );
+    assert.equal(out.ok, true, JSON.stringify(out));
+    if (!out.ok) throw new Error('unreachable');
+    return { a: out.value.series[0], b: out.value.series[1] };
+  }
+
+  beforeEach(() => {
+    ensureRoot(paths);
+    for (const name of ['a.md', 'b.md', 'c.md', 'd.md']) {
+      fs.writeFileSync(path.join(paths.plans, name), `# ${name}\n`, 'utf8');
+    }
+  });
+
+  it('should_append_behind_the_tail_given_any_member_id', () => {
+    const { a, b } = chainAB(20);
+
+    const out = appendToChainAction(paths, { seriesId: a.id, name: 'c.md' }, opts);
+
+    assert.equal(out.ok, true, JSON.stringify(out));
+    if (!out.ok) return;
+    assert.equal(out.value.series.plan, 'c.md');
+    assert.equal(out.value.series.runsAfter?.seriesId, b.id);
+    assert.equal(out.value.series.runsAfter?.delayMinutes, 20);
+    assert.equal(out.value.series.spent, true);
+  });
+
+  it('should_reuse_an_existing_series_and_clear_its_repeat_rule', () => {
+    const { a } = chainAB();
+    const scheduled = scheduleSeries(
+      paths,
+      { name: 'c.md', at: inAnHour(), repeat: 'daily' },
+      { maxRetries: 3, allowPermissionMode: false }
+    );
+    assert.equal(scheduled.ok, true, JSON.stringify(scheduled));
+    if (!scheduled.ok) return;
+
+    const out = appendToChainAction(paths, { seriesId: a.id, name: 'c.md' }, opts);
+
+    assert.equal(out.ok, true, JSON.stringify(out));
+    if (!out.ok) return;
+    assert.equal(out.value.series.id, scheduled.value.series.id);
+    assert.equal(out.value.series.recurrence, null);
+    const stored = readState(paths.state).state.series.find((s) => s.fileName === 'c.md');
+    assert.ok(stored?.repeatEndedAt, 'the end of the repeat rule is stamped');
+    assert.equal(readState(paths.state).state.series.length, 3);
+  });
+
+  it('should_mint_a_series_for_an_unscheduled_plan', () => {
+    const { a } = chainAB();
+
+    const out = appendToChainAction(paths, { seriesId: a.id, name: 'c.md' }, opts);
+
+    assert.equal(out.ok, true, JSON.stringify(out));
+    const stored = readState(paths.state).state.series.find((s) => s.fileName === 'c.md');
+    assert.equal(stored?.spent, true);
+    assert.equal(stored?.cwd, folder);
+    assert.equal(stored?.maxRetries, 3);
+  });
+
+  it('should_refuse_a_plan_already_in_the_chain', () => {
+    const { a } = chainAB();
+
+    for (const name of ['a.md', 'b.md']) {
+      const out = appendToChainAction(paths, { seriesId: a.id, name }, opts);
+      assert.equal(out.ok, false, name);
+    }
+    assert.equal(readState(paths.state).state.series.length, 2);
+  });
+
+  it('should_refuse_a_plan_that_is_in_another_chain', () => {
+    const { a } = chainAB();
+    const other = chainPlansAction(
+      paths,
+      { names: ['c.md', 'd.md'], startIso: inAnHour(), gapMinutes: 5, stopOnFailure: true },
+      opts
+    );
+    assert.equal(other.ok, true, JSON.stringify(other));
+
+    const out = appendToChainAction(paths, { seriesId: a.id, name: 'd.md' }, opts);
+
+    assert.equal(out.ok, false);
+  });
+
+  it('should_refuse_an_unknown_member_id', () => {
+    chainAB();
+
+    const out = appendToChainAction(paths, { seriesId: 'nope', name: 'c.md' }, opts);
+
+    assert.equal(out.ok, false);
+    assert.equal(readState(paths.state).state.series.length, 2);
+  });
+
+  it('should_refuse_a_plan_that_is_not_in_the_library', () => {
+    const { a } = chainAB();
+
+    const out = appendToChainAction(paths, { seriesId: a.id, name: 'missing.md' }, opts);
+
     assert.equal(out.ok, false);
   });
 });

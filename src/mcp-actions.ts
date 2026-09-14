@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { chainPatches, spliceChain, wouldCycle } from './chain';
+import { appendPatch, chainPatches, chainTail, isInChain, spliceChain, wouldCycle } from './chain';
 import { newRun } from './decide';
 import { seriesEdit } from './edit';
 import * as library from './library';
@@ -745,6 +745,71 @@ export function chainPlansAction(
   });
 
   return { ok: true, value: { series: result.map(describeSeries) } };
+}
+
+export interface AppendToChainArgs {
+  /** Any member of the chain. */
+  seriesId: string;
+  /** Plan file name to append. */
+  name: string;
+}
+
+/**
+ * Puts one more plan on the end of an existing chain. The new link copies its
+ * gap and failure rule from the chain's last link; a plan already on the
+ * schedule keeps its series and history the way `chainPlansAction` keeps them.
+ * Ports `Manager.chainAppend`'s validation faithfully.
+ */
+export function appendToChainAction(
+  paths: SynchronyPaths,
+  args: AppendToChainArgs,
+  opts: { maxRetries: number }
+): Verdict<{ series: ReturnType<typeof describeSeries> }> {
+  let filePath: string;
+  try {
+    filePath = library.planPath(paths.plans, args.name);
+  } catch {
+    return refuse(`"${args.name}" is not a name in this library.`);
+  }
+  if (!fs.existsSync(filePath)) {
+    return refuse(`${library.titleOf(args.name)} is no longer in the library.`);
+  }
+
+  const { state } = readState(paths.state);
+  if (!state.series.some((s) => s.id === args.seriesId)) {
+    return refuse('No scheduled task has that id.');
+  }
+  const tail = chainTail(state.series, args.seriesId);
+  if (!tail) {
+    return refuse("That chain's links form a loop and cannot be extended.");
+  }
+
+  // One check covers a plan already in this chain, its head (something waits
+  // on it, so no cycle is possible either) and a member of another chain.
+  const existing = state.series.find((s) => library.samePath(s.filePath, filePath));
+  if (existing && isInChain(state.series, existing.id)) {
+    return refuse('That plan is already part of a chain.');
+  }
+
+  const target =
+    existing ?? createSeries(filePath, { cwd: paths.folder, maxRetries: opts.maxRetries });
+
+  let updated: TaskSeries | undefined;
+  updateState(ensureWritable(paths).state, (current) => {
+    if (!existing) {
+      current.series.push(target);
+    }
+    const found = current.series.find((s) => s.id === target.id);
+    if (found) {
+      Object.assign(found, stampRepeatEnd(found, appendPatch(tail)));
+      updated = found;
+    }
+  });
+
+  if (!updated) {
+    return refuse('That plan was unscheduled while the chain was being extended.');
+  }
+  return { ok: true, value: { series: describeSeries(updated) } };
 }
 
 ///////////////////////////*Helpers*////////////////////////////

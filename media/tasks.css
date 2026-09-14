@@ -24,10 +24,11 @@
   --radius: 6px;
 }
 
-/* Teal, purple and green need darkening to stay legible on a light background.
-   Orange stays fixed so all orange controls match. */
+/* Every owned colour, sodium included, is darkened to stay legible on a light
+   background — #C97F46 reads 3.2:1 there; #9A5B2B reads 4.9:1 on a typical
+   light sidebar. */
 body.vscode-light {
-  --sodium: #C97F46;
+  --sodium: #9A5B2B;
   --sodium-foreground: #111111;
   --accent: #0A6E73;
   --action: #0A6E73;

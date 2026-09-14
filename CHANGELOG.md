@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-09-14
+
+### Fixed
+
+- **Sodium is darker on light themes so state labels are readable.** The
+  queued badge, the "generating" label, the live schedule toggle and the
+  imminence countdown are all painted in sodium, and on a light theme the
+  shared `#C97F46` reads 3.2:1 against the background — below the 4.5:1 that
+  normal-size text needs. Light themes now use `#9A5B2B`, the same hue but
+  darker, which reads 4.9:1 on a typical light sidebar and 5.4:1 on white.
+  The selected picker day, where light text sits on a sodium fill, clears
+  4.5:1 for the same reason. Dark themes keep `#C97F46`; high-contrast themes
+  still hand sodium back to the theme.
+
 ## [0.11.1] - 2026-09-14
 
 ### Changed

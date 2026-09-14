@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-14
+
+### Added
+
+- **Planning terminals close themselves once their plan lands.** Generating a
+  plan or a series opens a terminal tab and types the `claude` command into
+  it, and until now nothing ever closed that tab: every finished session left
+  it sitting at a live prompt for you to close by hand. Now, the moment a plan
+  (or a whole series) is adopted into the library and its task cleared,
+  Synchrony closes the tab itself. A session that fails to adopt keeps its
+  terminal open, because that is where the error is. A new
+  `synchrony.closeTerminalOnPlan` setting (on by default, under Planning in
+  the settings page) turns this off if you would rather read the session
+  afterwards.
+
 ## [0.10.4] - 2026-09-14
 
 ### Added

@@ -52,7 +52,8 @@ export const GROUPS: { title: string; note?: string; keys: string[] }[] = [
       'planStep.changelog',
       'planStep.rebuild',
       'planStep.reinstall',
-      'planStep.commit'
+      'planStep.commit',
+      'closeTerminalOnPlan'
     ]
   },
   { title: 'Engines', keys: ['claudePath', 'opencodePath', 'codexPath'] },

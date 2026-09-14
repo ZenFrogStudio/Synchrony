@@ -721,6 +721,25 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   }
 
   /**
+   * Closes the tab a finished session was held in, unless the user has asked to
+   * keep them. Only ever called once the plan is safely in the library: on the
+   * failure paths the terminal stays open, because it is where the user sees
+   * what went wrong.
+   *
+   * Safe against both ways this can be reached. The `onDidCloseTerminal` event
+   * our own `dispose()` raises finds no entry — `onPlanLanded` and
+   * `onSeriesLanded` delete theirs before their first `await` — so it returns
+   * without discarding anything. And when adoption was triggered *by* the tab
+   * closing (the watcher-missed-it fallback), disposing a terminal that is
+   * already gone is a no-op.
+   */
+  private closeSessionTerminal(pending: PendingPlan): void {
+    if (vscode.workspace.getConfiguration('synchrony').get<boolean>('closeTerminalOnPlan', true)) {
+      pending.terminal.dispose();
+    }
+  }
+
+  /**
    * A file appearing in the session's staging folder is the completion signal —
    * there is no other one. The CLI exits when *you* close it, long after the
    * plan is written, and its exit code says nothing about whether you approved
@@ -773,6 +792,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       log.warn(`could not clear task ${pending.taskName}: ${String(err)}`);
     }
 
+    this.closeSessionTerminal(pending);
     this.post();
     this.manager.open();
     this.manager.reveal(plan.name);
@@ -843,6 +863,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     await this.chainAdopted(plans);
 
+    this.closeSessionTerminal(pending);
     this.post();
     this.manager.open();
     this.manager.reveal(plans[0].name);

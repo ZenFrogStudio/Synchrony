@@ -124,6 +124,24 @@ describe('source guards', () => {
     );
   });
 
+  it('should_close_the_planning_terminal_itself_once_its_plan_is_adopted', () => {
+    // The other half of the listener above. A finished session used to leave
+    // its tab sitting at a live Claude prompt for the user to close by hand;
+    // dropping the dispose brings that back with nothing failing, because the
+    // plan still lands and the task still clears. The setting is read here too:
+    // an unconditional close would take away the user's way to read the session.
+    const tasks = fs.readFileSync(path.join(SRC, 'tasks.ts'), 'utf8');
+
+    assert.ok(
+      tasks.includes("'closeTerminalOnPlan'"),
+      'src/tasks.ts no longer reads synchrony.closeTerminalOnPlan'
+    );
+    assert.ok(
+      tasks.includes('.terminal.dispose()'),
+      'src/tasks.ts no longer closes the planning terminal after its plan lands'
+    );
+  });
+
   it('should_never_schedule_a_directly_run_task_for_a_second_go', () => {
     // `createSeries` dates a new series an hour out. A task fired straight from
     // the inbox is running *now*, so its series must be born spent — otherwise

@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.10.4",
+  "version": "0.11.0",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -206,6 +206,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "End every generated plan by committing the result to git."
+        },
+        "synchrony.closeTerminalOnPlan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Close the planning terminal once its plan is adopted into the library."
         },
         "synchrony.showTerminalOnRun": {
           "type": "boolean",

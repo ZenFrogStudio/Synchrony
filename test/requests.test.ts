@@ -9,6 +9,7 @@ import {
   isTaskName,
   listUnclaimed,
   readOutcome,
+  refuseExcess,
   requestStatus,
   writeRequest
 } from '../src/requests';
@@ -110,5 +111,35 @@ describe('requests — finishing', () => {
     assert.equal(done?.outcome.ok, true);
     assert.equal(done?.outcome.note, 'session opened');
     assert.ok(done?.outcome.finishedAt);
+  });
+});
+
+describe('requests — refusing excess', () => {
+  it('should_refuse_the_newest_beyond_the_cap_and_leave_the_oldest_unclaimed', () => {
+    const ids = ['000001', '000002', '000003', '000004', '000005', '000006', '000007'];
+    for (const id of ids) writeRequest(dir, { task: 'a.md', id });
+
+    const refused = refuseExcess(dir, 5);
+
+    assert.deepEqual(refused, ['000006', '000007']);
+    for (const id of refused) {
+      assert.equal(requestStatus(dir, id), 'done');
+      const done = readOutcome(dir, id);
+      assert.equal(done?.outcome.ok, false);
+      assert.ok(done?.outcome.note);
+    }
+    assert.deepEqual(listUnclaimed(dir), ids.slice(0, 5));
+  });
+
+  it('should_refuse_nothing_when_fewer_than_the_cap_are_pending', () => {
+    const ids = ['000001', '000002', '000003'];
+    for (const id of ids) writeRequest(dir, { task: 'a.md', id });
+
+    assert.deepEqual(refuseExcess(dir, 5), []);
+    assert.deepEqual(listUnclaimed(dir), ids);
+  });
+
+  it('should_refuse_nothing_for_a_folder_that_has_no_requests_dir', () => {
+    assert.deepEqual(refuseExcess(path.join(dir, 'missing'), 5), []);
   });
 });

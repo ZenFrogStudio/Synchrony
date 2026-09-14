@@ -160,6 +160,27 @@ export function finishRequest(dir: string, id: string, outcome: Omit<RequestOutc
   }
 }
 
+/**
+ * Refuses every unclaimed request beyond the oldest `keep`: claims it and marks
+ * it done with a failure, so a flood of request files cannot open a session
+ * each. Returns the refused ids. Requests another window claims first are
+ * skipped — that window's sweep applies its own cap.
+ */
+export function refuseExcess(dir: string, keep: number): string[] {
+  const excess = listUnclaimed(dir).slice(keep);
+  const refused: string[] = [];
+  for (const id of excess) {
+    const claim = claimRequest(dir, id);
+    if (!claim.claimed) continue; // gone (another window) or unreadable (already marked)
+    finishRequest(dir, id, {
+      ok: false,
+      note: `refused: more than ${keep} requests pending at once; resend later`
+    });
+    refused.push(id);
+  }
+  return refused;
+}
+
 /** The outcome of a finished request, or undefined while it is unclaimed or in flight. */
 export function readOutcome(dir: string, id: string): (PlanRequest & { outcome: RequestOutcome }) | undefined {
   try {

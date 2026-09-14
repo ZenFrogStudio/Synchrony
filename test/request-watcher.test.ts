@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import type { RequestHandler } from '../src/request-watcher';
-import { listUnclaimed, requestStatus, writeRequest } from '../src/requests';
+import { listUnclaimed, readOutcome, requestStatus, writeRequest } from '../src/requests';
 import { pathsFor, SynchronyPaths } from '../src/roots';
 
 /**
@@ -75,7 +75,7 @@ async function until(check: () => boolean): Promise<void> {
 }
 
 describe('request watcher — cap per sweep', () => {
-  it('should_claim_no_more_than_the_cap_in_one_sweep', async () => {
+  it('should_serve_no_more_than_the_cap_and_refuse_the_rest', async () => {
     const ids = flood(MAX_PER_SWEEP + 3);
     const { served, handle } = recorder();
 
@@ -83,7 +83,11 @@ describe('request watcher — cap per sweep', () => {
     await until(() => served.length >= MAX_PER_SWEEP);
 
     assert.equal(served.length, MAX_PER_SWEEP);
-    assert.deepEqual(listUnclaimed(paths.requests), ids.slice(MAX_PER_SWEEP), 'the rest are still unclaimed');
+    assert.deepEqual(listUnclaimed(paths.requests), [], 'nothing is left waiting');
+    for (const id of ids.slice(MAX_PER_SWEEP)) {
+      assert.equal(requestStatus(paths.requests, id), 'done');
+      assert.equal(readOutcome(paths.requests, id)?.outcome.ok, false, `${id} is refused, not served`);
+    }
   });
 
   it('should_serve_the_oldest_requests_first', async () => {
@@ -110,25 +114,27 @@ describe('request watcher — cap per sweep', () => {
     }
   });
 
-  it('should_come_back_for_what_it_left_without_a_new_request_landing', async () => {
-    const ids = flood(MAX_PER_SWEEP + 3);
+  it('should_come_back_for_a_request_that_lands_mid_sweep', async () => {
+    const ids = flood(MAX_PER_SWEEP);
     const { served, handle } = recorder();
-    // The claims themselves fire `fs.watch` on a platform that reports a
-    // rename's old name, which would mask a missing follow-up. Holding the last
-    // claim of the first batch past the watcher's 200 ms debounce makes that
-    // incidental sweep fire mid-loop, where the re-entrancy guard drops it — so
-    // only the follow-up the loop schedules for itself is left to finish the job.
+    // A file landing while the loop is busy starts a sweep the re-entrancy
+    // guard drops. Writing it inside the last handler and stalling past the
+    // watcher's 200 ms debounce makes that sweep (and the incidental ones the
+    // claims' own renames fire on some platforms) land mid-loop, so only the
+    // follow-up the loop schedules for itself is left to serve the late file.
+    const late = 'req999';
     const stalling: RequestHandler = async (request) => {
       if (served.length === MAX_PER_SWEEP - 1) {
+        writeRequest(paths.requests, { task: 'a.md', id: late });
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
       return handle(request);
     };
 
     start(stalling);
-    await until(() => served.length >= ids.length);
+    await until(() => served.length > ids.length);
 
-    assert.deepEqual(served, ids);
+    assert.deepEqual(served, [...ids, late]);
     assert.deepEqual(listUnclaimed(paths.requests), []);
   });
 });

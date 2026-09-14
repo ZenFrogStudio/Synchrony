@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-09-14
+
+### Changed
+
+- **A flood of plan requests is refused past the fifth, not queued.** Since
+  0.9.3 a sweep took the oldest five requests and came back for the rest, so
+  two hundred files still opened two hundred planning terminals — just five
+  at a time. A sweep now opens at most `MAX_PER_SWEEP` (five) sessions and
+  refuses every request beyond them outright: each is claimed and marked done
+  with `ok: false` and the note `refused: more than 5 requests pending at
+  once; resend later`, so a caller polling its request gets a definite answer
+  and can resend rather than waiting on a backlog. A flood can never open more
+  than five terminals. A request that lands while a sweep is busy is served
+  by the next one, as before.
+
 ## [0.11.5] - 2026-09-14
 
 ### Security

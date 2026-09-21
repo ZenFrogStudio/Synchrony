@@ -187,6 +187,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     scheduler,
     paths,
     switchFolder,
+    context.globalState,
     context.extension.packageJSON.contributes.configuration.properties
   );
   const status = new StatusItem(store);

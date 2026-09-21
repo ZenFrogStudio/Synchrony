@@ -203,22 +203,20 @@ describe('source guards', () => {
     }
   });
 
-  it('should_keep_the_sash_defaults_in_step_with_the_stylesheet', () => {
-    // The default pane sizes are written twice: as the custom-property fallback
-    // the browser uses before anything is dragged, and as a constant in the
-    // clamp maths. Let them drift and the panel jumps the first time you touch
-    // its divider, with nothing in the log to say why.
+  it('should_keep_the_saved_pane_sizes_channel_in_step', () => {
+    // The host writes the remembered sash sizes into a meta tag at render time
+    // and the webview reads them back before first paint. The token and the
+    // meta name are plain strings on three sides with nothing to tie them
+    // together; let one drift and the sizes are silently ignored — the panes
+    // just open at the stylesheet defaults again, which is the bug the channel
+    // exists to fix, and nothing in the log says so.
+    const ts = fs.readFileSync(path.join(SRC, 'manager.ts'), 'utf8');
+    const html = fs.readFileSync(path.join(MEDIA, 'manager.html'), 'utf8');
     const js = fs.readFileSync(path.join(MEDIA, 'manager.js'), 'utf8');
-    const css = fs.readFileSync(path.join(MEDIA, 'manager.css'), 'utf8');
 
-    const constant = (name: string) => js.match(new RegExp(`${name}\\s*=\\s*(\\d+)`))?.[1];
-    const fallback = (prop: string) => css.match(new RegExp(`var\\(${prop},\\s*(\\d+)px\\)`))?.[1];
-
-    assert.equal(constant('LIBRARY_DEFAULT'), fallback('--library-width'));
-    assert.equal(constant('ACTIVITY_DEFAULT'), fallback('--activity-height'));
-    // Both sides matching `undefined` would pass the two above vacuously.
-    assert.equal(constant('LIBRARY_DEFAULT'), '260');
-    assert.equal(constant('ACTIVITY_DEFAULT'), '220');
+    assert.ok(ts.includes(`replaceAll('{{paneSizes}}'`), 'render() no longer fills {{paneSizes}}');
+    assert.match(html, /<meta name="synchrony-panes" content="\{\{paneSizes\}\}" \/>/);
+    assert.ok(js.includes('meta[name="synchrony-panes"]'), 'manager.js no longer reads the meta');
   });
 
   it('should_keep_a_script_that_installs_the_build_into_vs_code', () => {

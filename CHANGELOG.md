@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-21
+
+### Added
+
+- **The Manager's pane sizes now survive closing the tab and restarting the
+  editor.** The Plan library width and the Runs panel height were saved only
+  in the tab's own webview state, which VS Code keeps for a window reload but
+  discards when the tab closes — so every fresh open snapped back to the
+  260px/220px defaults. Each sash drag now also sends the pair to the
+  extension host, which clamps them and keeps them in its global storage (a
+  layout preference follows the user, not the project), and seeds them back
+  into the page at render time so there is no flash of the defaults before
+  the saved sizes apply. The `.synchrony` state file is untouched: layout is
+  not schedule data and does not belong on the hub.
+
 ## [0.13.1] - 2026-09-21
 
 ### Fixed

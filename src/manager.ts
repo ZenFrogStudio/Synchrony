@@ -54,6 +54,7 @@ type Inbound =
   | { type: 'openLog'; id: string }
   | { type: 'switchFolder'; folder: string }
   | { type: 'updateSetting'; key: string; value: unknown }
+  | { type: 'paneSizes'; libraryWidth: number | null; activityHeight: number | null }
   | { type: 'openNativeSettings' };
 
 /**
@@ -67,6 +68,7 @@ type Inbound =
  */
 export class Manager implements vscode.Disposable {
   static readonly viewType = 'synchrony.manager';
+  private static readonly PANE_SIZES_KEY = 'synchrony.paneSizes';
 
   private panel: vscode.WebviewPanel | undefined;
   private watcher: fs.FSWatcher | undefined;
@@ -91,6 +93,9 @@ export class Manager implements vscode.Disposable {
     /** Owned by `activate`, which is the only place that can move the store, the
      *  scheduler's lock and this panel together. */
     private readonly switchFolder: (folder: string) => Promise<void>,
+    /** Where dragged pane sizes outlive the tab. globalState: a layout
+     *  preference follows the user, not the project. */
+    private readonly panes: vscode.Memento,
     /** `contributes.configuration.properties`, straight from the manifest. The
      *  Settings page is generated from it rather than from a second table, so a
      *  setting cannot exist without a control. */
@@ -587,6 +592,20 @@ export class Manager implements vscode.Disposable {
         return;
       }
 
+      // Layout, not data: kept in the extension host's own storage rather than
+      // the .synchrony state file, which syncs to the hub.
+      case 'paneSizes': {
+        const px = (v: unknown, lo: number, hi: number) =>
+          typeof v === 'number' && Number.isFinite(v)
+            ? Math.min(hi, Math.max(lo, Math.round(v)))
+            : undefined;
+        await this.panes.update(Manager.PANE_SIZES_KEY, {
+          libraryWidth: px(message.libraryWidth, 180, 560),
+          activityHeight: px(message.activityHeight, 120, 4000)
+        });
+        return;
+      }
+
       // The escape hatch this page deliberately does not cover: workspace scope,
       // and the JSON view.
       case 'openNativeSettings':
@@ -906,6 +925,13 @@ export class Manager implements vscode.Disposable {
 
     const htmlPath = vscode.Uri.joinPath(this.extensionUri, 'media', 'manager.html').fsPath;
 
+    // Only host-clamped, rounded integers are ever stored under this key, so the
+    // token can only expand to digits and a comma. An empty slot means "unset".
+    const sizes = this.panes.get<{ libraryWidth?: number; activityHeight?: number }>(
+      Manager.PANE_SIZES_KEY,
+      {}
+    );
+
     return fs
       .readFileSync(htmlPath, 'utf8')
       .replaceAll('{{nonce}}', createNonce())
@@ -913,7 +939,8 @@ export class Manager implements vscode.Disposable {
       .replaceAll('{{styleUri}}', mediaUri('manager.css'))
       .replaceAll('{{codiconUri}}', mediaUri('codicon.css'))
       .replaceAll('{{markUri}}', mediaUri('icon.png'))
-      .replaceAll('{{scriptUri}}', mediaUri('manager.js'));
+      .replaceAll('{{scriptUri}}', mediaUri('manager.js'))
+      .replaceAll('{{paneSizes}}', `${sizes.libraryWidth ?? ''},${sizes.activityHeight ?? ''}`);
   }
 }
 

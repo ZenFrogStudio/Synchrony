@@ -66,9 +66,6 @@
   /** Runs-panel state, held here for the same reason. */
   let activityFilter = 'all';
   let activityCollapsed = false;
-  /** Pane sizes, duplicated in manager.css as the custom-property fallbacks. */
-  const LIBRARY_DEFAULT = 260;
-  const ACTIVITY_DEFAULT = 220;
   /** Null means "whatever the stylesheet says", so nothing is written until dragged. */
   let libraryWidth = /** @type {number|null} */ (null);
   let activityHeight = /** @type {number|null} */ (null);
@@ -139,6 +136,16 @@
     if (activityHeight === null) root.removeProperty('--activity-height');
     else root.setProperty('--activity-height', `${activityHeight}px`);
   }
+
+  /** Sizes the host remembered from the last session — the webview's own state
+   *  below overrides them, and normally agrees, since both are written together
+   *  on drag end. parseInt('') is NaN, so an unset slot leaves the CSS fallback. */
+  const panes = /** @type {HTMLMetaElement} */ (
+    document.querySelector('meta[name="synchrony-panes"]')).content.split(',');
+  const seedLibrary = parseInt(panes[0], 10);
+  const seedActivity = parseInt(panes[1], 10);
+  if (Number.isFinite(seedLibrary)) libraryWidth = clampLibrary(seedLibrary);
+  if (Number.isFinite(seedActivity)) activityHeight = clampActivity(seedActivity);
 
   const previous = vscode.getState();
   if (previous && previous.selected) selected = previous.selected;
@@ -2340,6 +2347,7 @@
       document.body.classList.remove('is-resizing');
       document.body.style.cursor = '';
       saveViewState();
+      send({ type: 'paneSizes', libraryWidth, activityHeight });
     };
 
     sash.addEventListener('pointermove', move);

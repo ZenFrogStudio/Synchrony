@@ -151,8 +151,9 @@ body.dragging .drop-overlay {
 }
 
 /* Positioned, because the library sash is absolute against this box. The 260px
-   is the default library width, and `LIBRARY_DEFAULT` in manager.js must match
-   it — otherwise the pane jumps the first time it is dragged. */
+   is the built-in library width, used until a saved size arrives — the host
+   injects the last dragged size at render time and manager.js sets the custom
+   property from it before first paint. */
 .shell {
   position: relative;
   flex: 1;
@@ -1260,8 +1261,8 @@ body.vscode-high-contrast .link-button[data-action="run-now"] {
 
 /* --- Runs panel: every plan at once, pinned across the bottom --- */
 
-/* Positioned for its own sash, and the 220px default is duplicated as
-   `ACTIVITY_DEFAULT` in manager.js. */
+/* Positioned for its own sash. The 220px is the built-in height, overridden by
+   the saved size the host injects at render time (see `.shell` above). */
 .activity {
   position: relative;
   display: flex;

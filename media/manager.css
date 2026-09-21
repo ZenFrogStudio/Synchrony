@@ -779,15 +779,14 @@ kbd {
   color: var(--muted);
 }
 
-/* Laid over what follows it rather than pushing the grid open, so the fields
-   beside When do not jump when it opens. */
+/* Fixed, and placed beside its trigger by positionPicker() in manager.js.
+   Absolute left it inside the detail pane's scroll box, which clipped it at
+   the pane's bottom edge — with the Runs panel open, the time row was cut off
+   and had to be scrolled to. Fixed escapes the pane and paints over Runs. */
 .picker-popover {
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   z-index: 5;
   width: 260px;
-  margin-top: 4px;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);

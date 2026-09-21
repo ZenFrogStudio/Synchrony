@@ -418,6 +418,7 @@
       renderDetail();
       renderActivity();
     });
+    positionPicker();
 
     costEl.textContent =
       state.costLast7Days > 0 ? `$${state.costLast7Days.toFixed(2)} over the last 7 days` : '';
@@ -1062,6 +1063,23 @@
         ${['AM', 'PM'].map((v) => option(v, v, v === ampm)).join('')}
       </select>
     </div>`;
+  }
+
+  /**
+   * Puts the open popover under its trigger. The popover is `position: fixed`
+   * so the detail pane's scroll box cannot clip it, which means viewport
+   * coordinates — `getBoundingClientRect()` is exactly that, and no ancestor
+   * has a transform or filter to shift the frame. Every render rebuilds the
+   * popover, so it is measured afresh here, called from render(). The clamps
+   * keep it a whole 8px inside the window, which is what makes the time row
+   * reachable without scrolling however tall the Runs panel is.
+   */
+  function positionPicker() {
+    const pop = detailEl.querySelector('.picker-popover');
+    if (!pop) return;
+    const at = pop.previousElementSibling.getBoundingClientRect(); // the .when-trigger button
+    pop.style.top = `${Math.max(8, Math.min(at.bottom + 4, window.innerHeight - pop.offsetHeight - 8))}px`;
+    pop.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - pop.offsetWidth - 8))}px`;
   }
 
   /**
@@ -2002,6 +2020,17 @@
     render();
   });
 
+  /**
+   * A fixed popover stays put while the pane scrolls under it, so scrolling
+   * dismisses it, as clicking elsewhere does — what a native dropdown does.
+   * Registered once, for the same reason as the click dismisser above.
+   */
+  detailEl.addEventListener('scroll', () => {
+    if (!pickerOpen) return;
+    closePicker();
+    render();
+  });
+
   // ---------- keyboard ----------
 
   /**
@@ -2328,6 +2357,7 @@
     if (libraryWidth !== null) libraryWidth = clampLibrary(libraryWidth);
     if (activityHeight !== null) activityHeight = clampActivity(activityHeight);
     applySizes();
+    positionPicker();
   });
 
   document.getElementById('import-plan').addEventListener('click', () => send({ type: 'importPlans' }));

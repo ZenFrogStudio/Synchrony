@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-09-21
+
+### Fixed
+
+- **The When picker floats above the Runs panel instead of being cut off.**
+  The calendar popover was positioned inside the detail pane, and the pane is
+  a scrolling box, so it was clipped at the pane's bottom edge: with the Runs
+  panel open there was not enough room, and the hour/minute/AM row at the
+  bottom of the popover fell below the fold and had to be scrolled to. The
+  popover is now `position: fixed` and placed beside its trigger by a small
+  `positionPicker()` in `media/manager.js`, run after every render and on
+  window resize. It escapes the pane, paints over the Runs panel, and is
+  clamped to stay a full 8px inside the window — so the whole popover, time
+  row included, is visible without scrolling at any Runs-panel height. In a
+  very short window it slides up over the trigger rather than off-screen.
+  Scrolling the detail pane now dismisses it, as clicking elsewhere does. The
+  markup and the delegated click/keyboard handling are unchanged; the same
+  fix covers the chain builder's Start field, which shares the picker.
+
 ## [0.13.0] - 2026-09-20
 
 ### Added

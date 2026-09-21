@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-09-21
+
+### Fixed
+
+- **The model is now shell-quoted in the plan and explain commands.** Both
+  `generateCommand` and `explainCommand` type a command line into a live
+  terminal, and every argument went through the shell-quoting helper except
+  the `--model` value. It comes straight from the `synchrony.planModel`
+  setting or a request override, so anything in it past a space, or any
+  shell metacharacter, would have run in the shell rather than been passed
+  as the model id. It is now quoted like every other argument.
+
 ## [0.15.0] - 2026-09-21
 
 ### Added

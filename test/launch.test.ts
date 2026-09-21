@@ -367,7 +367,13 @@ describe('generateCommand', () => {
   });
 
   it('should_pin_the_model_when_one_is_chosen', () => {
-    assert.ok(generateCommand(generatable({ model: 'opus' })).includes('--model opus'));
+    assert.ok(generateCommand(generatable({ model: 'opus' })).includes("--model 'opus'"));
+  });
+
+  it('should_quote_a_model_containing_a_space', () => {
+    // The model comes straight from settings.json; unquoted, anything past a
+    // space would run in the shell rather than reach the flag.
+    assert.ok(generateCommand(generatable({ model: 'opus x' })).includes("--model 'opus x'"));
   });
 
   it('should_grant_access_to_the_library_that_holds_both_paths', () => {
@@ -560,7 +566,7 @@ describe('generateCommand — questions routed through Synchrony', () => {
   });
 
   it('should_still_pin_the_model_when_one_is_chosen', () => {
-    assert.ok(routed({ model: 'opus' }).includes('--model opus'));
+    assert.ok(routed({ model: 'opus' }).includes("--model 'opus'"));
   });
 
   it('should_leave_the_unrouted_command_exactly_as_it_was', () => {
@@ -709,7 +715,7 @@ describe('explainCommand', () => {
   });
 
   it('should_pin_the_model_when_one_is_chosen', () => {
-    assert.ok(explainCommand(explainable({ model: 'opus' })).includes('--model opus'));
+    assert.ok(explainCommand(explainable({ model: 'opus' })).includes("--model 'opus'"));
   });
 
   it('should_keep_the_instruction_free_of_shell_metacharacters', () => {

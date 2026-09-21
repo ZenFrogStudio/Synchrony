@@ -494,7 +494,7 @@ export function generateCommand(options: GenerateOptions): string {
     args.push('--mcp-config', q(askConfigPath), '--allowedTools', q(ASK_TOOLS.join(',')));
   }
   if (model) {
-    args.push('--model', model);
+    args.push('--model', q(model));
   }
 
   return `${command} ${args.join(' ')}`;
@@ -549,7 +549,7 @@ export function explainCommand(options: ExplainOptions): string {
   // nobody is watching.
   const args = [q(instruction), '--permission-mode', 'default', '--add-dir', q(allowDir)];
   if (model) {
-    args.push('--model', model);
+    args.push('--model', q(model));
   }
 
   return `${command} ${args.join(' ')}`;

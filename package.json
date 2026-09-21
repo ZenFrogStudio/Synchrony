@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",

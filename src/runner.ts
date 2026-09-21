@@ -387,16 +387,15 @@ export class Runner implements vscode.Disposable {
 
     const resultPath = await this.finishTranscript(active, outcome);
 
-    this.write(
-      active,
-      `\r\n${outcome.ok ? '\x1b[32m✓ completed\x1b[0m' : `\x1b[31m✗ ${outcome.error ?? 'failed'}\x1b[0m`}\r\n` +
-        '\x1b[2mRun finished. Close this tab when you are done reading it.\x1b[0m\r\n'
-    );
-
-    // Deliberately NOT firing `closer` here. Firing onDidClose tells VS Code the
-    // pty exited and it disposes the tab — which, on a run lasting seconds, made
-    // the terminal vanish before it could be read. The transcript stays on
-    // screen until dismissed; the same text is on disk either way.
+    // The tab closes itself. Firing onDidClose tells VS Code the pty exited and
+    // it disposes the tab and the terminal; the transcript is already on disk
+    // in the result file and the log, which is where an unattended run gets
+    // read anyway. Leaving the tab open leaked one terminal and two emitters
+    // per scheduled run for the life of the window. `fire` is synchronous, so
+    // disposing straight after is safe.
+    active.closer.fire(exitCode ?? 0);
+    active.writer.dispose();
+    active.closer.dispose();
 
     await this.store.updateRun(active.runId, {
       status: outcome.ok ? 'completed' : 'failed',

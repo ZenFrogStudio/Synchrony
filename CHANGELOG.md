@@ -8,7 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.12.0] - 2026-09-14
+## [0.12.1] - 2026-09-20
+
+### Fixed
+
+- **The run terminal closes itself when the run finishes.** Every run opened a
+  terminal tab backed by two `EventEmitter`s (the output stream and the close
+  signal), and on finish `settle` printed "Close this tab when you are done
+  reading it" and left all three alive for the life of the window — one
+  terminal tab and two emitters per run, so a week of unattended scheduled
+  runs piled up a week of tabs. The run now fires the pty's close signal the
+  moment it settles, which has VS Code dispose the tab and the terminal, and
+  both emitters are disposed with it. The on-screen transcript goes with the
+  tab; the same text is already in the result file and the run's `.log`,
+  which is where an unattended run gets read anyway. Closing the tab of a
+  live run still cancels it.
 
 ### Added
 

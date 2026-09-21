@@ -441,6 +441,22 @@ body.vscode-high-contrast .icon-action[data-action="rerun-run"]:hover {
   color: var(--vscode-focusBorder);
 }
 
+/* Accent rather than the run colour, so the two glyphs on a finished row read
+   as two different actions rather than one button drawn twice. */
+.icon-action[data-action="revise-run"] {
+  color: var(--accent);
+}
+
+.icon-action[data-action="revise-run"]:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+body.vscode-high-contrast .icon-action[data-action="revise-run"],
+body.vscode-high-contrast .icon-action[data-action="revise-run"]:hover {
+  color: var(--vscode-focusBorder);
+}
+
 .icon-action:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 1px;

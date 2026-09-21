@@ -7,11 +7,12 @@ import { AGENTS, DEFAULT_AGENT } from './agents';
 import { appendPatch, chainPatches, chainTail, isInChain, spliceForRechain } from './chain';
 import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
+import { enabledPlanSteps, generateCommand, shellKind } from './launch';
 import * as library from './library';
 import { log, logConsolidation } from './log';
 import { SynchronyPaths } from './roots';
 import { Scheduler } from './scheduler';
-import { createSeries, SeriesDefaults } from './series';
+import { createSeries, defaultScheduledAt, SeriesDefaults } from './series';
 import { coerceSetting, SettingGroup, settingGroups } from './settings';
 import { Store } from './store';
 import { AgentId, MAX_CHAIN_DELAY_MINUTES, TaskSeries } from './types';
@@ -46,6 +47,7 @@ type Inbound =
   | { type: 'browseCwd'; id: string }
   | { type: 'runNow'; seriesId: string; dismissRunId?: string }
   | { type: 'rerunRun'; id: string }
+  | { type: 'reviseRun'; id: string }
   | { type: 'cancelRun'; id: string }
   | { type: 'dismissRun'; id: string }
   | { type: 'openResult'; id: string }
@@ -83,6 +85,27 @@ export class Manager implements vscode.Disposable {
   /** Engines that answered `--version`. Optimistic until the probes land, so
    *  the dropdown is never briefly empty. */
   private availableAgents: AgentId[] = [DEFAULT_AGENT];
+  /**
+   * Open Revise & rerun sessions, keyed by series id. Each one is a terminal
+   * running Claude in plan mode against a library plan, and a watcher on that
+   * one file waiting for the approved revision to overwrite it.
+   *
+   * `mtimeMs` is the whole revised-vs-abandoned test: taken when the session
+   * opens, and compared when the tab closes in case the watcher missed the
+   * write. No copy of the plan is kept — plan mode writes nothing until the
+   * user approves, and approving *is* consenting to replace the file.
+   */
+  private readonly reviseSessions = new Map<
+    string,
+    {
+      filePath: string;
+      fileName: string;
+      watcher: vscode.FileSystemWatcher;
+      terminal: vscode.Terminal;
+      mtimeMs: number;
+    }
+  >();
+  private readonly reviseTerminals: vscode.Disposable;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -121,12 +144,20 @@ export class Manager implements vscode.Disposable {
       }
       this.post();
     });
+    this.reviseTerminals = vscode.window.onDidCloseTerminal((t) => this.onReviseTerminalClosed(t));
   }
 
   dispose(): void {
     this.storeListener.dispose();
     this.leadershipListener.dispose();
     this.configListener.dispose();
+    this.reviseTerminals.dispose();
+    // Watchers only. The terminals are the user's own shell tabs, and a tab
+    // holding a half-finished conversation is not ours to close.
+    for (const session of this.reviseSessions.values()) {
+      session.watcher.dispose();
+    }
+    this.reviseSessions.clear();
     this.stopWatching();
     this.panel?.dispose();
   }
@@ -496,6 +527,15 @@ export class Manager implements vscode.Disposable {
           this.notify('That run belongs to a plan that is no longer scheduled.');
           return;
         }
+        // A revise session is about to change the file this would run, and it
+        // offers Run now itself once the revision lands.
+        if (this.reviseSessions.has(series.id)) {
+          this.notify(
+            `A revise session is open for "${series.fileName}". Finish or close it first — ` +
+              'it offers to run when the revised plan lands.'
+          );
+          return;
+        }
         // Before the modal: asking the user to confirm something that is then
         // refused reads as a bug.
         if (!this.canRunHere()) {
@@ -516,6 +556,9 @@ export class Manager implements vscode.Disposable {
         }
         return this.scheduler.runNow(series.id);
       }
+
+      case 'reviseRun':
+        return this.reviseRun(message.id);
 
       case 'cancelRun':
         this.scheduler.cancelRun(message.id);
@@ -801,6 +844,184 @@ export class Manager implements vscode.Disposable {
         'window, or close it.'
     );
     return false;
+  }
+
+  // ---------- revise & rerun ----------
+
+  /**
+   * Opens a Claude session that revises a finished run's plan in place, and
+   * watches the plan file for the approved revision to land.
+   *
+   * Only the run id crosses the webview bridge; the file, the working directory
+   * and the command are all resolved here from the store, the same trust model
+   * as Retry. Deliberately no `canRunHere()` gate: revising is a file edit and
+   * works in any window. The lock only matters at the Run now choice after the
+   * revision lands, and `onReviseLanded` checks it there.
+   *
+   * No snapshot of the plan is taken first. The session runs in plan mode, so
+   * Claude writes nothing until the user approves, and backing out leaves the
+   * file byte-identical. A run keeps no copy of the plan it ran either, so this
+   * is no less than the product already promises.
+   */
+  private async reviseRun(id: string): Promise<void> {
+    const run = this.store.getRunById(id);
+    const series = run ? this.store.getSeriesById(run.seriesId) : undefined;
+    if (!series) {
+      this.notify('That run belongs to a plan that is no longer scheduled.');
+      return;
+    }
+    if (!fs.existsSync(series.filePath)) {
+      this.notify(`The file for "${series.fileName}" is no longer in the library.`);
+      return;
+    }
+    // One session per file, across every series that might point at it.
+    const open = [...this.reviseSessions.values()].find((s) =>
+      library.samePath(s.filePath, series.filePath)
+    );
+    if (open) {
+      open.terminal.show();
+      this.notify(`A revise session is already open for "${series.fileName}".`);
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration('synchrony');
+    const command = generateCommand({
+      exe: config.get<string>('claudePath', 'claude'),
+      // No `destDir`: that is what makes the instruction "overwrite that same
+      // file", and puts the session in plan mode.
+      sourcePath: series.filePath,
+      // The library folder rather than `paths().root`: it covers the one file
+      // read and overwritten, and still does when `synchrony.libraryPath` has
+      // moved the library outside `.synchrony`.
+      allowDir: path.dirname(series.filePath),
+      model: config.get<string>('planModel', '') || undefined,
+      shell: shellKind(vscode.env.shell, process.platform),
+      steps: enabledPlanSteps((key, fallback) => config.get<boolean>(key, fallback))
+    });
+
+    // Watch the plan file itself, for change *and* create: an editor-style
+    // temp-write-then-rename replaces the inode and surfaces as a create.
+    // Accepted edge: saving this same plan from the manager's inline editor
+    // while the session is open looks identical to Claude's write and ends the
+    // session early. Not worth telling the two apart.
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(path.dirname(series.filePath), path.basename(series.filePath)),
+      false,
+      false,
+      true
+    );
+    const landed = () =>
+      this.onReviseLanded(series.id).catch((err) => log.error('revise landing failed', err));
+    watcher.onDidCreate(landed);
+    watcher.onDidChange(landed);
+
+    const terminal = vscode.window.createTerminal({
+      name: `Synchrony: revise ${series.fileName}`,
+      // The plan's own working directory, not `paths().folder`: the session
+      // should explore the repo the plan actually targets.
+      cwd: fs.existsSync(series.cwd) ? series.cwd : this.paths().folder,
+      iconPath: new vscode.ThemeIcon('edit')
+    });
+    this.reviseSessions.set(series.id, {
+      filePath: series.filePath,
+      fileName: series.fileName,
+      watcher,
+      terminal,
+      mtimeMs: fs.statSync(series.filePath).mtimeMs
+    });
+
+    terminal.show();
+    terminal.sendText(command);
+    log.info(`opened a revise session for ${series.fileName} in ${series.cwd}`);
+  }
+
+  /**
+   * The revised plan has been written over the library file. Same shape as
+   * `onPlanLanded` in tasks.ts: the map entry and the watcher go before the
+   * first `await`, so the watcher-fired and close-fired paths cannot both run.
+   *
+   * Then the one question this button exists to ask — run it now, or put it
+   * back on the schedule at the app's default time. Esc leaves the revision
+   * saved and the schedule as it was.
+   */
+  private async onReviseLanded(seriesId: string): Promise<void> {
+    const session = this.reviseSessions.get(seriesId);
+    if (!session) {
+      return; // A second change event, or the terminal close raced us.
+    }
+    this.reviseSessions.delete(seriesId);
+    session.watcher.dispose();
+
+    await library.settled(session.filePath); // The write may still be streaming.
+    if (vscode.workspace.getConfiguration('synchrony').get<boolean>('closeTerminalOnPlan', true)) {
+      session.terminal.dispose(); // No-op if the tab is already gone.
+    }
+    this.post(); // The editor pane picks up the revised text.
+
+    const series = this.store.getSeriesById(seriesId);
+    if (!series) {
+      // Archived or otherwise unscheduled mid-session. The file is revised
+      // either way; there is just nothing left to run or reschedule.
+      this.notify(
+        `The revised "${session.fileName}" was saved, but its schedule was removed ` +
+          'while you revised it. Schedule it again from the library.'
+      );
+      return;
+    }
+
+    const at = defaultScheduledAt();
+    const when = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const choice = await vscode.window.showInformationMessage(
+      `"${series.fileName}" was revised. Run it now?`,
+      {
+        modal: true,
+        detail: `Schedule runs it at ${when} instead. Either way the revision is saved.`
+      },
+      'Run now',
+      'Schedule'
+    );
+    if (choice === 'Run now') {
+      if (!this.canRunHere()) {
+        return;
+      }
+      return this.scheduler.runNow(series.id);
+    }
+    if (choice === 'Schedule') {
+      // The same patch the webview's own reschedule button sends.
+      await this.store.updateSeries(series.id, { nextRunAt: at, enabled: true, spent: false });
+      log.info(`scheduled the revised ${series.fileName} for ${at}`);
+      this.notify(`"${series.fileName}" is scheduled for ${when}.`);
+    }
+  }
+
+  /**
+   * The end of a revise session whose tab closed. The mtime comparison is the
+   * missed-event fallback — fs events are not a guarantee on Windows — so a
+   * plan that was overwritten is adopted exactly as the watcher would have.
+   * Otherwise the session was backed out of, the file is untouched, and the
+   * whole of the notice is one log line.
+   */
+  private onReviseTerminalClosed(terminal: vscode.Terminal): void {
+    const found = [...this.reviseSessions.entries()].find(([, s]) => s.terminal === terminal);
+    if (!found) {
+      return; // Almost every terminal closed in a window is not one of ours.
+    }
+    const [seriesId, session] = found;
+
+    let mtime = 0;
+    try {
+      mtime = fs.statSync(session.filePath).mtimeMs;
+    } catch {
+      // Archived mid-session: nothing landed, and nothing to compare against.
+    }
+    if (mtime && mtime !== session.mtimeMs) {
+      this.onReviseLanded(seriesId).catch((err) => log.error('revise landing failed', err));
+      return;
+    }
+
+    this.reviseSessions.delete(seriesId);
+    session.watcher.dispose();
+    log.info(`revise session for ${session.fileName} closed without changes; the plan is unchanged`);
   }
 
   /**

@@ -358,6 +358,33 @@ export function archivePlan(dir: string, archiveDir: string, name: string): Plan
   return describe(archiveDir, to);
 }
 
+/**
+ * Waits for a just-written file to stop growing. A create or change event can
+ * arrive before the CLI has finished writing, and copying a half-written plan
+ * into the library would be worse than waiting two seconds. Gives up rather
+ * than hanging: whatever is on disk by then is what gets adopted.
+ *
+ * Here rather than in `tasks.ts`, where it started, because the manager's
+ * revise session needs it too and `manager.ts` cannot import `tasks.ts` without
+ * closing a cycle.
+ */
+export async function settled(filePath: string): Promise<void> {
+  let previous = -1;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let size: number;
+    try {
+      size = fs.statSync(filePath).size;
+    } catch {
+      return;
+    }
+    if (size > 0 && size === previous) {
+      return;
+    }
+    previous = size;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
 function starterBody(title: string): string {
   return `# ${title}\n\nDescribe what Claude should do when this plan runs.\n`;
 }

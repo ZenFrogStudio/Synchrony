@@ -753,7 +753,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.awaitingPlan.delete(sessionId);
     pending.watcher.dispose();
 
-    await settled(uri.fsPath);
+    await library.settled(uri.fsPath);
 
     const paths = this.paths();
     let plan: library.PlanFile;
@@ -817,7 +817,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.awaitingPlan.delete(sessionId);
     pending.watcher.dispose();
 
-    await settled(path.join(pending.dir, SERIES_MANIFEST));
+    await library.settled(path.join(pending.dir, SERIES_MANIFEST));
 
     const order = this.stageOrder(pending.dir);
     if (!order.length) {
@@ -834,7 +834,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     try {
       for (const name of order) {
         const filePath = path.join(pending.dir, name);
-        await settled(filePath);
+        await library.settled(filePath);
         // Four words rather than the usual three: the position number counts as
         // one, so three would clip `01-add-monthly-repeat` to `01-add-monthly`
         // and lose the description the number is there to order.
@@ -1144,28 +1144,5 @@ function readOrEmpty(filePath: string): string {
   } catch {
     // A task deleted between listing and reading is not worth failing the view for.
     return '';
-  }
-}
-
-/**
- * Waits for a just-created file to stop growing. The create event can arrive
- * before the CLI has finished writing, and copying a half-written plan into the
- * library would be worse than waiting two seconds. Gives up rather than hanging:
- * whatever is on disk by then is what gets adopted.
- */
-async function settled(filePath: string): Promise<void> {
-  let previous = -1;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    let size: number;
-    try {
-      size = fs.statSync(filePath).size;
-    } catch {
-      return;
-    }
-    if (size > 0 && size === previous) {
-      return;
-    }
-    previous = size;
-    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }

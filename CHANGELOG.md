@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-21
+
+### Added
+
+- **A Revise & rerun button beside Retry on finished runs.** Retry runs the
+  plan as it stands, but a run usually failed because of the plan, and there
+  was no way to fix it first. The new pencil icon in the Runs panel opens a
+  Claude Code terminal that revises the plan file in place in the library —
+  in plan mode, so nothing is written until you approve. When the approved
+  revision lands, Synchrony asks whether to **Run now** or **Schedule** it at
+  the usual default time (the next quarter-hour about an hour out); Esc keeps
+  the revision and leaves the schedule alone. Closing the tab without
+  approving leaves the file untouched. One session per plan: a second click
+  reveals the open terminal, and Retry refuses while a revision is in
+  progress. `settled()` moved from `tasks.ts` to `library.ts` so both the
+  task view and the manager can wait for a landing write to finish.
+
 ## [0.14.0] - 2026-09-21
 
 ### Added

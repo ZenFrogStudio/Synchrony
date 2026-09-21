@@ -1276,6 +1276,19 @@
       <i class="codicon codicon-debug-restart"></i></button>`;
   }
 
+  /**
+   * Opens a Claude session to revise the plan in place, then offers to run or
+   * reschedule it. Same gate as Retry: a run usually fails because of the plan,
+   * and this is the button that fixes the plan before running it again.
+   */
+  function reviseButton(run, series) {
+    if (!series || !FINISHED.includes(run.status)) return '';
+    return `<button class="icon-action" type="button" data-action="revise-run"
+      data-run="${run.id}" title="Revise this plan, then run or reschedule it"
+      aria-label="Revise this plan, then run or reschedule it">
+      <i class="codicon codicon-edit"></i></button>`;
+  }
+
   /** A missed run has no result to show. This is what it says instead. */
   function missedNote(run) {
     if (run.status !== 'missed') return '';
@@ -1383,7 +1396,7 @@
       ${countdown}
       ${runBadges(run).join('')}
       ${note ? `<span class="activity-note">${esc(note)}</span>` : ''}
-      <span class="activity-actions">${runActions(run, series).join('')}${rerunButton(run, series)}</span>
+      <span class="activity-actions">${runActions(run, series).join('')}${rerunButton(run, series)}${reviseButton(run, series)}</span>
     </div>`;
   }
 
@@ -1548,6 +1561,10 @@
     // The run id is enough: the extension host looks the series up from the run.
     if (action === 'rerun-run') {
       send({ type: 'rerunRun', id: runId });
+      return true;
+    }
+    if (action === 'revise-run') {
+      send({ type: 'reviseRun', id: runId });
       return true;
     }
 

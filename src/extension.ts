@@ -11,6 +11,7 @@ import { initLog, log, logConsolidation, logRetirement, pruneLogs } from './log'
 import { Manager } from './manager';
 import { MCP_CLIENTS } from './mcp-clients';
 import { migrate } from './migrate';
+import { promptForAnswers, QuestionWatcher } from './question-watcher';
 import { sweepQuestions } from './questions';
 import { retireCompletedPlans } from './retire';
 import { MigrateOutcome, migrateRoot, oldCopies, RETIRED_IDS } from './migrate-name';
@@ -167,6 +168,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     stateWatcher.restart();
     taskView.restartRequests();
     controlWatcher.restart();
+    questionWatcher.restart();
     manager.post();
     // Explicitly, rather than leaning on the store change `retarget` fires: the
     // folder name, library path and results path in the heartbeat all move with
@@ -205,9 +207,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.extension.packageJSON.contributes.configuration.properties
   );
 
+  // Questions a routed planning session has written to `.synchrony/questions/`
+  // for the phone, offered in this window as well. See `question-watcher.ts`.
+  const questionWatcher = new QuestionWatcher(paths, (file) =>
+    promptForAnswers(paths().questions, file)
+  );
+
   stateWatcher.restart();
   taskView.restartRequests();
   controlWatcher.restart();
+  questionWatcher.restart();
 
   // Re-pointed at this install every activation, so configs already registered
   // in other clients keep working across an update. See `mcpLauncherPath`.
@@ -225,6 +234,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     taskView,
     stateWatcher,
     controlWatcher,
+    questionWatcher,
     vscode.window.registerWebviewViewProvider(TaskView.viewType, taskView),
     vscode.window.registerWebviewPanelSerializer(Manager.viewType, {
       // Restores the tab after a window reload instead of holding it in memory.

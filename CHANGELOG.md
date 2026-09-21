@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-20
+
+### Added
+
+- **Questions from a routed planning session now also appear in the editor.**
+  A session opened from the phone asks everything through `ask_user`, which
+  writes the question to `.synchrony/questions/` for the phone — and nothing
+  checked whether anyone was at the keyboard, so a request left over from
+  earlier could start asking the phone while the user sat in front of VS
+  Code. Routing is unchanged; each open question now also shows as a VS Code
+  notification with an Answer button that walks the questions one at a time
+  (a QuickPick for a shortlist, with "Other" for free text; an input box
+  otherwise). Answer from the editor or the phone — first answer wins, and the
+  other side is told the question was already answered. Questions older than
+  ten minutes, past what one `ask_user` call waits for, are left to the phone
+  rather than popped up at window start. New `src/question-watcher.ts`, with
+  its own tests.
+
 ## [0.12.1] - 2026-09-20
 
 ### Fixed

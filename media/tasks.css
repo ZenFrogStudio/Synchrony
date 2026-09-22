@@ -1,8 +1,8 @@
 /* Synchrony task inbox — the activity-bar view. Derived from VS Code theme vars so
    it adapts to any theme, and deliberately its own small sheet rather than the
    manager's: this panel is a list, an input and a button. Synchrony owns a few
-   global colours: sodium for planning liveness, teal for primary actions and
-   accents, and deeper purple for Series. A run in flight is
+   global colours: sodium for planning liveness and the Run button, teal for
+   primary actions and accents, and deeper purple for Series. A run in flight is
    still green, taken from the theme's own chart palette exactly as the manager
    takes it. Global values only — no component tokens. */
 
@@ -13,8 +13,8 @@
   --sodium-foreground: #111111;
   --action: #0E8A8F;
   --action-hover: #12A3A9;
-  --run: var(--action);
-  --run-hover: var(--action-hover);
+  --run: var(--sodium);
+  --run-hover: #E0955A;
   --series: #5B21B6;
   --series-hover: #4C1D95;
   --ok: var(--vscode-charts-green, #3FB950);
@@ -33,8 +33,8 @@ body.vscode-light {
   --accent: #0A6E73;
   --action: #0A6E73;
   --action-hover: #0E8A8F;
-  --run: var(--action);
-  --run-hover: var(--action-hover);
+  --run: var(--sodium);
+  --run-hover: #B36D38;
   --series: #4C1D95;
   --series-hover: #3B0764;
   --ok: #1A7F37;

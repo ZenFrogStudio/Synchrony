@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-22
+
+### Changed
+
+- **The Run button in the task inbox is orange.** It shared the teal of Add
+  and Generate plan, so the one button that starts an agent looked no
+  different from the ones that only capture or draft. It now takes the
+  sidebar's sodium orange, with its own hover shade in dark and light themes.
+  High-contrast themes still paint it with the theme's own button colours.
+
 ## [0.15.1] - 2026-09-21
 
 ### Fixed

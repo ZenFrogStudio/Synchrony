@@ -251,6 +251,16 @@ describe('source guards', () => {
     assert.doesNotMatch(script, /synchrony-\d+\.\d+\.\d+/, 'reinstall.js hardcodes a version');
   });
 
+  it('should_keep_a_script_that_sweeps_build_output', () => {
+    // `vsce package` never removes the previous .vsix, so every release left one
+    // behind until twenty-two sat in the root. Lose this script and the pile
+    // starts again.
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+
+    assert.ok(fs.existsSync(path.join(ROOT, 'scripts', 'clean.js')), 'scripts/clean.js is missing');
+    assert.match(manifest.scripts.clean ?? '', /node scripts\/clean\.js/);
+  });
+
   it('should_declare_every_engine_where_engine_choices_are_hardcoded', () => {
     // The manager list itself is derived from src/agents.ts, but the surfaces
     // that validate or map an engine still need explicit rows. Missing one is

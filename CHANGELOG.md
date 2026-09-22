@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-09-22
+
+### Added
+
+- **`npm run clean` sweeps build output.** `vsce package` never removes
+  the previous `.vsix`, so every release left one behind until twenty-two
+  sat in the repository root, and a dev build's source maps outlived the
+  production build that replaced them. `scripts/clean.js` removes `dist/`,
+  `dist-test/`, `mobile/dist-test/`, `mobile/.expo/` and every `.vsix` in
+  the root. It takes no options and does not touch `node_modules/`.
+
+### Fixed
+
+- **`npm test` runs again on current Node.** The script passed the
+  `dist-test/test/` directory to `node --test`, which Node 21 and later
+  treat as a glob that matches the folder itself and then fail to load.
+  It now names the compiled test files with a glob.
+
+### Removed
+
+- The five historical design plans under `docs/` (`PLAN.md`,
+  `COMPLETION-PLAN.md`, `GUI-PLAN.md`, `CONSOLIDATION-PLAN.md`,
+  `REMOTE-PLAN.md`). They were git-ignored records of intent from before
+  the rename, listed as out of scope by every review plan, and read by
+  nothing.
+
 ## [0.15.2] - 2026-09-22
 
 ### Changed

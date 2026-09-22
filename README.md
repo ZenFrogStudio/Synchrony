@@ -97,6 +97,7 @@ npm run watch      # Continuous build
 npm run typecheck  # Static analysis
 npm test           # Unit tests
 npm run package    # Build and package extension
+npm run clean      # Remove build output and old .vsix packages
 ```
 
 Press <kbd>F5</kbd> to launch the Extension Development Host.

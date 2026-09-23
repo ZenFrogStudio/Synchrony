@@ -40,7 +40,7 @@ export interface Agent {
  */
 export const CLAUDE_MODELS: ModelChoice[] = [
   { value: '', label: 'Account default' },
-  { value: 'claude-opus-5', label: 'Opus 5' },
+  { value: 'claude-opus-5-5', label: 'Opus 5.5' },
   { value: 'claude-opus-4-8', label: 'Opus 4.8' },
   { value: 'claude-sonnet-5', label: 'Sonnet 5' },
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-09-22
+
+### Changed
+
+- **Opus 5.5 replaces Opus 5 in the model list.** The Claude model dropdowns and
+  the `synchrony.planModel` setting now offer `claude-opus-5-5`. A plan or
+  setting already set to `claude-opus-5` still runs as before.
+
 ## [0.15.3] - 2026-09-22
 
 ### Added

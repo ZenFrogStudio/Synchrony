@@ -117,8 +117,14 @@ interface PendingPlan {
   taskName: string;
   dir: string;
   watcher: vscode.FileSystemWatcher;
-  /** The tab the session is being held in. Its closing is what ends the session. */
+  /** The tab the session is being held in. Its closing always ends the session. */
   terminal: vscode.Terminal;
+  /**
+   * Set when the command was started through shell integration; that command
+   * ending is the other signal that ends the session. Absent when the shell
+   * offers no integration (cmd.exe), where only the tab closing can end it.
+   */
+  execution?: vscode.TerminalShellExecution;
   /** A series session writes several stage files and a manifest; a plan session
    *  writes one file, and that file is the whole signal. */
   series: boolean;
@@ -130,6 +136,9 @@ interface PendingPlan {
  * chain Synchrony writes behaves like one built by hand.
  */
 const SERIES_GAP_MINUTES = 15;
+
+/** How long a planning command waits for shell integration before typing itself. */
+const SHELL_INTEGRATION_WAIT_MS = 3_000;
 
 export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = 'synchrony.tasks';
@@ -151,12 +160,21 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   private settling = false;
 
   /**
-   * Closing the planning terminal is the only end-of-session signal VS Code
-   * offers, and without it a session backed out of holds its row amber for the
-   * life of the window.
+   * The planning tab closing. It ends a session in every shell, including
+   * cmd.exe, which has no shell integration and so never reports the CLI
+   * exiting.
    */
   private readonly terminals = vscode.window.onDidCloseTerminal((terminal) =>
     this.onTerminalClosed(terminal)
+  );
+
+  /**
+   * The CLI exiting, reported by shell integration. Without this, quitting
+   * Claude inside the tab and leaving the tab open held the row amber for the
+   * life of the window with no way to plan or run the task again.
+   */
+  private readonly executions = vscode.window.onDidEndTerminalShellExecution((event) =>
+    this.onExecutionEnded(event.execution)
   );
 
   /** The engines found on this machine, set by `extension.ts` once it has looked. */
@@ -224,6 +242,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
   dispose(): void {
     this.terminals.dispose();
+    this.executions.dispose();
     this.config.dispose();
     this.runs.dispose();
     this.requests.dispose();
@@ -643,7 +662,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       adopted.catch((err) => log.error('adopting a generated plan failed', err));
     });
     // Before the map entry, so the entry can carry the terminal that ends the
-    // session. Nothing is running until `sendText` below, so there is no window
+    // session. Nothing is running until `startSession` below, so there is no window
     // here in which a plan could land ahead of the entry that would adopt it.
     const terminal = vscode.window.createTerminal({
       // Named apart, because the two sessions behave differently and a tab
@@ -662,8 +681,55 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     // Focus, unlike a scheduled run: you pressed a button and are about to type.
     terminal.show();
-    terminal.sendText(command);
+    this.startSession(sessionId, command);
     log.info(`opened a ${series ? 'series ' : ''}planning session for task ${task.name} in ${cwd}`);
+  }
+
+  /**
+   * Types the command into the tab, through shell integration when the shell
+   * offers it. Integration is what lets the CLI exiting end the session rather
+   * than only the tab closing. It activates a beat after the terminal is
+   * created, so the command waits for it and falls back to a plain `sendText`
+   * if it has not arrived — cmd.exe never has it, and a session started that
+   * way ends the old way, when its tab closes. The wait and the fallback are
+   * the ones VS Code's own API docs recommend.
+   */
+  private startSession(sessionId: string, command: string): void {
+    const pending = this.awaitingPlan.get(sessionId);
+    if (!pending) {
+      return;
+    }
+    const { terminal } = pending;
+    let started = false;
+
+    const send = (shellIntegration?: vscode.TerminalShellIntegration) => {
+      if (started) {
+        return;
+      }
+      started = true;
+      listener.dispose();
+      clearTimeout(fallback);
+      // The tab may have been closed during the wait; `discard` has run and
+      // there is nothing to type into.
+      if (this.awaitingPlan.get(sessionId) !== pending) {
+        return;
+      }
+      try {
+        pending.execution = shellIntegration?.executeCommand(command);
+      } catch (err) {
+        log.warn(`shell integration refused the command; typing it instead: ${String(err)}`);
+      }
+      if (!pending.execution) {
+        terminal.sendText(command);
+      }
+    };
+
+    const listener = vscode.window.onDidChangeTerminalShellIntegration((event) => {
+      if (event.terminal === terminal) {
+        send(event.shellIntegration);
+      }
+    });
+    const fallback = setTimeout(() => send(undefined), SHELL_INTEGRATION_WAIT_MS);
   }
 
   /**
@@ -707,30 +773,37 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     }
   }
 
+  private onTerminalClosed(terminal: vscode.Terminal): void {
+    const found = [...this.awaitingPlan.entries()].find(([, p]) => p.terminal === terminal);
+    if (found) {
+      this.endSession(found[0], found[1], 'its tab was closed');
+    }
+    // Almost every terminal closed in a window is not one of ours.
+  }
+
+  private onExecutionEnded(execution: vscode.TerminalShellExecution): void {
+    const found = [...this.awaitingPlan.entries()].find(([, p]) => p.execution === execution);
+    if (found) {
+      this.endSession(found[0], found[1], 'the CLI exited');
+    }
+  }
+
   /**
-   * The end of a planning session. The signal is the *tab* closing rather than
-   * the CLI exiting: Synchrony types `claude ...` into your own shell, so quitting
-   * Claude only returns you to a prompt, and while that prompt is there the
-   * session is genuinely resumable — the row staying amber until the tab goes is
-   * the honest answer.
+   * The end of a planning session, reached two ways: the CLI exiting (shell
+   * integration) or the tab closing (which also covers cmd.exe, where there is
+   * no integration).
    *
    * A plan sitting in the staging folder means the session finished and the
    * watcher missed the event, so it is adopted exactly as it would have been.
-   * For a series that also covers the tab closing after the stage files landed
-   * but before the manifest did — `onSeriesLanded` falls back to file-name order,
-   * which is what the number leading each name is for.
+   * For a series that also covers the session ending after the stage files
+   * landed but before the manifest did — `onSeriesLanded` falls back to
+   * file-name order, which is what the number leading each name is for.
    *
    * Otherwise the session was backed out of: it is discarded, the task is left
-   * untouched, and the whole of the notice is one log line, because closing a
-   * terminal you meant to close is not news.
+   * untouched, the tab is left where it is, and the whole of the notice is one
+   * log line, because closing a terminal you meant to close is not news.
    */
-  private onTerminalClosed(terminal: vscode.Terminal): void {
-    const found = [...this.awaitingPlan.entries()].find(([, p]) => p.terminal === terminal);
-    if (!found) {
-      return; // Almost every terminal closed in a window is not one of ours.
-    }
-    const [sessionId, pending] = found;
-
+  private endSession(sessionId: string, pending: PendingPlan, how: string): void {
     const [landed] = library.listPlans(pending.dir);
     if (landed) {
       const adopted = pending.series
@@ -739,16 +812,15 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       adopted.catch((err) => log.error('adopting a generated plan failed', err));
       return;
     }
-
     this.discard(sessionId);
-    log.info(`planning session for task ${pending.taskName} was abandoned; the task is unchanged`);
+    log.info(`planning session for task ${pending.taskName} ended (${how}); the task is unchanged`);
     this.post();
   }
 
   /**
    * Forgets a session and takes its staging folder with it. Safe to call for an
-   * id that is already gone, which is what makes the two ways a session can end
-   * — a plan landing and the terminal closing — free of any race: `onPlanLanded`
+   * id that is already gone, which is what makes the ways a session can end
+   * — a plan landing, the CLI exiting, the terminal closing — free of any race: `onPlanLanded`
    * deletes its entry before its first `await`, so whichever arrives second
    * finds nothing and returns.
    */

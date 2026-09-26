@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.4] - 2026-09-26
+
+### Fixed
+
+- **Quitting a planning session no longer leaves its task stuck orange.**
+  Quitting Claude inside the planning tab (Esc, Ctrl+C, `/exit`) but leaving
+  the tab open kept the row orange, with Generate, Series and Run disabled,
+  for the life of the window. The row used to reset only when the terminal
+  *tab* closed, because the command was typed into your shell and nothing
+  could see it end. It now runs through VS Code's shell integration, so the
+  CLI exiting ends the session too. Shells without integration (Command
+  Prompt) keep the old rule: close the tab.
+- **Cancelling a run on Windows now stops the agent, not just the shell that
+  launched it.** On Windows the agent is started through `cmd.exe`, and
+  cancel only ended `cmd.exe`. The agent kept working, the run stayed
+  "running", and the cancel link did nothing until the agent finished on its
+  own. Cancel now ends the whole process tree.
+
 ## [0.16.3] - 2026-09-26
 
 ### Changed

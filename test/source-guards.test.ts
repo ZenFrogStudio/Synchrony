@@ -124,6 +124,43 @@ describe('source guards', () => {
     );
   });
 
+  it('should_end_a_planning_session_when_its_cli_exits_not_only_when_its_tab_closes', () => {
+    // Quitting Claude inside the tab used to leave the row amber and every
+    // button disabled until the tab itself was closed. Shell integration is the
+    // only way the extension can see the command end; losing either half
+    // (running through it, or listening for the end) brings that back with
+    // nothing in the log to say why.
+    const tasks = fs.readFileSync(path.join(SRC, 'tasks.ts'), 'utf8');
+
+    assert.ok(
+      tasks.includes('onDidEndTerminalShellExecution'),
+      'src/tasks.ts no longer listens for the planning command ending'
+    );
+    assert.ok(
+      tasks.includes('.executeCommand('),
+      'src/tasks.ts no longer starts the planning command through shell integration'
+    );
+    assert.ok(
+      tasks.includes('.sendText('),
+      'src/tasks.ts lost its plain sendText fallback for shells without integration'
+    );
+  });
+
+  it('should_kill_the_whole_process_tree_when_cancelling_a_run_on_windows', () => {
+    // `runner.ts` spawns through cmd.exe on Windows, so the agent is a
+    // grandchild and a bare `child.kill()` only ends the wrapper: the agent keeps
+    // editing the repo and the run never settles. No unit test can reach the
+    // spawn, so this reads the source.
+    const runner = fs.readFileSync(path.join(SRC, 'runner.ts'), 'utf8');
+
+    assert.ok(runner.includes("'taskkill'"), 'src/runner.ts no longer uses taskkill on Windows');
+    assert.ok(runner.includes("'/T'"), 'src/runner.ts no longer kills the process tree');
+    assert.ok(
+      !/run\.child\.kill\(\)/.test(runner),
+      'src/runner.ts still calls child.kill() directly on an active run'
+    );
+  });
+
   it('should_close_the_planning_terminal_itself_once_its_plan_is_adopted', () => {
     // The other half of the listener above. A finished session used to leave
     // its tab sitting at a live Claude prompt for the user to close by hand;

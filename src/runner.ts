@@ -73,7 +73,7 @@ export class Runner implements vscode.Disposable {
   dispose(): void {
     for (const run of this.active.values()) {
       run.killReason = 'shutdown';
-      run.child.kill();
+      killTree(run.child);
     }
     this.finished.dispose();
     // The streams are deliberately left open. Ending them here would race
@@ -132,7 +132,7 @@ export class Runner implements vscode.Disposable {
       return;
     }
     run.killReason = reason;
-    run.child.kill();
+    killTree(run.child);
   }
 
   /** Applies `watchdogVerdict` to every live run. The rules themselves are pure. */
@@ -485,6 +485,24 @@ function spawnAgent(exe: string, args: string[], cwd: string): ChildProcess {
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe']
   });
+}
+
+/**
+ * Stops a run's process, and on Windows everything under it. `spawnAgent` goes
+ * through cmd.exe there, so the agent is a grandchild: `child.kill()` ends the
+ * wrapper and leaves the agent working, still holding the stdio pipes that keep
+ * `close` — and so `settle` — from ever firing. `taskkill /T` walks the tree.
+ * If taskkill itself cannot start, the plain kill is better than nothing.
+ */
+function killTree(child: ChildProcess): void {
+  if (process.platform === 'win32' && child.pid) {
+    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+      windowsHide: true,
+      stdio: 'ignore'
+    }).on('error', () => child.kill());
+    return;
+  }
+  child.kill();
 }
 
 /** cmd has no escape character inside quotes, and a Windows path cannot contain

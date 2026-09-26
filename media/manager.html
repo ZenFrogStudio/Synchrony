@@ -43,18 +43,6 @@
               title="Show library folder" aria-label="Show library folder">
               <i class="codicon codicon-library"></i>
             </button>
-            <button id="reveal-results" class="icon-action" type="button"
-              title="Show results folder" aria-label="Show results folder">
-              <i class="codicon codicon-output"></i>
-            </button>
-            <button id="reveal-archive" class="icon-action" type="button"
-              title="Show archive folder" aria-label="Show archive folder">
-              <i class="codicon codicon-archive"></i>
-            </button>
-            <button id="open-settings" class="icon-action" type="button"
-              title="Synchrony settings" aria-label="Synchrony settings">
-              <i class="codicon codicon-gear"></i>
-            </button>
           </div>
           <input id="search" class="search" type="search" placeholder="Search plans" aria-label="Search plans" />
         </header>
@@ -78,6 +66,20 @@
           <option value="completed">Completed</option>
           <option value="attention">Needs attention</option>
         </select>
+        <div class="activity-tools">
+          <button id="reveal-results" class="icon-action" type="button"
+            title="Show results folder" aria-label="Show results folder">
+            <i class="codicon codicon-output"></i>
+          </button>
+          <button id="reveal-archive" class="icon-action" type="button"
+            title="Show archive folder" aria-label="Show archive folder">
+            <i class="codicon codicon-archive"></i>
+          </button>
+          <button id="open-settings" class="icon-action" type="button"
+            title="Synchrony settings" aria-label="Synchrony settings">
+            <i class="codicon codicon-gear"></i>
+          </button>
+        </div>
         <span id="cost" class="activity-cost"></span>
         <button id="activity-toggle" class="link-button" type="button" aria-expanded="true" aria-controls="activity-list">Hide</button>
       </header>

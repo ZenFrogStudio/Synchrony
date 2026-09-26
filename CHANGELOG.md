@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.5] - 2026-09-26
+
+### Changed
+
+- **Results, archive and settings buttons moved to the Runs bar.** The three
+  folder-and-settings icons now sit just right of the Runs filter dropdown
+  instead of the Plan library header, which keeps only the chain, import and
+  library-folder actions.
+
 ## [0.16.4] - 2026-09-26
 
 ### Fixed

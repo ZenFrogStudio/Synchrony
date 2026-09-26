@@ -1335,6 +1335,14 @@ body.vscode-high-contrast .link-button[data-action="run-now"] {
   outline-offset: 1px;
 }
 
+/* Folder shortcuts and settings sit right after the filter, tight like the
+   library's icon row, so the cost readout can keep the remaining width. */
+.activity-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .activity-cost {
   flex: 1;
   text-align: right;

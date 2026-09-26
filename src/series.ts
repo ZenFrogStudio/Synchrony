@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import * as path from 'path';
+import { computeNextRun } from './recurrence';
 import { nowUtc } from './time';
 import { PermissionMode, TaskSeries } from './types';
 
@@ -74,6 +75,25 @@ export function stampRepeatEnd(
     return { ...patch, repeatEndedAt: undefined };
   }
   return patch;
+}
+
+/**
+ * A repeating plan given a time that has already gone means its next occurrence.
+ * Picking "Saturday 1:00" at 4:50 on a Saturday is choosing the day and the
+ * hour, not asking for a run four hours ago — left as it was, the next scheduler
+ * tick would record that instant as missed and paint the plan red.
+ *
+ * Takes the series as it will be after the edit, and returns what to add to the
+ * patch. Paused, spent and one-shot plans are left alone: none of them fires.
+ */
+export function skipPastOccurrence(
+  next: TaskSeries,
+  now: number = Date.now()
+): Partial<TaskSeries> {
+  if (!next.recurrence || !next.enabled || next.spent || Date.parse(next.nextRunAt) > now) {
+    return {};
+  }
+  return { nextRunAt: computeNextRun(next.recurrence, new Date(now)).toISOString() };
 }
 
 export function createSeries(

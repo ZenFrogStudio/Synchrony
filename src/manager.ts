@@ -12,7 +12,7 @@ import * as library from './library';
 import { log, logConsolidation } from './log';
 import { SynchronyPaths } from './roots';
 import { Scheduler } from './scheduler';
-import { createSeries, defaultScheduledAt, SeriesDefaults } from './series';
+import { createSeries, defaultScheduledAt, SeriesDefaults, skipPastOccurrence } from './series';
 import { coerceSetting, SettingGroup, settingGroups } from './settings';
 import { Store } from './store';
 import { AgentId, MAX_CHAIN_DELAY_MINUTES, TaskSeries } from './types';
@@ -487,6 +487,10 @@ export class Manager implements vscode.Disposable {
         }
         if (!Object.keys(patch).length) {
           return;
+        }
+        const current = this.store.getSeriesById(message.id);
+        if (current) {
+          Object.assign(patch, skipPastOccurrence({ ...current, ...patch }));
         }
         return this.store.updateSeries(message.id, patch);
       }

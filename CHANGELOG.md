@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-09-26
+
+### Fixed
+
+- **A repeating plan set to a time already gone no longer shows as missed.**
+  Picking "Saturday 1:00" at 4:50 on a Saturday stored that morning's 1:00,
+  so the scheduler logged a missed run seconds later and the plan's line in
+  the library turned red instead of blue. A repeating plan given a past time
+  now moves on to its next occurrence.
+
 ## [0.16.0] - 2026-09-26
 
 ### Added

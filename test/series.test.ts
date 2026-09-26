@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { stampRepeatEnd } from '../src/series';
+import { skipPastOccurrence, stampRepeatEnd } from '../src/series';
 import { DAILY, TaskSeries } from '../src/types';
 
 /**
@@ -63,5 +63,36 @@ describe('series — dating the end of a repeat rule', () => {
     const patch = stampRepeatEnd(repeating, { enabled: false, spent: true }, WHEN);
 
     assert.deepEqual(patch, { enabled: false, spent: true });
+  });
+});
+
+describe('series — a repeating plan given a time already gone', () => {
+  const NOW = Date.parse(WHEN);
+  const PAST = '2026-03-01T08:00:00.000Z';
+  const rule = { daysOfWeek: DAILY, timeLocal: '09:00' };
+
+  it('should_move_a_past_time_on_to_the_next_occurrence', () => {
+    // The bug this closes: the scheduler read the past instant as a missed run.
+    const patch = skipPastOccurrence(series({ recurrence: rule, nextRunAt: PAST }), NOW);
+
+    assert.ok(patch.nextRunAt, 'a past time must be replaced');
+    assert.ok(Date.parse(patch.nextRunAt) > NOW, 'the replacement must be in the future');
+  });
+
+  it('should_leave_a_future_time_alone', () => {
+    assert.deepEqual(skipPastOccurrence(series({ recurrence: rule }), NOW), {});
+  });
+
+  it('should_leave_one_shots_paused_and_spent_plans_alone', () => {
+    // None of these fires, so a past time on them cannot turn into a missed run.
+    assert.deepEqual(skipPastOccurrence(series({ nextRunAt: PAST }), NOW), {});
+    assert.deepEqual(
+      skipPastOccurrence(series({ recurrence: rule, nextRunAt: PAST, enabled: false }), NOW),
+      {}
+    );
+    assert.deepEqual(
+      skipPastOccurrence(series({ recurrence: rule, nextRunAt: PAST, spent: true }), NOW),
+      {}
+    );
   });
 });

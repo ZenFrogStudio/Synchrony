@@ -314,6 +314,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       .filter((p) => !p.problem || p.agent.id === 'claude')
       .map((p) => p.agent.id);
     manager.setAvailableAgents(availableAgentIds);
+    taskView.setAvailableAgents(availableAgentIds);
     // The heartbeat already went out once with the optimistic default above;
     // this is what corrects it once the probe actually lands.
     dashboard.refresh();

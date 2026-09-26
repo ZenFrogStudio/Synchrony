@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-26
+
+### Added
+
+- **Pick the engine for the Tasks panel.** A new **Engine** dropdown above
+  **Model** chooses Claude Code, opencode or Codex, listing only the engines
+  found on this machine. The Model list follows the engine, and each engine
+  remembers its own model (`synchrony.planModel`, `synchrony.planModelOpencode`
+  and `synchrony.planModelCodex`), so switching never loses a choice. Generate
+  plan, Series, Explain, Run and the manager's **Revise & rerun** all use it.
+  Codex sessions open read-only and ask before saving; opencode gets the
+  instruction through `--prompt`. Remote-answered planning sessions stay on
+  Claude Code, because only Claude can plug in the Synchrony question channel.
+- **Fable (latest) and Fable 5.1 in the Claude model list.** `fable` tracks
+  the newest Fable model, and `claude-fable-5-1` pins Fable 5.1.
+
 ## [0.15.4] - 2026-09-22
 
 ### Changed

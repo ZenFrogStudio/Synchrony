@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.15.4",
+  "version": "0.16.0",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -154,6 +154,21 @@
           "default": "",
           "markdownDescription": "Where run transcripts are written. Empty means `.synchrony/results` in the current folder."
         },
+        "synchrony.planAgent": {
+          "type": "string",
+          "default": "claude",
+          "enum": [
+            "claude",
+            "opencode",
+            "codex"
+          ],
+          "enumDescriptions": [
+            "Claude Code",
+            "opencode",
+            "Codex"
+          ],
+          "markdownDescription": "Engine for everything the Tasks panel starts (and Revise), except remote-answered planning sessions, which always use Claude Code."
+        },
         "synchrony.planModel": {
           "type": "string",
           "default": "",
@@ -163,10 +178,12 @@
             "claude-opus-4-8",
             "claude-sonnet-5",
             "claude-haiku-4-5-20251001",
+            "claude-fable-5-1",
             "claude-fable-5",
             "opus",
             "sonnet",
-            "haiku"
+            "haiku",
+            "fable"
           ],
           "enumDescriptions": [
             "Account default",
@@ -174,12 +191,52 @@
             "Opus 4.8",
             "Sonnet 5",
             "Haiku 4.5",
+            "Fable 5.1",
             "Fable 5",
             "Opus (latest)",
             "Sonnet (latest)",
-            "Haiku (latest)"
+            "Haiku (latest)",
+            "Fable (latest)"
           ],
-          "markdownDescription": "Model for everything the Tasks panel starts — generating a plan, generating a series, explaining a task, and running a task directly. Plans on the schedule use their own model."
+          "markdownDescription": "Model for everything the Tasks panel starts — generating a plan, generating a series, explaining a task, and running a task directly — when the planning engine is Claude Code. Plans on the schedule use their own model."
+        },
+        "synchrony.planModelOpencode": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "opencode/big-pickle",
+            "opencode/deepseek-v4-flash-free",
+            "opencode/laguna-s-2.1-free",
+            "opencode/ling-3.0-flash-free",
+            "opencode/mimo-v2.5-free",
+            "opencode/nemotron-3-ultra-free",
+            "opencode/north-mini-code-free"
+          ],
+          "enumDescriptions": [
+            "opencode default",
+            "Big Pickle",
+            "DeepSeek V4 Flash",
+            "Laguna S 2.1",
+            "Ling 3.0 Flash",
+            "MiMo v2.5",
+            "Nemotron 3 Ultra",
+            "North Mini Code"
+          ],
+          "markdownDescription": "Model for everything the Tasks panel starts when the planning engine is opencode."
+        },
+        "synchrony.planModelCodex": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "gpt-5.3-codex"
+          ],
+          "enumDescriptions": [
+            "Codex default",
+            "GPT-5.3 Codex"
+          ],
+          "markdownDescription": "Model for everything the Tasks panel starts when the planning engine is Codex."
         },
         "synchrony.planStep.tests": {
           "type": "boolean",

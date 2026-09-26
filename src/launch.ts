@@ -1,4 +1,4 @@
-import { PermissionMode, TaskSeries } from './types';
+import { AgentId, PermissionMode, TaskSeries } from './types';
 
 /**
  * How a run is started, minus the starting. Pure — no `vscode` import — so the
@@ -255,6 +255,9 @@ export interface GenerateOptions {
    * has nowhere to put the rest of a series, and `askConfigPath` wins here.
    */
   series?: boolean;
+  /** The engine the session opens in. Absent means Claude. A routed session
+   *  (`askConfigPath` set) is always Claude, whatever this says. */
+  agent?: AgentId;
 }
 
 /**
@@ -487,6 +490,29 @@ export function generateCommand(options: GenerateOptions): string {
   // `--` separator would also work, but not portably — cmd needs it bare and
   // PowerShell only passes it through quoted, and a rule that subtle is worth
   // avoiding when moving the argument does the same job.
+  // Codex and opencode have no list-style flags, so the order does not matter
+  // for them; the instruction leads there too only for symmetry.
+  switch (askConfigPath ? 'claude' : options.agent) {
+    // Read-only is the nearest Codex has to plan mode. Every write, including
+    // saving the finished plan, stops and asks the user at the terminal, which
+    // is also why there is no `--add-dir`: it only grants write access, and
+    // read-only ignores it.
+    case 'codex':
+      return `${command} ${[
+        q(instruction),
+        '--sandbox',
+        'read-only',
+        '--ask-for-approval',
+        'on-request',
+        ...(model ? ['--model', q(model)] : [])
+      ].join(' ')}`;
+    // opencode's first plain argument is a project folder, so the instruction
+    // goes through `--prompt`. No `--agent plan`: that agent may refuse to write
+    // outside its folder, which would stop it saving the plan.
+    case 'opencode':
+      return `${command} ${['--prompt', q(instruction), ...(model ? ['-m', q(model)] : [])].join(' ')}`;
+  }
+
   const args = [q(instruction), '--permission-mode', askConfigPath ? 'default' : 'plan'];
 
   args.push('--add-dir', q(allowDir));
@@ -508,6 +534,8 @@ export interface ExplainOptions {
   allowDir: string;
   model?: string;
   shell: Shell;
+  /** The engine the session opens in. Absent means Claude. */
+  agent?: AgentId;
 }
 
 /**
@@ -540,6 +568,20 @@ export function explainCommand(options: ExplainOptions): string {
     'afterwards so I can ask follow-up questions.';
 
   const command = shell === 'powershell' ? `& ${q(exe)}` : q(exe);
+
+  switch (options.agent) {
+    case 'codex':
+      return `${command} ${[
+        q(instruction),
+        '--sandbox',
+        'read-only',
+        '--ask-for-approval',
+        'on-request',
+        ...(model ? ['--model', q(model)] : [])
+      ].join(' ')}`;
+    case 'opencode':
+      return `${command} ${['--prompt', q(instruction), ...(model ? ['-m', q(model)] : [])].join(' ')}`;
+  }
 
   // `default`, deliberately, and not `plan`. A plan-mode session ends by
   // offering its work through ExitPlanMode, and approving that prompt would set

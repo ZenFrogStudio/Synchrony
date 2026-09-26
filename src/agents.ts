@@ -31,6 +31,8 @@ export interface Agent {
   /** Default executable, resolved from PATH. */
   exe: string;
   models: ModelChoice[];
+  /** The `synchrony.` setting holding the model the Tasks panel uses on this engine. */
+  planModelSetting: string;
 }
 
 /**
@@ -44,10 +46,12 @@ export const CLAUDE_MODELS: ModelChoice[] = [
   { value: 'claude-opus-4-8', label: 'Opus 4.8' },
   { value: 'claude-sonnet-5', label: 'Sonnet 5' },
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
+  { value: 'claude-fable-5-1', label: 'Fable 5.1' },
   { value: 'claude-fable-5', label: 'Fable 5' },
   { value: 'opus', label: 'Opus (latest)' },
   { value: 'sonnet', label: 'Sonnet (latest)' },
-  { value: 'haiku', label: 'Haiku (latest)' }
+  { value: 'haiku', label: 'Haiku (latest)' },
+  { value: 'fable', label: 'Fable (latest)' }
 ];
 
 /**
@@ -84,21 +88,24 @@ export const AGENTS: Agent[] = [
     label: 'Claude Code',
     pathSetting: 'claudePath',
     exe: 'claude',
-    models: CLAUDE_MODELS
+    models: CLAUDE_MODELS,
+    planModelSetting: 'planModel'
   },
   {
     id: 'opencode',
     label: 'opencode',
     pathSetting: 'opencodePath',
     exe: 'opencode',
-    models: OPENCODE_MODELS
+    models: OPENCODE_MODELS,
+    planModelSetting: 'planModelOpencode'
   },
   {
     id: 'codex',
     label: 'Codex',
     pathSetting: 'codexPath',
     exe: 'codex',
-    models: CODEX_MODELS
+    models: CODEX_MODELS,
+    planModelSetting: 'planModelCodex'
   }
 ];
 
@@ -111,4 +118,12 @@ export function isAgentId(value: unknown): value is AgentId {
 /** The engine a series runs on. Absent means Claude. */
 export function agentFor(id: AgentId | undefined): Agent {
   return AGENTS.find((agent) => agent.id === id) ?? AGENTS[0];
+}
+
+/** The engine and model the Tasks panel (and Revise) use. `read` is a settings getter. */
+export function planChoice(read: (key: string) => unknown): { agent: Agent; model: string } {
+  const id = read('planAgent');
+  const agent = agentFor(isAgentId(id) ? id : DEFAULT_AGENT);
+  const model = read(agent.planModelSetting);
+  return { agent, model: typeof model === 'string' ? model : '' };
 }

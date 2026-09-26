@@ -12,6 +12,7 @@ import {
   shellKind,
   Shell
 } from '../src/launch';
+import { AGENTS, planChoice } from '../src/agents';
 import { AgentId, PermissionMode } from '../src/types';
 
 const PLAN = 'D:\\plans\\refactor.md';
@@ -728,6 +729,83 @@ describe('explainCommand', () => {
     assert.ok(!command.includes('$'), 'PowerShell would expand it');
     assert.ok(!command.includes('!'), 'interactive bash would expand it');
     assert.ok(!/[^\x20-\x7e]/.test(command), 'the command must be plain ASCII');
+  });
+});
+
+describe('generateCommand and explainCommand — other engines', () => {
+  const build = [
+    ['generateCommand', (o: { agent: AgentId; model?: string; shell?: Shell }) =>
+      generateCommand(generatable({ sourcePath: TASK, destDir: STAGING, exe: o.agent, ...o }))],
+    ['explainCommand', (o: { agent: AgentId; model?: string; shell?: Shell }) =>
+      explainCommand(explainable({ exe: o.agent, ...o }))]
+  ] as const;
+
+  for (const [name, command] of build) {
+    it(`${name}_should_open_codex_read_only_with_the_instruction_first`, () => {
+      const line = command({ agent: 'codex', model: 'gpt-5.3-codex' });
+
+      assert.ok(line.startsWith(`'codex' 'Read the file at ${TASK}`), line);
+      assert.ok(line.includes(' --sandbox read-only --ask-for-approval on-request'));
+      assert.ok(line.endsWith(` --model 'gpt-5.3-codex'`));
+      // Read-only ignores a write grant, and Claude's flags mean nothing here.
+      assert.ok(!line.includes('--add-dir'));
+      assert.ok(!line.includes('--permission-mode'));
+    });
+
+    it(`${name}_should_pass_the_instruction_to_opencode_through_prompt`, () => {
+      // opencode's first plain argument is a project folder, not a prompt.
+      const line = command({ agent: 'opencode', model: 'opencode/big-pickle' });
+
+      assert.ok(line.startsWith(`'opencode' --prompt 'Read the file at ${TASK}`), line);
+      assert.ok(line.endsWith(` -m 'opencode/big-pickle'`));
+      assert.ok(!line.includes('--agent'));
+      assert.ok(!line.includes('--permission-mode'));
+    });
+
+    it(`${name}_should_pass_no_model_flag_to_either_engine_without_a_model`, () => {
+      assert.ok(!command({ agent: 'codex' }).includes('--model'));
+      assert.ok(!command({ agent: 'opencode' }).includes(' -m '));
+    });
+
+    it(`${name}_should_prefix_a_non_claude_engine_with_the_call_operator_in_powershell`, () => {
+      assert.ok(command({ agent: 'codex', shell: 'powershell' }).startsWith(`& 'codex' `));
+    });
+  }
+
+  it('should_keep_a_routed_session_on_claude_whatever_the_engine', () => {
+    // Only Claude's command can plug in the `synchrony-ask` back-channel.
+    assert.equal(routed({ agent: 'codex' }), routed());
+    assert.ok(routed({ agent: 'opencode' }).includes('--mcp-config'));
+  });
+});
+
+describe('planChoice', () => {
+  it('should_fall_back_to_claude_for_an_unknown_engine', () => {
+    const settings: Record<string, unknown> = { planAgent: 'gemini', planModel: 'fable' };
+
+    const choice = planChoice((key) => settings[key]);
+
+    assert.equal(choice.agent.id, 'claude');
+    assert.equal(choice.model, 'fable');
+  });
+
+  it('should_read_each_engines_own_model_key', () => {
+    const settings: Record<string, unknown> = {
+      planModel: 'fable',
+      planModelOpencode: 'opencode/big-pickle',
+      planModelCodex: 'gpt-5.3-codex'
+    };
+
+    for (const agent of AGENTS) {
+      const choice = planChoice((key) => (key === 'planAgent' ? agent.id : settings[key]));
+
+      assert.equal(choice.agent.id, agent.id);
+      assert.equal(choice.model, settings[agent.planModelSetting]);
+    }
+  });
+
+  it('should_treat_a_missing_model_as_the_engine_default', () => {
+    assert.equal(planChoice(() => undefined).model, '');
   });
 });
 

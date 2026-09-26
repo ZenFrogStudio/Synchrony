@@ -415,6 +415,7 @@ body.vscode-high-contrast #run-task.button:hover {
 }
 
 .model-label {
+  min-width: 3.5em;
   color: var(--muted);
 }
 

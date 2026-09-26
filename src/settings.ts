@@ -46,7 +46,10 @@ export const GROUPS: { title: string; note?: string; keys: string[] }[] = [
     title: 'Planning',
     note: 'These shape the plans Synchrony generates from now on. Plans already in your library are untouched.',
     keys: [
+      'planAgent',
       'planModel',
+      'planModelOpencode',
+      'planModelCodex',
       'planStep.tests',
       'planStep.version',
       'planStep.changelog',

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
-import { CLAUDE_MODELS } from '../src/agents';
+import { AGENTS } from '../src/agents';
 import { LEGACY_ROOT_DIR, RETIRED_IDS, ROOT_DIR } from '../src/migrate-name';
 
 /**
@@ -290,22 +290,33 @@ describe('source guards', () => {
     }
   });
 
-  it('should_keep_the_plan_model_manifest_enum_in_step_with_the_claude_model_list', () => {
+  it('should_keep_each_plan_model_manifest_enum_in_step_with_its_engine_model_list', () => {
     // The Tasks dropdown reads src/agents.ts, while VS Code Settings enforces
     // package.json. If the tables drift, one UI offers a value the other
     // refuses at the moment it is picked.
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    const setting = manifest.contributes.configuration.properties['synchrony.planModel'];
+    const properties = manifest.contributes.configuration.properties;
+
+    for (const agent of AGENTS) {
+      const key = `synchrony.${agent.planModelSetting}`;
+      const setting = properties[key];
+      assert.ok(setting, `package.json omits ${key}`);
+      assert.deepEqual(
+        setting.enum,
+        agent.models.map((model) => model.value),
+        `package.json ${key} enum changed without the ${agent.id} model list in src/agents.ts`
+      );
+      assert.deepEqual(
+        setting.enumDescriptions,
+        agent.models.map((model) => model.label),
+        `package.json ${key} enumDescriptions changed without the ${agent.id} model list in src/agents.ts`
+      );
+    }
 
     assert.deepEqual(
-      setting.enum,
-      CLAUDE_MODELS.map((model) => model.value),
-      'package.json synchrony.planModel enum changed without src/agents.ts CLAUDE_MODELS'
-    );
-    assert.deepEqual(
-      setting.enumDescriptions,
-      CLAUDE_MODELS.map((model) => model.label),
-      'package.json synchrony.planModel enumDescriptions changed without src/agents.ts CLAUDE_MODELS'
+      properties['synchrony.planAgent'].enum,
+      AGENTS.map((agent) => agent.id),
+      'package.json synchrony.planAgent enum changed without src/agents.ts AGENTS'
     );
   });
 

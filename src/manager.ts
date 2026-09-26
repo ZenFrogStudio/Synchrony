@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { buildActivity } from './activity';
-import { AGENTS, DEFAULT_AGENT } from './agents';
+import { AGENTS, DEFAULT_AGENT, planChoice } from './agents';
 import { appendPatch, chainPatches, chainTail, isInChain, spliceForRechain } from './chain';
 import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
@@ -885,8 +885,12 @@ export class Manager implements vscode.Disposable {
     }
 
     const config = vscode.workspace.getConfiguration('synchrony');
+    // The same engine and model as the Tasks panel, since this is the same kind
+    // of session: one you sit at.
+    const { agent, model } = planChoice((key) => config.get(key));
     const command = generateCommand({
-      exe: config.get<string>('claudePath', 'claude'),
+      exe: config.get<string>(agent.pathSetting, agent.exe),
+      agent: agent.id,
       // No `destDir`: that is what makes the instruction "overwrite that same
       // file", and puts the session in plan mode.
       sourcePath: series.filePath,
@@ -894,7 +898,7 @@ export class Manager implements vscode.Disposable {
       // read and overwritten, and still does when `synchrony.libraryPath` has
       // moved the library outside `.synchrony`.
       allowDir: path.dirname(series.filePath),
-      model: config.get<string>('planModel', '') || undefined,
+      model: model || undefined,
       shell: shellKind(vscode.env.shell, process.platform),
       steps: enabledPlanSteps((key, fallback) => config.get<boolean>(key, fallback))
     });

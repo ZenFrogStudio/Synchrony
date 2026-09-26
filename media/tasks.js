@@ -7,6 +7,7 @@
   const inputEl = /** @type {HTMLInputElement} */ (document.getElementById('task-input'));
   const addEl = /** @type {HTMLElement} */ (document.getElementById('add-task'));
   const barEl = /** @type {HTMLElement} */ (document.getElementById('action-bar'));
+  const agentEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-agent'));
   const selectEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-model'));
   const generateEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-plan'));
   const seriesEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-series'));
@@ -14,11 +15,14 @@
 
   /** @type {{
    *  tasks: {name: string, label: string, generating: boolean, running: boolean}[],
+   *  agents: {id: string, label: string}[],
+   *  agent: string,
    *  models: {value: string, label: string}[],
    *  model: string
    * }} */
-  let state = { tasks: [], models: [], model: '' };
+  let state = { tasks: [], agents: [], agent: '', models: [], model: '' };
 
+  let renderedAgents = '';
   let renderedModels = '';
 
   /** The row being edited and what has been typed into it. Held here, never read
@@ -40,6 +44,7 @@
   // ---------- rendering ----------
 
   function render() {
+    renderAgents();
     renderModels();
 
     // Read before the rebuild throws the focused element away: focus only
@@ -89,6 +94,19 @@
         : task.running
           ? 'This task is already running'
           : `Run "${firstLine(task.label)}" now, unattended`;
+  }
+
+  function renderAgents() {
+    const markup = state.agents
+      .map((choice) =>
+        `<option value="${esc(choice.id)}"${choice.id === state.agent ? ' selected' : ''}>` +
+        `${esc(choice.label)}</option>`
+      )
+      .join('');
+    if (markup !== renderedAgents) {
+      renderedAgents = markup;
+      agentEl.innerHTML = markup;
+    }
   }
 
   function renderModels() {
@@ -336,6 +354,7 @@
     }
   });
 
+  agentEl.addEventListener('change', () => send({ type: 'setPlanAgent', value: agentEl.value }));
   selectEl.addEventListener('change', () => send({ type: 'setPlanModel', value: selectEl.value }));
 
   // ---------- host ----------
@@ -348,6 +367,8 @@
     const wasAt = state.tasks.findIndex((task) => task.name === selected);
     state = {
       tasks: Array.isArray(message.tasks) ? message.tasks : [],
+      agents: Array.isArray(message.agents) ? message.agents : [],
+      agent: typeof message.agent === 'string' ? message.agent : '',
       models: Array.isArray(message.models) ? message.models : [],
       model: typeof message.model === 'string' ? message.model : ''
     };

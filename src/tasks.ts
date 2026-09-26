@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { CLAUDE_MODELS } from './agents';
+import { AGENTS, agentFor, DEFAULT_AGENT, isAgentId, planChoice } from './agents';
 import { chainPatches } from './chain';
 import { jobState } from './history';
 import {
@@ -23,6 +23,7 @@ import { SynchronyPaths } from './roots';
 import { Scheduler } from './scheduler';
 import { createSeries, defaultScheduledAt } from './series';
 import { Store } from './store';
+import { AgentId } from './types';
 
 /**
  * The activity-bar view: a task inbox.
@@ -108,6 +109,7 @@ type Inbound =
   | { type: 'generateSeries'; name: string }
   | { type: 'explainTask'; name: string }
   | { type: 'runTask'; name: string }
+  | { type: 'setPlanAgent'; value: string }
   | { type: 'setPlanModel'; value: string };
 
 /** A planning session in flight: its staging folder and the task that asked. */
@@ -157,8 +159,14 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.onTerminalClosed(terminal)
   );
 
+  /** The engines found on this machine, set by `extension.ts` once it has looked. */
+  private available: AgentId[] = [DEFAULT_AGENT];
+
   private readonly config = vscode.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration('synchrony.planModel')) {
+    if (
+      e.affectsConfiguration('synchrony.planAgent') ||
+      AGENTS.some((agent) => e.affectsConfiguration(`synchrony.${agent.planModelSetting}`))
+    ) {
       this.post();
     }
   });
@@ -201,6 +209,12 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       () => this.scheduler.leading,
       (request) => this.generateFromRequest(request)
     );
+  }
+
+  /** Which engines the Engine dropdown offers. Mirrors `Manager.setAvailableAgents`. */
+  setAvailableAgents(ids: AgentId[]): void {
+    this.available = ids;
+    this.post();
   }
 
   /** Re-points the request watcher at the active folder. */
@@ -260,11 +274,20 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       return;
     }
     const pending = new Set([...this.awaitingPlan.values()].map((p) => p.taskName));
+    const config = vscode.workspace.getConfiguration('synchrony');
+    const { agent, model } = planChoice((key) => config.get(key));
 
     this.view.webview.postMessage({
       type: 'state',
-      models: CLAUDE_MODELS,
-      model: vscode.workspace.getConfiguration('synchrony').get<string>('planModel', ''),
+      // The saved engine is listed even when it was not found, so the dropdown
+      // never goes blank.
+      agents: AGENTS.filter((a) => this.available.includes(a.id) || a.id === agent.id).map((a) => ({
+        id: a.id,
+        label: a.label
+      })),
+      agent: agent.id,
+      models: agent.models,
+      model,
       tasks: this.list().map((task) => ({
         name: task.name,
         label: task.label,
@@ -321,15 +344,29 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         this.post();
         return;
 
-      case 'setPlanModel': {
-        if (!CLAUDE_MODELS.some((choice) => choice.value === message.value)) {
-          log.warn(`setPlanModel: refused ${JSON.stringify(message.value)}`);
+      case 'setPlanAgent': {
+        if (!isAgentId(message.value)) {
+          log.warn(`setPlanAgent: refused ${JSON.stringify(message.value)}`);
           this.post();
           return;
         }
         await vscode.workspace
           .getConfiguration('synchrony')
-          .update('planModel', message.value, vscode.ConfigurationTarget.Global);
+          .update('planAgent', message.value, vscode.ConfigurationTarget.Global);
+        return;
+      }
+
+      case 'setPlanModel': {
+        const config = vscode.workspace.getConfiguration('synchrony');
+        // Checked against the current engine's list, and saved under that
+        // engine's own key, so switching engines never loses a choice.
+        const { agent } = planChoice((key) => config.get(key));
+        if (!agent.models.some((choice) => choice.value === message.value)) {
+          log.warn(`setPlanModel: refused ${JSON.stringify(message.value)}`);
+          this.post();
+          return;
+        }
+        await config.update(agent.planModelSetting, message.value, vscode.ConfigurationTarget.Global);
         return;
       }
 
@@ -535,8 +572,12 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     // time, and a prompt on the fastest path in the product — capture, press the
     // lightbulb, start talking — is friction for a choice that rarely changes.
     // It is set on the manager's Settings page instead.
-    // A request may name its own model; otherwise the setting, as always.
-    const model = modelOverride ?? config.get<string>('planModel', '');
+    // A routed session is always Claude: only Claude's command can plug in the
+    // `synchrony-ask` back-channel. A request may name its own model; otherwise
+    // the setting, as always.
+    const { agent, model } = routed
+      ? { agent: agentFor('claude'), model: modelOverride ?? config.get<string>('planModel', '') }
+      : planChoice((key) => config.get(key));
 
     const paths = this.paths();
     // The active folder, with nothing to ask about: a task now belongs to a
@@ -568,7 +609,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     }
 
     const command = generateCommand({
-      exe: config.get<string>('claudePath', 'claude'),
+      exe: config.get<string>(agent.pathSetting, agent.exe),
+      agent: agent.id,
       sourcePath: task.filePath,
       destDir: sessionDir,
       // Set means the session asks through Synchrony rather than through this
@@ -970,16 +1012,18 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     const config = vscode.workspace.getConfiguration('synchrony');
     const paths = this.paths();
+    const { agent, model } = planChoice((key) => config.get(key));
 
     const command = explainCommand({
-      exe: config.get<string>('claudePath', 'claude'),
+      exe: config.get<string>(agent.pathSetting, agent.exe),
+      agent: agent.id,
       sourcePath: task.filePath,
       // The same grant a planning session gets: the task sits under the folder's
       // `.synchrony` root, outside the working directory.
       allowDir: paths.root,
       // The same setting, because this is the same kind of session — one you sit
       // at — rather than a scheduled run.
-      model: config.get<string>('planModel', '') || undefined,
+      model: model || undefined,
       shell: shellKind(vscode.env.shell, process.platform)
     });
 
@@ -1024,6 +1068,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     }
 
     const paths = this.paths();
+    const config = vscode.workspace.getConfiguration('synchrony');
+    const { agent, model } = planChoice((key) => config.get(key));
     // The same door every outside file comes through, and what keeps
     // `consolidate`'s invariant true: a series may only point into the library.
     const plan = library.importFile(paths.plans, task.filePath);
@@ -1043,7 +1089,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         // what "run it in auto mode" means and it should not move if the
         // default does.
         permissionMode: 'auto',
-        model: vscode.workspace.getConfiguration('synchrony').get<string>('planModel', '') || undefined,
+        agent: agent.id,
+        model: model || undefined,
         // `createSeries` dates a new series an hour out. Without this the job
         // would run now *and* again in an hour, from a plan nobody scheduled.
         spent: true,

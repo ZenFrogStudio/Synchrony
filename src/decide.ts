@@ -1,5 +1,5 @@
 import { armings } from './chain';
-import { advancePast, computeNextRun } from './recurrence';
+import { computeNextRun } from './recurrence';
 import { nextTopOfHour } from './retry';
 import { MissedReason, TaskRun, TaskSeries } from './types';
 
@@ -73,6 +73,15 @@ export function decide(input: DecideInput): Action[] {
 
   const seriesById = new Map(current.map((s) => [s.id, s]));
 
+  // A repeating plan never keeps a missed record: a miss is announced and the
+  // plan moves on to its next occurrence. Records left from before that rule
+  // are swept here. Cleanup, not a new miss, so nothing is announced.
+  for (const run of input.runs) {
+    if (run.status === 'missed' && seriesById.get(run.seriesId)?.recurrence) {
+      actions.push({ kind: 'removeRun', id: run.id });
+    }
+  }
+
   let missedCount = 0;
 
   // Runs materialised below join this list, so an occurrence that comes due can
@@ -97,14 +106,19 @@ export function decide(input: DecideInput): Action[] {
     // `computeNextRun` throw. Caught per series and resolved before anything is
     // pushed: an escape from here aborts the whole tick, so one unusable rule
     // would silently stop every other task in the list from ever running.
+    // Past the window, a repeating plan gets no run at all: it is announced and
+    // `advance` moves it to its next occurrence. Only a one-shot is recorded as
+    // missed, because only a one-shot has nothing else coming.
     let advance: Partial<TaskSeries>;
-    let run: TaskRun;
+    let run: TaskRun | undefined;
     try {
       advance = advanceOf(series, now);
       run =
         overdue <= graceMs
           ? newRun(series, series.nextRunAt, 1, input.newId())
-          : missedRun(series, reason, now, nowIso, input.newId());
+          : series.recurrence
+            ? undefined
+            : missedRun(series, reason, nowIso, input.newId());
     } catch (err) {
       // Permanent, like a missing plan file: retrying throws identically. Pause
       // it so the tick stops tripping over it, and say so.
@@ -117,13 +131,15 @@ export function decide(input: DecideInput): Action[] {
       continue;
     }
 
-    actions.push({ kind: 'addRun', run });
+    if (run) {
+      actions.push({ kind: 'addRun', run });
+    }
     actions.push({ kind: 'updateSeries', id: series.id, patch: advance });
 
-    if (run.status === 'missed') {
-      missedCount++;
-    } else {
+    if (run?.status === 'pending') {
       candidates.push(run);
+    } else {
+      missedCount++;
     }
   }
 
@@ -159,11 +175,17 @@ export function decide(input: DecideInput): Action[] {
         continue;
       }
 
-      actions.push({
-        kind: 'updateRun',
-        id: run.id,
-        patch: { status: 'missed', missedAt: nowIso, missedReason: reason }
-      });
+      // A repeating plan has its next occurrence already booked, so the late
+      // run is dropped rather than left as a decision.
+      if (series.recurrence) {
+        actions.push({ kind: 'removeRun', id: run.id });
+      } else {
+        actions.push({
+          kind: 'updateRun',
+          id: run.id,
+          patch: { status: 'missed', missedAt: nowIso, missedReason: reason }
+        });
+      }
       missedCount++;
       continue;
     }
@@ -218,28 +240,12 @@ function advanceOf(series: TaskSeries, now: number): Partial<TaskSeries> {
   return { nextRunAt: computeNextRun(series.recurrence, new Date(now)).toISOString() };
 }
 
-/**
- * One missed record per series per catch-up. A week-long outage should produce
- * a single decision, not seven notifications.
- */
-function missedRun(
-  series: TaskSeries,
-  reason: MissedReason,
-  now: number,
-  nowIso: string,
-  id: string
-): TaskRun {
-  const base: TaskRun = {
+/** A one-shot that came and went unwatched, left for the user to run or skip. */
+function missedRun(series: TaskSeries, reason: MissedReason, nowIso: string, id: string): TaskRun {
+  return {
     ...newRun(series, series.nextRunAt, 1, id),
     status: 'missed',
     missedAt: nowIso,
     missedReason: reason
   };
-
-  if (!series.recurrence) {
-    return base;
-  }
-
-  const { skipped } = advancePast(series.recurrence, new Date(series.nextRunAt), new Date(now));
-  return { ...base, missedCount: skipped + 1 };
 }

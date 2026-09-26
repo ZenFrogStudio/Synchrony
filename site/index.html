@@ -133,7 +133,7 @@
         <h3>Scheduling, and what happens while you are away</h3>
         <p>A plan runs once, daily, or on the weekdays you choose.</p>
         <ul>
-          <li><strong>Missed windows wait for you.</strong> If the machine was asleep or VS Code was closed when a task was due, Synchrony does not run it late. Past the grace window — 15 minutes by default — the occurrence is marked <em>missed</em> and waits for your decision: run it now, reschedule, or skip. A week-long outage collapses into one decision, not seven notifications.</li>
+          <li><strong>Missed windows wait for you.</strong> If the machine was asleep or VS Code was closed when a task was due, Synchrony does not run it late. Past the grace window — 15 minutes by default — a one-time task is marked <em>missed</em> and waits for your decision: run it now or reschedule. A repeating plan is announced as missed and picks up at its next occurrence, so a week-long outage is one notification, not seven.</li>
           <li><strong>Failed runs retry.</strong> One hour later, up to <code>maxRetries</code> attempts. Failures that retrying cannot fix — a deleted plan file, a missing working directory, a cancelled run — are not retried at all.</li>
           <li><strong>Recurrence survives daylight saving.</strong> It is stored as local wall-clock time, so "daily at 09:00" stays 09:00 across the transition. Concrete instants are derived from the rule, never accumulated.</li>
           <li><strong>A crash does not cost you a slot.</strong> A run left running because VS Code closed mid-flight is reconciled to failed at next launch and retried, rather than holding its concurrency slot forever.</li>
@@ -194,7 +194,7 @@ npm run package    # typecheck + bundle + vsce package</code></pre>
       <p>Press <kbd class="mono">F5</kbd> to launch an Extension Development Host.</p>
 
       <h3>One honest limit</h3>
-      <p>Synchrony is an extension, not a daemon. <strong>A folder's tasks only run while a VS Code window is open on it.</strong> Tasks due while VS Code was closed are caught up, or marked missed, at next launch. For true machine-level scheduling you would want Windows Task Scheduler invoking <code>claude</code> directly.</p>
+      <p>Synchrony is an extension, not a daemon. <strong>A folder's tasks only run while a VS Code window is open on it.</strong> Tasks due while VS Code was closed are caught up at next launch; past the grace window a one-time task is marked missed and a repeating plan picks up at its next occurrence. For true machine-level scheduling you would want Windows Task Scheduler invoking <code>claude</code> directly.</p>
     </div>
   </section>
 

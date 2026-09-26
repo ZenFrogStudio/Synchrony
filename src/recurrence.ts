@@ -73,24 +73,3 @@ function nextMonthly(dayOfMonth: number, hours: number, minutes: number, after: 
 
   throw new Error('Could not find a next monthly occurrence within a year.');
 }
-
-/**
- * Advances past every occurrence already in the past, reporting how many were
- * skipped. A machine that was off for a week produces one catch-up decision
- * rather than seven.
- */
-export function advancePast(
-  recurrence: Recurrence,
-  from: Date,
-  now: Date
-): { next: Date; skipped: number } {
-  let next = computeNextRun(recurrence, from);
-  let skipped = 0;
-
-  while (next.getTime() <= now.getTime()) {
-    next = computeNextRun(recurrence, next);
-    skipped++;
-  }
-
-  return { next, skipped };
-}

@@ -4,7 +4,7 @@ process.env.TZ = 'America/New_York';
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { advancePast, computeNextRun } from '../src/recurrence';
+import { computeNextRun } from '../src/recurrence';
 import { DAILY, Recurrence } from '../src/types';
 
 /**
@@ -148,70 +148,5 @@ describe('computeNextRun — monthly rules', () => {
 
   it('should_throw_when_a_monthly_rules_time_is_malformed', () => {
     assert.throws(() => computeNextRun(monthly(15, 'not-a-time'), new Date(2026, 6, 26)));
-  });
-});
-
-describe('advancePast — catch-up after an outage', () => {
-  it('should_not_skip_anything_when_the_next_occurrence_is_still_ahead', () => {
-    // Arrange: due at 09:00, currently 08:30 on the same day.
-    const from = new Date(2026, 6, 26, 8, 0);
-    const now = new Date(2026, 6, 26, 8, 30);
-
-    // Act
-    const { next, skipped } = advancePast(daily('09:00'), from, now);
-
-    // Assert
-    assert.equal(skipped, 0);
-    assertLocal(next, '2026-07-26 09:00');
-  });
-
-  it('should_collapse_a_week_long_outage_into_a_single_catch_up', () => {
-    // Arrange: missed 2026-07-20 09:00, machine back on 2026-07-26 12:00.
-    // Occurrences 20th–26th inclusive is seven; six lie beyond the first.
-    const from = new Date(2026, 6, 20, 9, 0);
-    const now = new Date(2026, 6, 26, 12, 0);
-
-    // Act
-    const { next, skipped } = advancePast(daily('09:00'), from, now);
-
-    // Assert
-    assert.equal(skipped, 6);
-    assertLocal(next, '2026-07-27 09:00');
-  });
-
-  it('should_land_on_a_strictly_future_occurrence', () => {
-    const from = new Date(2026, 6, 20, 9, 0);
-    const now = new Date(2026, 6, 26, 12, 0);
-
-    const { next } = advancePast(daily('09:00'), from, now);
-
-    assert.ok(next.getTime() > now.getTime());
-  });
-
-  it('should_respect_weekday_rules_while_catching_up', () => {
-    // Arrange: Mon/Wed/Fri rule, missed Mon 2026-07-20, back Sun 2026-07-26.
-    const from = new Date(2026, 6, 20, 9, 0);
-    const now = new Date(2026, 6, 26, 12, 0);
-
-    // Act: skipped should be Wed 22nd and Fri 24th only.
-    const { next, skipped } = advancePast(weekly([1, 3, 5], '09:00'), from, now);
-
-    // Assert
-    assert.equal(skipped, 2);
-    assertLocal(next, '2026-07-27 09:00');
-  });
-
-  it('should_collapse_several_missed_monthly_occurrences_into_one_catch_up', () => {
-    // Arrange: due the 15th, last fired 2026-03-15, machine back 2026-07-26.
-    // April, May, June and July are all behind us; the next is August.
-    const from = new Date(2026, 2, 15, 9, 0);
-    const now = new Date(2026, 6, 26, 12, 0);
-
-    // Act
-    const { next, skipped } = advancePast(monthly(15, '09:00'), from, now);
-
-    // Assert
-    assert.equal(skipped, 4);
-    assertLocal(next, '2026-08-15 09:00');
   });
 });

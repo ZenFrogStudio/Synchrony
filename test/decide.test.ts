@@ -486,7 +486,7 @@ describe('decide — runs held back by the concurrency gate', () => {
 });
 
 describe('decide — catch-up after an outage', () => {
-  it('should_collapse_a_week_long_outage_into_one_missed_run_then_advance', () => {
+  it('should_advance_a_repeating_series_past_an_outage_without_a_missed_run', () => {
     const weekAgo = new Date(NOW - 7 * 24 * 60 * MINUTE).toISOString();
     const s = series({
       recurrence: { daysOfWeek: DAILY, timeLocal: '02:00' },
@@ -495,17 +495,18 @@ describe('decide — catch-up after an outage', () => {
 
     const actions = act({ series: [s], reason: 'sleep' });
 
-    const created = added(actions);
-    assert.equal(created.length, 1, 'one decision, not seven');
-    assert.equal(created[0].status, 'missed');
-    assert.ok((created[0].missedCount ?? 0) > 1);
-
+    assert.deepEqual(added(actions), [], 'announced and moved on, nothing to decide');
     const patches = seriesPatch(actions, s.id);
     assert.equal(patches.length, 1);
     assert.ok(Date.parse(patches[0].nextRunAt as string) > NOW, 'advances to a future occurrence');
+    assert.deepEqual(starts(actions), []);
+    assert.deepEqual(
+      actions.filter((a) => a.kind === 'announceMissed'),
+      [{ kind: 'announceMissed', count: 1, reason: 'sleep' }]
+    );
   });
 
-  it('should_collapse_missed_monthly_occurrences_into_one_and_advance', () => {
+  it('should_advance_a_monthly_series_past_missed_occurrences_without_a_missed_run', () => {
     // A monthly rule carries an empty `daysOfWeek`, which the recurrence math
     // used to treat as unusable — this series would have been paused as broken.
     const monthsAgo = new Date(2026, 2, 15, 2, 0).toISOString();
@@ -516,11 +517,7 @@ describe('decide — catch-up after an outage', () => {
 
     const actions = act({ series: [s], reason: 'sleep' });
 
-    const created = added(actions);
-    assert.equal(created.length, 1, 'one decision, not four');
-    assert.equal(created[0].status, 'missed');
-    assert.ok((created[0].missedCount ?? 0) > 1);
-
+    assert.deepEqual(added(actions), []);
     const patches = seriesPatch(actions, s.id);
     assert.equal(patches.length, 1);
     assert.ok(Date.parse(patches[0].nextRunAt as string) > NOW, 'advances to a future occurrence');
@@ -529,6 +526,72 @@ describe('decide — catch-up after an outage', () => {
       15,
       'and stays on the 15th'
     );
+    assert.deepEqual(starts(actions), []);
+    assert.deepEqual(
+      actions.filter((a) => a.kind === 'announceMissed'),
+      [{ kind: 'announceMissed', count: 1, reason: 'sleep' }]
+    );
+  });
+
+  it('should_still_record_a_missed_run_for_a_one_shot_past_its_window', () => {
+    const s = series({ nextRunAt: new Date(NOW - 3 * 60 * MINUTE).toISOString() });
+
+    const actions = act({ series: [s] });
+
+    const created = added(actions);
+    assert.equal(created.length, 1);
+    assert.equal(created[0].status, 'missed');
+    assert.deepEqual(seriesPatch(actions, s.id), [{ spent: true }]);
+    assert.deepEqual(
+      actions.filter((a) => a.kind === 'announceMissed'),
+      [{ kind: 'announceMissed', count: 1, reason: 'not-running' }]
+    );
+  });
+
+  it('should_drop_rather_than_miss_a_stale_pending_run_on_a_repeating_series', () => {
+    const s = series({
+      recurrence: { daysOfWeek: DAILY, timeLocal: '09:00' },
+      nextRunAt: new Date(NOW + 6 * 60 * MINUTE).toISOString()
+    });
+    const stale = run({ scheduledAt: new Date(NOW - 3 * 60 * MINUTE).toISOString(), attempt: 2 });
+
+    const actions = act({ series: [s], runs: [stale] });
+
+    assert.deepEqual(
+      actions.filter((a) => a.kind === 'removeRun'),
+      [{ kind: 'removeRun', id: stale.id }]
+    );
+    assert.equal(actions.filter((a) => a.kind === 'updateRun').length, 0);
+    assert.deepEqual(starts(actions), []);
+    assert.deepEqual(
+      actions.filter((a) => a.kind === 'announceMissed'),
+      [{ kind: 'announceMissed', count: 1, reason: 'not-running' }]
+    );
+  });
+
+  it('should_sweep_a_stale_missed_run_off_a_repeating_series', () => {
+    const s = series({
+      recurrence: { daysOfWeek: DAILY, timeLocal: '09:00' },
+      nextRunAt: new Date(NOW + 6 * 60 * MINUTE).toISOString()
+    });
+    const leftover = run({ status: 'missed' });
+
+    const actions = act({ series: [s], runs: [leftover] });
+
+    assert.deepEqual(actions, [{ kind: 'removeRun', id: leftover.id }]);
+  });
+
+  it('should_sweep_a_missed_run_even_when_the_repeating_series_is_paused', () => {
+    const s = series({
+      recurrence: { daysOfWeek: DAILY, timeLocal: '09:00' },
+      nextRunAt: new Date(NOW + 6 * 60 * MINUTE).toISOString(),
+      enabled: false
+    });
+    const leftover = run({ status: 'missed' });
+
+    const actions = act({ series: [s], runs: [leftover] });
+
+    assert.deepEqual(actions, [{ kind: 'removeRun', id: leftover.id }]);
   });
 
   it('should_leave_next_run_at_untouched_when_a_retry_is_pending', () => {

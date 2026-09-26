@@ -81,7 +81,7 @@ export function stampRepeatEnd(
  * A repeating plan given a time that has already gone means its next occurrence.
  * Picking "Saturday 1:00" at 4:50 on a Saturday is choosing the day and the
  * hour, not asking for a run four hours ago — left as it was, the next scheduler
- * tick would record that instant as missed and paint the plan red.
+ * tick would announce a miss nobody had, or run it late if still in the window.
  *
  * Takes the series as it will be after the edit, and returns what to add to the
  * patch. Paused, spent and one-shot plans are left alone: none of them fires.

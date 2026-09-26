@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-09-26
+
+### Changed
+
+- **New Synchrony logo.** The extension icon (`media/icon.png`) has been
+  redrawn.
+- **A repeating plan no longer keeps a missed occurrence on its record.** It
+  is announced, then picks up at its next occurrence, so its line in the
+  library stays blue. Records left over from earlier misses are swept on the
+  first tick. One-shot plans still show missed and wait for Run now or
+  Reschedule.
+
 ## [0.16.1] - 2026-09-26
 
 ### Fixed

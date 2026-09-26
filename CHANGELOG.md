@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-09-26
+
+### Changed
+
+- **Each build replaces the last `.vsix`.** `npm run package` now deletes the
+  old `.vsix` files in the project folder before writing the new one, so only
+  the current build is left.
+
 ## [0.16.2] - 2026-09-26
 
 ### Changed

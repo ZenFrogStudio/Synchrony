@@ -24,8 +24,8 @@ function write(relative: string): void {
   fs.writeFileSync(full, '', 'utf8');
 }
 
-function runClean() {
-  return spawnSync(process.execPath, [SCRIPT], {
+function runClean(...args: string[]) {
+  return spawnSync(process.execPath, [SCRIPT, ...args], {
     env: { ...process.env, SYNCHRONY_CLEAN_ROOT: dir },
     encoding: 'utf8'
   });
@@ -87,5 +87,19 @@ describe('clean', () => {
     // Assert
     assert.equal(result.status, 0, result.stderr);
     assert.ok(fs.existsSync(path.join(dir, 'src', 'synchrony-0.1.0.vsix')), 'the sweep recursed into src/');
+  });
+
+  it('should_sweep_only_vsix_files_when_given_the_vsix_flag', () => {
+    // Arrange
+    write('synchrony-0.1.0.vsix');
+    write('dist/extension.js');
+
+    // Act
+    const result = runClean('--vsix');
+
+    // Assert
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(!fs.existsSync(path.join(dir, 'synchrony-0.1.0.vsix')), 'the old .vsix survived');
+    assert.ok(fs.existsSync(path.join(dir, 'dist', 'extension.js')), 'dist/ was swept');
   });
 });

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { adoptGlobal, claimAdoption } from './adopt';
-import { AGENTS, DEFAULT_AGENT } from './agents';
+import { AGENTS, agentFor, DEFAULT_AGENT, parseCodexModels } from './agents';
 import { consolidate } from './consolidate';
 import { ControlWatcher } from './control-watcher';
 import { DashboardExporter } from './dashboard-export';
@@ -16,7 +16,7 @@ import { sweepQuestions } from './questions';
 import { retireCompletedPlans } from './retire';
 import { MigrateOutcome, migrateRoot, oldCopies, RETIRED_IDS } from './migrate-name';
 import { SynchronyPaths, ensureRoot, pathsFor, sweepPending } from './roots';
-import { probeAgent, Runner } from './runner';
+import { probeAgent, readCodexCatalog, Runner } from './runner';
 import { Scheduler } from './scheduler';
 import { writeState } from './state-file';
 import { StatusItem } from './status';
@@ -295,9 +295,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // only ever lists engines this machine actually answered on. Claude is the
   // exception: it stays listed even when broken, because it is the default and
   // a missing one is a setup problem to fix rather than a choice to withdraw.
-  void Promise.all(
-    AGENTS.map((agent) => probeAgent(agent).then((problem) => ({ agent, problem })))
-  ).then((probes) => {
+  //
+  // Codex's model list is read alongside, so it lands with the engine list
+  // rather than after it. A failed read keeps the built-in list.
+  void Promise.all([
+    Promise.all(AGENTS.map((agent) => probeAgent(agent).then((problem) => ({ agent, problem })))),
+    readCodexCatalog()
+  ]).then(([probes, codexCatalog]) => {
+    const codexModels = codexCatalog === undefined ? undefined : parseCodexModels(codexCatalog);
+    if (codexModels) {
+      agentFor('codex').models = codexModels;
+      log.info(`codex offers ${codexModels.length - 1} model(s)`);
+    } else if (codexCatalog !== undefined) {
+      log.warn('codex debug models printed an unexpected shape; keeping the built-in list');
+    }
+
     for (const { agent, problem } of probes) {
       if (!problem) {
         continue;

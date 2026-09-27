@@ -338,6 +338,12 @@ describe('source guards', () => {
       const key = `synchrony.${agent.planModelSetting}`;
       const setting = properties[key];
       assert.ok(setting, `package.json omits ${key}`);
+      // Codex's list is read live at startup, so any fixed enum would go stale
+      // and flag every newer model as invalid.
+      if (agent.id === 'codex') {
+        assert.equal(setting.enum, undefined, `package.json ${key} must not pin an enum`);
+        continue;
+      }
       assert.deepEqual(
         setting.enum,
         agent.models.map((model) => model.value),

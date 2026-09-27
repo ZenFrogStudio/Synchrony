@@ -435,8 +435,8 @@ export function agentExe(agent: Agent): string {
  * should cost anyone a slow editor start.
  *
  * Doubles as the availability check behind the manager's Engine dropdown, which
- * is the only honest one available — neither CLI can list its models, but both
- * answer `--version`.
+ * is the only honest one available — every CLI answers `--version`, while only
+ * Codex can list its models (see `readCodexCatalog`).
  */
 export function probeAgent(agent: Agent, timeoutMs = 5_000): Promise<string | undefined> {
   const exe = agentExe(agent);
@@ -464,6 +464,42 @@ export function probeAgent(agent: Agent, timeoutMs = 5_000): Promise<string | un
     child.on('close', (code) =>
       settle(code === 0 ? undefined : `"${exe} --version" exited with code ${code}.`)
     );
+  });
+}
+
+/**
+ * Codex's own model catalogue, as the JSON `codex debug models` prints, or
+ * undefined when it cannot be read. `debug` is Codex tooling rather than a
+ * promised interface, so every failure is quiet and the caller keeps the
+ * built-in list.
+ */
+export function readCodexCatalog(timeoutMs = 15_000): Promise<string | undefined> {
+  const exe = agentExe(agentFor('codex'));
+
+  return new Promise((resolve) => {
+    let child: ChildProcess;
+    try {
+      child = spawnAgent(exe, ['debug', 'models'], process.cwd());
+    } catch {
+      resolve(undefined);
+      return;
+    }
+
+    let stdout = '';
+    child.stdout?.on('data', (chunk) => (stdout += chunk));
+    const timer = setTimeout(() => {
+      killTree(child);
+      resolve(undefined);
+    }, timeoutMs);
+
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolve(undefined);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0 ? stdout : undefined);
+    });
   });
 }
 

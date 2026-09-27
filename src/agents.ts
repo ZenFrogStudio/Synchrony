@@ -7,12 +7,14 @@ import { AgentId } from './types';
  * a list, and every other module reads it by id. `claude` is first because it is
  * the default — a series with no `agent` is a Claude series.
  *
- * The model lists are curated rather than queried, because the CLIs cannot
- * enumerate what your account can reach: `claude --help` documents `--model` by
- * example only, and `opencode models` prints just the providers you have logged
- * into. A curated list therefore goes stale in one direction only — it can name
- * a model you cannot run — so the manager offers a **Custom…** box beside it and
- * `edit.ts` validates whatever you type by shape.
+ * The Claude and opencode model lists are curated rather than queried, because
+ * those CLIs cannot enumerate what your account can reach: `claude --help`
+ * documents `--model` by example only, and `opencode models` prints just the
+ * providers you have logged into. A curated list therefore goes stale in one
+ * direction only — it can name a model you cannot run — so the manager offers a
+ * **Custom…** box beside it and `edit.ts` validates whatever you type by shape.
+ * Codex is the exception: `codex debug models` prints its live catalogue, which
+ * replaces `CODEX_MODELS` at startup.
  *
  * No `vscode` import, so tests and `package.json` generation can both read it.
  */
@@ -72,15 +74,53 @@ export const OPENCODE_MODELS: ModelChoice[] = [
 ];
 
 /**
- * Codex CLI accepts any reachable model id through `--model`, but the manager
- * only lists the current Codex family explicitly. Older Codex model aliases are
- * deliberately left to **Custom...** so this list does not advertise deprecated
- * choices as first-class options.
+ * The fallback only. At startup `extension.ts` replaces it with Codex's own
+ * catalogue (`codex debug models`, parsed by `parseCodexModels`), so this list
+ * is what you see only when that command fails.
  */
 export const CODEX_MODELS: ModelChoice[] = [
   { value: '', label: 'Codex default' },
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' }
 ];
+
+/** One entry of `codex debug models`, reduced to the fields read here. */
+interface CodexCatalogEntry {
+  slug: string;
+  display_name: string;
+  /** 'list' for pickable models; 'hide' for internal ones such as auto-review. */
+  visibility: string;
+  /** Lower sorts first — Codex's own picker order. */
+  priority: number;
+}
+
+/**
+ * Turns the JSON `codex debug models` prints into dropdown choices, or
+ * undefined when it is not the shape expected, so the caller keeps
+ * `CODEX_MODELS` rather than showing an empty list.
+ */
+export function parseCodexModels(json: string): ModelChoice[] | undefined {
+  let entries: CodexCatalogEntry[];
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed?.models)) {
+      return undefined;
+    }
+    entries = parsed.models.filter(
+      (m: CodexCatalogEntry) => typeof m?.slug === 'string' && m.slug !== ''
+    );
+  } catch {
+    return undefined;
+  }
+
+  // Only what Codex's own picker lists, in its order. Hidden entries are
+  // internal, such as the model behind auto-review.
+  const picked: ModelChoice[] = entries
+    .filter((m) => m.visibility === 'list')
+    .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+    .map((m) => ({ value: m.slug, label: m.display_name || m.slug }));
+
+  return picked.length ? [{ value: '', label: 'Codex default' }, ...picked] : undefined;
+}
 
 export const AGENTS: Agent[] = [
   {

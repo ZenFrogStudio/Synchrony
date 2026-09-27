@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.16.5",
+  "version": "0.16.6",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -228,15 +228,7 @@
         "synchrony.planModelCodex": {
           "type": "string",
           "default": "",
-          "enum": [
-            "",
-            "gpt-5.3-codex"
-          ],
-          "enumDescriptions": [
-            "Codex default",
-            "GPT-5.3 Codex"
-          ],
-          "markdownDescription": "Model for everything the Tasks panel starts when the planning engine is Codex."
+          "markdownDescription": "Model for everything the Tasks panel starts when the planning engine is Codex. Empty means Codex's default. The Tasks panel's Model dropdown lists what your Codex install offers."
         },
         "synchrony.planStep.tests": {
           "type": "boolean",

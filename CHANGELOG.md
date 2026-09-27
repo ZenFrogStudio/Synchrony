@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.6] - 2026-09-27
+
+### Changed
+
+- **Codex models come from Codex itself.** At startup Synchrony reads
+  `codex debug models` and lists every model Codex offers in its own picker, in
+  its own order, so the Model dropdown stays current as new models ship. If that
+  read fails, the built-in list is used. The Codex model setting no longer
+  restricts values to a fixed list.
+
 ## [0.16.5] - 2026-09-26
 
 ### Changed

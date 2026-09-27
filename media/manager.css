@@ -100,7 +100,7 @@ body.vscode-high-contrast-light {
 .activity-group,
 .activity-plan,
 .activity-when,
-.activity-cost {
+.settings-cost {
   font-family: var(--vscode-editor-font-family, monospace);
   font-variant-numeric: tabular-nums;
 }
@@ -1335,19 +1335,14 @@ body.vscode-high-contrast .link-button[data-action="run-now"] {
   outline-offset: 1px;
 }
 
-/* Folder shortcuts and settings sit right after the filter, tight like the
-   library's icon row, so the cost readout can keep the remaining width. */
+/* Folder shortcuts and settings take the remaining width and sit at its right
+   end, just before the Hide button, tight like the library's icon row. */
 .activity-tools {
   display: flex;
+  flex: 1;
+  justify-content: flex-end;
   align-items: center;
   gap: 6px;
-}
-
-.activity-cost {
-  flex: 1;
-  text-align: right;
-  font-size: 0.82em;
-  color: var(--muted);
 }
 
 .activity-list {

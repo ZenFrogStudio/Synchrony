@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.7] - 2026-09-27
+
+### Changed
+
+- **7-day spend moved to Settings.** The dollar total now shows under the
+  Settings page title instead of the Runs bar, and the results, archive and
+  settings icons take its old spot at the right end of the Runs bar.
+
 ## [0.16.6] - 2026-09-27
 
 ### Changed

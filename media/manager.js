@@ -7,7 +7,6 @@
   const noticeEl = /** @type {HTMLElement} */ (document.getElementById('notice'));
   const setupEl = /** @type {HTMLElement} */ (document.getElementById('setup'));
   const searchEl = /** @type {HTMLInputElement} */ (document.getElementById('search'));
-  const costEl = /** @type {HTMLElement} */ (document.getElementById('cost'));
   const activityEl = /** @type {HTMLElement} */ (document.getElementById('activity'));
   const activityListEl = /** @type {HTMLElement} */ (document.getElementById('activity-list'));
   const activityFilterEl = /** @type {HTMLSelectElement} */ (document.getElementById('activity-filter'));
@@ -427,9 +426,6 @@
     });
     positionPicker();
 
-    costEl.textContent =
-      state.costLast7Days > 0 ? `$${state.costLast7Days.toFixed(2)} over the last 7 days` : '';
-
     // A broken CLI outranks a dormant scheduler: it breaks every window, not
     // just this one.
     if (state.setupProblem) {
@@ -769,6 +765,9 @@
             <h2 class="detail-title">Settings</h2>
           </div>
           <p class="detail-path">These are your user settings, and apply to every folder.</p>
+          ${state.costLast7Days > 0
+            ? `<p class="detail-path settings-cost">$${state.costLast7Days.toFixed(2)} spent over the last 7 days</p>`
+            : ''}
         </div>
       </div>
       ${(state.settings || []).map(settingGroup).join('')}

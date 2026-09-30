@@ -9,6 +9,7 @@
   const barEl = /** @type {HTMLElement} */ (document.getElementById('action-bar'));
   const agentEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-agent'));
   const selectEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-model'));
+  const effortEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-effort'));
   const generateEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-plan'));
   const seriesEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-series'));
   const runEl = /** @type {HTMLButtonElement} */ (document.getElementById('run-task'));
@@ -18,12 +19,15 @@
    *  agents: {id: string, label: string}[],
    *  agent: string,
    *  models: {value: string, label: string}[],
-   *  model: string
+   *  model: string,
+   *  efforts: {value: string, label: string}[],
+   *  effort: string
    * }} */
-  let state = { tasks: [], agents: [], agent: '', models: [], model: '' };
+  let state = { tasks: [], agents: [], agent: '', models: [], model: '', efforts: [], effort: '' };
 
   let renderedAgents = '';
   let renderedModels = '';
+  let renderedEfforts = '';
 
   /** The row being edited and what has been typed into it. Held here, never read
    *  back off the DOM — a state message rebuilds the list, and that must never
@@ -46,6 +50,7 @@
   function render() {
     renderAgents();
     renderModels();
+    renderEfforts();
 
     // Read before the rebuild throws the focused element away: focus only
     // returns to the list if it was already there, so a redraw never steals it
@@ -122,6 +127,21 @@
     if (markup !== renderedModels) {
       renderedModels = markup;
       selectEl.innerHTML = markup;
+    }
+  }
+
+  /** No fallback for an unlisted value, unlike the model: the host only ever
+   *  sends a level this engine lists, or '' for its default. */
+  function renderEfforts() {
+    const markup = state.efforts
+      .map((choice) =>
+        `<option value="${esc(choice.value)}"${choice.value === state.effort ? ' selected' : ''}>` +
+        `${esc(choice.label)}</option>`
+      )
+      .join('');
+    if (markup !== renderedEfforts) {
+      renderedEfforts = markup;
+      effortEl.innerHTML = markup;
     }
   }
 
@@ -356,6 +376,7 @@
 
   agentEl.addEventListener('change', () => send({ type: 'setPlanAgent', value: agentEl.value }));
   selectEl.addEventListener('change', () => send({ type: 'setPlanModel', value: selectEl.value }));
+  effortEl.addEventListener('change', () => send({ type: 'setPlanEffort', value: effortEl.value }));
 
   // ---------- host ----------
 
@@ -370,7 +391,9 @@
       agents: Array.isArray(message.agents) ? message.agents : [],
       agent: typeof message.agent === 'string' ? message.agent : '',
       models: Array.isArray(message.models) ? message.models : [],
-      model: typeof message.model === 'string' ? message.model : ''
+      model: typeof message.model === 'string' ? message.model : '',
+      efforts: Array.isArray(message.efforts) ? message.efforts : [],
+      effort: typeof message.effort === 'string' ? message.effort : ''
     };
 
     // A task that has gone — planned, or deleted from another window — must not

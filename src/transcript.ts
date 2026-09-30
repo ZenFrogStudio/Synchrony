@@ -38,6 +38,8 @@ export interface TranscriptContext {
   engine: string;
   permissionMode: string;
   model?: string;
+  /** The level the run was given, already resolved. '' or absent means none was passed. */
+  effort?: string;
   startedAt: Date;
   attempt: number;
 }
@@ -349,7 +351,8 @@ export function transcriptHeader(context: TranscriptContext): string {
     ['Directory', context.cwd],
     ['Permissions', context.permissionMode],
     ['Engine', context.engine],
-    ['Model', context.model || 'default']
+    ['Model', context.model || 'default'],
+    ['Effort', context.effort || 'default']
   ];
   if (context.attempt > 1) {
     rows.push(['Attempt', `retry ${context.attempt - 1}`]);

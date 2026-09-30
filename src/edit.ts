@@ -1,4 +1,4 @@
-import { isAgentId } from './agents';
+import { isAgentId, isEffort } from './agents';
 import {
   AgentId,
   ChainLink,
@@ -156,6 +156,20 @@ export function seriesEdit(raw: unknown): SeriesEdit {
           patch.model = undefined;
         } else if (typeof value === 'string' && MODEL_PATTERN.test(value)) {
           patch.model = value;
+        } else {
+          rejected.push(key);
+        }
+        break;
+      }
+
+      case 'effort': {
+        // Empty or absent means follow Settings. Checked against the closed list
+        // rather than by shape: this too becomes an argv entry for a
+        // shell-invoked spawn, and no level is ever newer than this build.
+        if (value === undefined || value === null || value === '') {
+          patch.effort = undefined;
+        } else if (isEffort(value)) {
+          patch.effort = value;
         } else {
           rejected.push(key);
         }

@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { AGENTS, agentFor, DEFAULT_AGENT, isAgentId, planChoice } from './agents';
+import { AGENTS, agentFor, DEFAULT_AGENT, isAgentId, planChoice, resolveEffort } from './agents';
 import { chainPatches } from './chain';
 import { jobState } from './history';
 import {
@@ -110,7 +110,8 @@ type Inbound =
   | { type: 'explainTask'; name: string }
   | { type: 'runTask'; name: string }
   | { type: 'setPlanAgent'; value: string }
-  | { type: 'setPlanModel'; value: string };
+  | { type: 'setPlanModel'; value: string }
+  | { type: 'setPlanEffort'; value: string };
 
 /** A planning session in flight: its staging folder and the task that asked. */
 interface PendingPlan {
@@ -183,7 +184,11 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   private readonly config = vscode.workspace.onDidChangeConfiguration((e) => {
     if (
       e.affectsConfiguration('synchrony.planAgent') ||
-      AGENTS.some((agent) => e.affectsConfiguration(`synchrony.${agent.planModelSetting}`))
+      AGENTS.some(
+        (agent) =>
+          e.affectsConfiguration(`synchrony.${agent.planModelSetting}`) ||
+          e.affectsConfiguration(`synchrony.${agent.effortSetting}`)
+      )
     ) {
       this.post();
     }
@@ -294,7 +299,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     }
     const pending = new Set([...this.awaitingPlan.values()].map((p) => p.taskName));
     const config = vscode.workspace.getConfiguration('synchrony');
-    const { agent, model } = planChoice((key) => config.get(key));
+    const { agent, model, effort } = planChoice((key) => config.get(key));
 
     this.view.webview.postMessage({
       type: 'state',
@@ -307,6 +312,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       agent: agent.id,
       models: agent.models,
       model,
+      efforts: agent.efforts,
+      effort,
       tasks: this.list().map((task) => ({
         name: task.name,
         label: task.label,
@@ -386,6 +393,19 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
           return;
         }
         await config.update(agent.planModelSetting, message.value, vscode.ConfigurationTarget.Global);
+        return;
+      }
+
+      case 'setPlanEffort': {
+        // Same rule as the model: the current engine's list, that engine's key.
+        const config = vscode.workspace.getConfiguration('synchrony');
+        const { agent } = planChoice((key) => config.get(key));
+        if (!agent.efforts.some((choice) => choice.value === message.value)) {
+          log.warn(`setPlanEffort: refused ${JSON.stringify(message.value)}`);
+          this.post();
+          return;
+        }
+        await config.update(agent.effortSetting, message.value, vscode.ConfigurationTarget.Global);
         return;
       }
 
@@ -594,9 +614,14 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     // A routed session is always Claude: only Claude's command can plug in the
     // `synchrony-ask` back-channel. A request may name its own model; otherwise
     // the setting, as always.
-    const { agent, model } = routed
-      ? { agent: agentFor('claude'), model: modelOverride ?? config.get<string>('planModel', '') }
-      : planChoice((key) => config.get(key));
+    const read = (key: string) => config.get(key);
+    const { agent, model, effort } = routed
+      ? {
+          agent: agentFor('claude'),
+          model: modelOverride ?? config.get<string>('planModel', ''),
+          effort: resolveEffort(agentFor('claude'), undefined, read)
+        }
+      : planChoice(read);
 
     const paths = this.paths();
     // The active folder, with nothing to ask about: a task now belongs to a
@@ -641,6 +666,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // inside the folder's `.synchrony` root.
       allowDir: paths.root,
       model: model || undefined,
+      effort: effort || undefined,
       shell: shellKind(vscode.env.shell, process.platform),
       // What the plan is asked to do once the work itself is done, so an
       // overnight run does not finish with an untracked working tree.
@@ -1084,7 +1110,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
 
     const config = vscode.workspace.getConfiguration('synchrony');
     const paths = this.paths();
-    const { agent, model } = planChoice((key) => config.get(key));
+    const { agent, model, effort } = planChoice((key) => config.get(key));
 
     const command = explainCommand({
       exe: config.get<string>(agent.pathSetting, agent.exe),
@@ -1096,6 +1122,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // The same setting, because this is the same kind of session — one you sit
       // at — rather than a scheduled run.
       model: model || undefined,
+      effort: effort || undefined,
       shell: shellKind(vscode.env.shell, process.platform)
     });
 

@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-30
+
+### Added
+
+- **You can now choose how hard each engine thinks.** The Settings page has a
+  new Effort section with one level per engine: Claude Code, Codex and
+  opencode. It starts at Engine default, which passes nothing, so each engine
+  keeps following its own config until you pick a level. opencode only takes
+  it on unattended runs, because its interactive sessions have no such option.
+- **Each scheduled plan and chain can pick its own effort.** An Effort dropdown
+  sits next to Model. Left at Settings default, the plan follows the level set
+  for its engine. Switching a plan to another engine drops a level that engine
+  does not offer.
+- **The Tasks sidebar has an Effort picker.** It sits under Engine and Model,
+  and changes the Settings level for the engine currently selected.
+- **Run transcripts record the effort.** The header now has an Effort row under
+  Model, showing the level the run was given, or "default" when none was.
+
 ## [0.16.7] - 2026-09-27
 
 ### Changed

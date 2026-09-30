@@ -2,7 +2,7 @@ import { ChildProcess, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Agent, agentFor } from './agents';
+import { Agent, agentFor, resolveEffort } from './agents';
 import { buildArgs, preflightError } from './launch';
 import { log } from './log';
 import {
@@ -214,7 +214,12 @@ export class Runner implements vscode.Disposable {
     startedAt: Date
   ): void {
     const agent = agentFor(series.agent);
-    const args = buildArgs(series);
+    // The plan's own level, else the engine's setting. Resolved once, so the
+    // command line and the transcript header cannot disagree.
+    const effort = resolveEffort(agent, series.effort, (key) =>
+      vscode.workspace.getConfiguration('synchrony').get(key)
+    );
+    const args = buildArgs({ ...series, effort });
     const exe = agentExe(agent);
 
     log.info(`run ${run.id}: ${exe} ${args.join(' ')} (cwd ${series.cwd})`);
@@ -248,7 +253,7 @@ export class Runner implements vscode.Disposable {
       pending: '',
       logStream: fs.createWriteStream(logPath, { flags: 'a' }),
       resultPath,
-      resultStream: openTranscript(resultPath, series, run, startedAt),
+      resultStream: openTranscript(resultPath, series, run, startedAt, effort),
       writer: new vscode.EventEmitter<string>(),
       closer: new vscode.EventEmitter<number>()
     };
@@ -555,7 +560,8 @@ function openTranscript(
   resultPath: string | undefined,
   series: TaskSeries,
   run: TaskRun,
-  startedAt: Date
+  startedAt: Date,
+  effort: string
 ): fs.WriteStream | undefined {
   if (!resultPath) {
     return undefined;
@@ -570,6 +576,7 @@ function openTranscript(
         engine: agentFor(series.agent).label,
         permissionMode: series.permissionMode,
         model: series.model,
+        effort,
         startedAt,
         attempt: run.attempt
       })

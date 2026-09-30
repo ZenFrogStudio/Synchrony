@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.16.7",
+  "version": "0.17.0",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -229,6 +229,71 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Model for everything the Tasks panel starts when the planning engine is Codex. Empty means Codex's default. The Tasks panel's Model dropdown lists what your Codex install offers."
+        },
+        "synchrony.effortClaude": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "enumDescriptions": [
+            "Engine default",
+            "Low",
+            "Medium",
+            "High",
+            "Extra high",
+            "Max"
+          ],
+          "markdownDescription": "How hard Claude Code thinks. Used by every session and run on Claude Code, unless a scheduled plan picks its own level. Engine default leaves Claude Code's own config in charge."
+        },
+        "synchrony.effortOpencode": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "enumDescriptions": [
+            "Engine default",
+            "Minimal",
+            "Low",
+            "Medium",
+            "High",
+            "Max"
+          ],
+          "markdownDescription": "How hard opencode thinks. Used by every run on opencode, unless a scheduled plan picks its own level. Engine default leaves opencode's own config in charge. Applies to unattended runs only, since opencode's interactive sessions have no effort option, and which levels work depends on the provider."
+        },
+        "synchrony.effortCodex": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "enumDescriptions": [
+            "Engine default",
+            "Low",
+            "Medium",
+            "High",
+            "Extra high",
+            "Max",
+            "Ultra"
+          ],
+          "markdownDescription": "How hard Codex thinks. Used by every session and run on Codex, unless a scheduled plan picks its own level. Engine default leaves Codex's own config in charge. Some models do not offer every level, and Synchrony passes the level as it is."
         },
         "synchrony.planStep.tests": {
           "type": "boolean",

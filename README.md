@@ -77,6 +77,9 @@ Parameters are explicit and minimal.
 | `synchrony.claudePath` | `claude` | Path to the Claude Code executable. |
 | `synchrony.opencodePath` | `opencode` | Path to the opencode executable. |
 | `synchrony.codexPath` | `codex` | Path to the Codex executable. |
+| `synchrony.effortClaude` | Engine default | How hard Claude Code thinks: low, medium, high, xhigh or max. A scheduled plan can pick its own. |
+| `synchrony.effortOpencode` | Engine default | How hard opencode thinks: minimal, low, medium, high or max. Unattended runs only; levels depend on the provider. |
+| `synchrony.effortCodex` | Engine default | How hard Codex thinks: low, medium, high, xhigh, max or ultra. Some models do not offer every level. |
 | `synchrony.libraryPath` | `.synchrony/plans` | Directory for plan files. |
 | `synchrony.resultsPath` | `.synchrony/results` | Directory for run transcripts. |
 | `synchrony.maxConcurrent` | `1` | Parallel agents in one repository. |

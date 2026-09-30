@@ -342,6 +342,11 @@ describe('transcriptHeader', () => {
     assert.ok(transcriptHeader(CONTEXT).includes('| Model | default |'));
   });
 
+  it('should_record_the_effort_level_after_the_model_or_say_default', () => {
+    assert.ok(transcriptHeader(CONTEXT).includes('| Model | default |\n| Effort | default |'));
+    assert.ok(transcriptHeader({ ...CONTEXT, effort: 'xhigh' }).includes('| Effort | xhigh |'));
+  });
+
   it('should_name_the_engine_the_run_went_through', () => {
     // Two engines mean "Sonnet 5" and "opencode default" are no longer enough
     // on their own to say what actually ran.

@@ -39,6 +39,7 @@ type Inbound =
       stopOnFailure: boolean;
       agent?: string;
       model?: string;
+      effort?: string;
       permissionMode?: string;
     }
   /** `id` is any member of the chain; the plan goes on behind its tail. */
@@ -715,6 +716,7 @@ export class Manager implements vscode.Disposable {
     const { patch: setup, rejected } = seriesEdit({
       agent: message.agent,
       model: message.model,
+      effort: message.effort,
       permissionMode: message.permissionMode
     });
     if (rejected.length) {
@@ -891,7 +893,7 @@ export class Manager implements vscode.Disposable {
     const config = vscode.workspace.getConfiguration('synchrony');
     // The same engine and model as the Tasks panel, since this is the same kind
     // of session: one you sit at.
-    const { agent, model } = planChoice((key) => config.get(key));
+    const { agent, model, effort } = planChoice((key) => config.get(key));
     const command = generateCommand({
       exe: config.get<string>(agent.pathSetting, agent.exe),
       agent: agent.id,
@@ -903,6 +905,7 @@ export class Manager implements vscode.Disposable {
       // moved the library outside `.synchrony`.
       allowDir: path.dirname(series.filePath),
       model: model || undefined,
+      effort: effort || undefined,
       shell: shellKind(vscode.env.shell, process.platform),
       steps: enabledPlanSteps((key, fallback) => config.get<boolean>(key, fallback))
     });

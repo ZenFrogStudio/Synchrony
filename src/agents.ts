@@ -35,6 +35,10 @@ export interface Agent {
   models: ModelChoice[];
   /** The `synchrony.` setting holding the model the Tasks panel uses on this engine. */
   planModelSetting: string;
+  /** How hard this engine can be told to think. '' leaves the engine's own config in charge. */
+  efforts: ModelChoice[];
+  /** The `synchrony.` setting holding this engine's effort level. */
+  effortSetting: string;
 }
 
 /**
@@ -83,6 +87,43 @@ export const CODEX_MODELS: ModelChoice[] = [
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' }
 ];
 
+/**
+ * Effort levels, as each CLI's own help lists them. Closed lists on purpose:
+ * the value becomes an argv entry for a shell-invoked spawn on Windows, so only
+ * a level named here may ever reach a command line. Codex levels also depend on
+ * the model (`gpt-5.5` stops at xhigh); the level is passed as is rather than
+ * filtered per model.
+ */
+export const CLAUDE_EFFORTS: ModelChoice[] = [
+  { value: '', label: 'Engine default' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'xhigh', label: 'Extra high' },
+  { value: 'max', label: 'Max' }
+];
+
+/** Passed as `--variant`, which only `opencode run` takes, and which levels a
+ *  provider honours is up to that provider. */
+export const OPENCODE_EFFORTS: ModelChoice[] = [
+  { value: '', label: 'Engine default' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'max', label: 'Max' }
+];
+
+export const CODEX_EFFORTS: ModelChoice[] = [
+  { value: '', label: 'Engine default' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'xhigh', label: 'Extra high' },
+  { value: 'max', label: 'Max' },
+  { value: 'ultra', label: 'Ultra' }
+];
+
 /** One entry of `codex debug models`, reduced to the fields read here. */
 interface CodexCatalogEntry {
   slug: string;
@@ -129,7 +170,9 @@ export const AGENTS: Agent[] = [
     pathSetting: 'claudePath',
     exe: 'claude',
     models: CLAUDE_MODELS,
-    planModelSetting: 'planModel'
+    planModelSetting: 'planModel',
+    efforts: CLAUDE_EFFORTS,
+    effortSetting: 'effortClaude'
   },
   {
     id: 'opencode',
@@ -137,7 +180,9 @@ export const AGENTS: Agent[] = [
     pathSetting: 'opencodePath',
     exe: 'opencode',
     models: OPENCODE_MODELS,
-    planModelSetting: 'planModelOpencode'
+    planModelSetting: 'planModelOpencode',
+    efforts: OPENCODE_EFFORTS,
+    effortSetting: 'effortOpencode'
   },
   {
     id: 'codex',
@@ -145,7 +190,9 @@ export const AGENTS: Agent[] = [
     pathSetting: 'codexPath',
     exe: 'codex',
     models: CODEX_MODELS,
-    planModelSetting: 'planModelCodex'
+    planModelSetting: 'planModelCodex',
+    efforts: CODEX_EFFORTS,
+    effortSetting: 'effortCodex'
   }
 ];
 
@@ -160,10 +207,47 @@ export function agentFor(id: AgentId | undefined): Agent {
   return AGENTS.find((agent) => agent.id === id) ?? AGENTS[0];
 }
 
-/** The engine and model the Tasks panel (and Revise) use. `read` is a settings getter. */
-export function planChoice(read: (key: string) => unknown): { agent: Agent; model: string } {
+/** A real level on some engine. '' is not one: it means "pass nothing". */
+export function isEffort(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value !== '' &&
+    AGENTS.some((agent) => agent.efforts.some((choice) => choice.value === value))
+  );
+}
+
+/**
+ * The level a session or run on `agent` uses: the plan's own, else the
+ * engine's setting, else '' for "pass nothing". Either one is dropped when this
+ * engine does not list it, so an unlisted value never reaches a command line.
+ */
+export function resolveEffort(
+  agent: Agent,
+  own: string | undefined,
+  read: (key: string) => unknown
+): string {
+  const listed = (value: unknown): value is string =>
+    typeof value === 'string' && value !== '' && agent.efforts.some((c) => c.value === value);
+
+  if (listed(own)) {
+    return own;
+  }
+  const setting = read(agent.effortSetting);
+  return listed(setting) ? setting : '';
+}
+
+/** The engine, model and effort the Tasks panel (and Revise) use. `read` is a settings getter. */
+export function planChoice(read: (key: string) => unknown): {
+  agent: Agent;
+  model: string;
+  effort: string;
+} {
   const id = read('planAgent');
   const agent = agentFor(isAgentId(id) ? id : DEFAULT_AGENT);
   const model = read(agent.planModelSetting);
-  return { agent, model: typeof model === 'string' ? model : '' };
+  return {
+    agent,
+    model: typeof model === 'string' ? model : '',
+    effort: resolveEffort(agent, undefined, read)
+  };
 }

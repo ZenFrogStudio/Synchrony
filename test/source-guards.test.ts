@@ -363,6 +363,31 @@ describe('source guards', () => {
     );
   });
 
+  it('should_keep_each_effort_manifest_enum_in_step_with_its_engine_effort_list', () => {
+    // Same reason as the model lists: the Tasks and manager dropdowns read
+    // src/agents.ts, while the Settings page and `coerceSetting` enforce
+    // package.json. A level in only one of them is refused by the other.
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    const properties = manifest.contributes.configuration.properties;
+
+    for (const agent of AGENTS) {
+      const key = `synchrony.${agent.effortSetting}`;
+      const setting = properties[key];
+      assert.ok(setting, `package.json omits ${key}`);
+      assert.equal(setting.default, '', `${key} must default to the engine's own config`);
+      assert.deepEqual(
+        setting.enum,
+        agent.efforts.map((effort) => effort.value),
+        `package.json ${key} enum changed without the ${agent.id} effort list in src/agents.ts`
+      );
+      assert.deepEqual(
+        setting.enumDescriptions,
+        agent.efforts.map((effort) => effort.label),
+        `package.json ${key} enumDescriptions changed without the ${agent.id} effort list in src/agents.ts`
+      );
+    }
+  });
+
   it('should_install_into_the_editor_this_project_is_developed_in', () => {
     // VSCodium and Microsoft's build keep separate extension folders, and the
     // `code` CLI on PATH is the latter. Installing with it succeeds, says so,

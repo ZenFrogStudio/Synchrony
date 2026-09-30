@@ -75,6 +75,12 @@ export interface TaskSeries {
   /** Absent means `claude`. See `AgentId`. */
   agent?: AgentId;
   model?: string;
+  /**
+   * How hard the engine thinks on this plan's runs. Absent means follow the
+   * engine's Settings value. Optional and additive, like `agent` above, so it
+   * needs no migration and no SCHEMA_VERSION bump.
+   */
+  effort?: string;
   /** null = one-shot. */
   recurrence: Recurrence | null;
   /** ISO 8601 UTC. The only field the scheduler tick reads. */

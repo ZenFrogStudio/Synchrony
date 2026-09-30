@@ -222,6 +222,28 @@ describe('buildArgs — codex', () => {
 });
 
 const TASK = 'D:\\plans\\tasks\\refactor-the-auth-module.md';
+describe('buildArgs — effort', () => {
+  it('should_end_each_engines_arguments_with_its_own_effort_flag', () => {
+    const expected: Record<AgentId, string[]> = {
+      claude: ['--effort', 'high'],
+      codex: ['-c', 'model_reasoning_effort=high'],
+      opencode: ['--variant', 'high']
+    };
+
+    for (const agent of AGENTS) {
+      const args = buildArgs({ ...onEngine(agent.id, 'acceptEdits', 'some-model'), effort: 'high' });
+      assert.deepEqual(args.slice(-2), expected[agent.id], agent.id);
+    }
+  });
+
+  it('should_pass_no_effort_flag_when_no_level_is_set', () => {
+    for (const agent of AGENTS) {
+      const args = buildArgs(onEngine(agent.id)).join(' ');
+      assert.ok(!/--effort|--variant|model_reasoning_effort/.test(args), `${agent.id}: ${args}`);
+    }
+  });
+});
+
 const LIBRARY = 'D:\\plans';
 const STAGING = 'D:\\plans\\.pending\\ab12cd';
 
@@ -777,6 +799,39 @@ describe('generateCommand and explainCommand — other engines', () => {
     assert.equal(routed({ agent: 'codex' }), routed());
     assert.ok(routed({ agent: 'opencode' }).includes('--mcp-config'));
   });
+});
+
+describe('generateCommand and explainCommand — effort', () => {
+  const build = [
+    ['generateCommand', (o: { agent: AgentId; effort?: string }) =>
+      generateCommand(generatable({ sourcePath: TASK, destDir: STAGING, exe: o.agent, ...o }))],
+    ['explainCommand', (o: { agent: AgentId; effort?: string }) =>
+      explainCommand(explainable({ exe: o.agent, ...o }))]
+  ] as const;
+
+  for (const [name, command] of build) {
+    it(`${name}_should_pass_the_level_to_claude_and_codex`, () => {
+      assert.ok(command({ agent: 'claude', effort: 'high' }).endsWith(` --effort 'high'`));
+      assert.ok(
+        command({ agent: 'codex', effort: 'high' }).endsWith(` -c 'model_reasoning_effort=high'`)
+      );
+    });
+
+    it(`${name}_should_keep_the_instruction_first_with_an_effort_set`, () => {
+      assert.ok(command({ agent: 'claude', effort: 'max' }).startsWith(`'claude' 'Read the file at`));
+    });
+
+    it(`${name}_should_pass_nothing_to_opencode_which_has_no_session_flag`, () => {
+      const line = command({ agent: 'opencode', effort: 'high' });
+      assert.ok(!/--variant|--effort|'high'/.test(line), line);
+    });
+
+    it(`${name}_should_pass_no_effort_flag_without_a_level`, () => {
+      for (const agent of ['claude', 'codex', 'opencode'] as const) {
+        assert.ok(!/--effort|model_reasoning_effort|--variant/.test(command({ agent })));
+      }
+    });
+  }
 });
 
 describe('planChoice', () => {

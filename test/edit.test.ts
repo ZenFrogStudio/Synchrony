@@ -105,6 +105,31 @@ describe('edit — a chain link', () => {
   });
 });
 
+describe('edit — the effort level', () => {
+  it('should_accept_a_listed_level', () => {
+    assert.deepEqual(seriesEdit({ effort: 'high' }).patch, { effort: 'high' });
+    assert.deepEqual(seriesEdit({ effort: 'ultra' }).patch, { effort: 'ultra' });
+  });
+
+  it('should_read_an_empty_level_as_follow_settings', () => {
+    const { patch, rejected } = seriesEdit({ effort: '' });
+
+    assert.deepEqual(patch, { effort: undefined });
+    assert.deepEqual(rejected, []);
+    assert.deepEqual(seriesEdit({ effort: null }).patch, { effort: undefined });
+  });
+
+  it('should_reject_anything_not_on_the_list', () => {
+    // Like the model, this becomes an argv entry for a shell-invoked spawn on
+    // Windows, and unlike the model it has no shape rule: the list is all of it.
+    for (const hostile of ['high & calc', 'extreme', 'HIGH', 7, ['high']]) {
+      const { patch, rejected } = seriesEdit({ effort: hostile });
+      assert.deepEqual(patch, {}, `should have rejected ${JSON.stringify(hostile)}`);
+      assert.deepEqual(rejected, ['effort']);
+    }
+  });
+});
+
 describe('edit — the model argument', () => {
   it('should_accept_a_pinned_model_id', () => {
     assert.deepEqual(seriesEdit({ model: 'claude-opus-5' }).patch, { model: 'claude-opus-5' });

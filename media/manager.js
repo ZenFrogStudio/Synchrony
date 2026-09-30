@@ -35,7 +35,7 @@
   const CUSTOM_MODEL = '__custom';
   const SAVE_DEBOUNCE_MS = 2000;
 
-  /** @type {{plans: any[], series: any[], runs: any[], activity: {upcoming: any[], recent: any[]}, costLast7Days: number, libraryPath: string, activeFolder: string, folders: {path: string, name: string}[], agents: {id: string, label: string, models: {value: string, label: string}[]}[], settings: {title: string, fields: any[]}[], settingValues: Record<string, any>, setupProblem?: string, schedulerElsewhere?: boolean}} */
+  /** @type {{plans: any[], series: any[], runs: any[], activity: {upcoming: any[], recent: any[]}, costLast7Days: number, libraryPath: string, activeFolder: string, folders: {path: string, name: string}[], agents: {id: string, label: string, models: {value: string, label: string}[], efforts: {value: string, label: string}[]}[], settings: {title: string, fields: any[]}[], settingValues: Record<string, any>, setupProblem?: string, schedulerElsewhere?: boolean}} */
   let state = {
     plans: [],
     series: [],
@@ -87,12 +87,14 @@
   /** Minutes between one plan finishing and the next starting. */
   let chainGap = 15;
   let chainStop = true;
-  /** Engine, model and permissions for the chain being built. Written onto every
-   *  plan in it when it is created — one setup for the whole run, rather than
-   *  whatever each plan happened to be set to. Defaults match a newly scheduled
-   *  plan: Claude, the account default model, `auto`. */
+  /** Engine, model, effort and permissions for the chain being built. Written
+   *  onto every plan in it when it is created — one setup for the whole run,
+   *  rather than whatever each plan happened to be set to. Defaults match a newly
+   *  scheduled plan: Claude, the account default model, the Settings effort,
+   *  `auto`. */
   let chainAgent = 'claude';
   let chainModel = '';
+  let chainEffort = '';
   let chainPermission = 'auto';
   /** Which row is being dragged, or -1. */
   let chainDragFrom = -1;
@@ -297,12 +299,14 @@
   const agentOf = (s) =>
     state.agents.find((a) => a.id === agentIdOf(s)) || state.agents[0];
   const modelsOf = (s) => (agentOf(s) || { models: [] }).models;
+  const effortsOf = (s) => (agentOf(s) || { efforts: [] }).efforts || [];
 
-  /** A series-shaped object for the three shared field builders, so the chain page
+  /** A series-shaped object for the shared field builders, so the chain page
    *  and a plan's Schedule section cannot draw different dropdowns. */
   const chainSetup = () => ({
     agent: chainAgent,
     model: chainModel,
+    effort: chainEffort,
     permissionMode: chainPermission
   });
 
@@ -684,6 +688,7 @@
           ${permissionField(chainSetup())}
           ${engineField(chainSetup())}
           ${modelField(chainSetup())}
+          ${effortField(chainSetup())}
         </div>
         <p class="field-help">Every plan in the chain runs on this — whatever each one was set
           to before.</p>
@@ -910,6 +915,7 @@
         ${permissionField(s)}
         ${engineField(s)}
         ${modelField(s)}
+        ${effortField(s)}
       </div>
       ${dayToggles}
 
@@ -1170,6 +1176,26 @@
       </select>
     </label>
     ${box}`;
+  }
+
+  /**
+   * The engine's closed list of levels, with no Custom box: an effort level is
+   * never newer than this build. Empty here means "follow Settings", not the
+   * engine's own default, so it is labelled that way.
+   */
+  function effortField(s) {
+    const current = s.effort || '';
+    return `<label class="field">
+      <span class="field-label">Effort</span>
+      <select class="field-input" data-field="effort" data-focus-key="effort">
+        ${effortsOf(s)
+          .map(
+            (e) =>
+              `<option value="${esc(e.value)}" ${e.value === current ? 'selected' : ''}>${esc(e.value ? e.label : 'Settings default')}</option>`
+          )
+          .join('')}
+      </select>
+    </label>`;
   }
 
   function editorSection() {
@@ -1730,6 +1756,7 @@
         stopOnFailure: chainStop,
         agent: chainAgent,
         model: chainModel,
+        effort: chainEffort,
         permissionMode: chainPermission
       });
       // Straight to the plan that starts it, which is where the schedule now is.
@@ -1862,6 +1889,7 @@
         const next = state.agents.find((a) => a.id === el.value);
         chainAgent = el.value;
         if (!next || !next.models.some((m) => m.value === chainModel)) chainModel = '';
+        if (!next || !(next.efforts || []).some((e) => e.value === chainEffort)) chainEffort = '';
         if (!(PERMISSION_MODES[chainAgent] || PERMISSION_MODES.claude).includes(chainPermission)) {
           chainPermission = 'auto';
         }
@@ -1882,6 +1910,11 @@
 
       if (field === 'customModel') {
         chainModel = el.value.trim();
+        return;
+      }
+
+      if (field === 'effort') {
+        chainEffort = el.value;
         return;
       }
 
@@ -1935,12 +1968,21 @@
 
     // A model id belongs to one engine, so switching engines drops one the new
     // engine has never heard of rather than passing it on to fail at fire time.
+    // An effort level the new engine does not list goes the same way.
     if (field === 'agent') {
       const next = state.agents.find((a) => a.id === el.value);
       const keeps = !!next && next.models.some((m) => m.value === (series.model || ''));
+      const keepsEffort =
+        !!next && (next.efforts || []).some((e) => e.value === (series.effort || ''));
       customModel = false;
-      return patch(series.id, { agent: el.value, model: keeps ? series.model : undefined });
+      return patch(series.id, {
+        agent: el.value,
+        model: keeps ? series.model : undefined,
+        effort: keepsEffort ? series.effort : undefined
+      });
     }
+
+    if (field === 'effort') return patch(series.id, { effort: el.value || undefined });
 
     if (field === 'model') {
       // Custom… is a UI state, not a value: it reveals the box below, and the

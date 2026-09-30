@@ -11,7 +11,7 @@ import { AgentId, PermissionMode, TaskSeries } from './types';
 /** The fields of a series that actually shape a launch. */
 type Launchable = Pick<TaskSeries, 'filePath' | 'cwd' | 'permissionMode' | 'model'>;
 
-type Runnable = Pick<TaskSeries, 'permissionMode' | 'model' | 'agent' | 'cwd'>;
+type Runnable = Pick<TaskSeries, 'permissionMode' | 'model' | 'effort' | 'agent' | 'cwd'>;
 
 /**
  * The permission modes that mean "do not stop and ask". opencode has one
@@ -53,6 +53,9 @@ function claudeArgs(series: Runnable): string[] {
   if (series.model) {
     args.push('--model', series.model);
   }
+  if (series.effort) {
+    args.push('--effort', series.effort);
+  }
   return args;
 }
 
@@ -72,6 +75,10 @@ function opencodeArgs(series: Runnable): string[] {
   }
   if (series.model) {
     args.push('-m', series.model);
+  }
+  // opencode calls effort a model "variant".
+  if (series.effort) {
+    args.push('--variant', series.effort);
   }
   return args;
 }
@@ -101,6 +108,10 @@ function codexArgs(series: Runnable): string[] {
 
   if (series.model) {
     exec.push('--model', series.model);
+  }
+  // Codex has no effort flag of its own; this overrides its config.toml key.
+  if (series.effort) {
+    exec.push('-c', `model_reasoning_effort=${series.effort}`);
   }
   return exec;
 }
@@ -236,6 +247,8 @@ export interface GenerateOptions {
    *  directory is the repo and neither file usually sits inside it. */
   allowDir: string;
   model?: string;
+  /** A level from the engine's `efforts` list. opencode's sessions have no flag for it. */
+  effort?: string;
   shell: Shell;
   /**
    * The steps the plan should end with. Omitted or empty means no closing
@@ -462,7 +475,8 @@ function routedInstruction(sourcePath: string, steps: PlanStepId[]): string {
  * changes what it may call, not what it may change.
  */
 export function generateCommand(options: GenerateOptions): string {
-  const { exe, sourcePath, destDir, allowDir, model, shell, steps = [], askConfigPath } = options;
+  const { exe, sourcePath, destDir, allowDir, model, effort, shell, steps = [], askConfigPath } =
+    options;
   const q = (value: string) => quote(shell, value);
 
   // A series needs somewhere to write several files, so without a staging folder
@@ -504,11 +518,13 @@ export function generateCommand(options: GenerateOptions): string {
         'read-only',
         '--ask-for-approval',
         'on-request',
-        ...(model ? ['--model', q(model)] : [])
+        ...(model ? ['--model', q(model)] : []),
+        ...(effort ? ['-c', q(`model_reasoning_effort=${effort}`)] : [])
       ].join(' ')}`;
     // opencode's first plain argument is a project folder, so the instruction
     // goes through `--prompt`. No `--agent plan`: that agent may refuse to write
-    // outside its folder, which would stop it saving the plan.
+    // outside its folder, which would stop it saving the plan. No effort either:
+    // `--variant` exists on `opencode run` only.
     case 'opencode':
       return `${command} ${['--prompt', q(instruction), ...(model ? ['-m', q(model)] : [])].join(' ')}`;
   }
@@ -522,6 +538,9 @@ export function generateCommand(options: GenerateOptions): string {
   if (model) {
     args.push('--model', q(model));
   }
+  if (effort) {
+    args.push('--effort', q(effort));
+  }
 
   return `${command} ${args.join(' ')}`;
 }
@@ -533,6 +552,8 @@ export interface ExplainOptions {
   /** Granted with --add-dir, as for a planning session. */
   allowDir: string;
   model?: string;
+  /** As for a planning session: ignored on opencode. */
+  effort?: string;
   shell: Shell;
   /** The engine the session opens in. Absent means Claude. */
   agent?: AgentId;
@@ -552,7 +573,7 @@ export interface ExplainOptions {
  * swallow it.
  */
 export function explainCommand(options: ExplainOptions): string {
-  const { exe, sourcePath, allowDir, model, shell } = options;
+  const { exe, sourcePath, allowDir, model, effort, shell } = options;
   const q = (value: string) => quote(shell, value);
 
   const instruction =
@@ -577,7 +598,8 @@ export function explainCommand(options: ExplainOptions): string {
         'read-only',
         '--ask-for-approval',
         'on-request',
-        ...(model ? ['--model', q(model)] : [])
+        ...(model ? ['--model', q(model)] : []),
+        ...(effort ? ['-c', q(`model_reasoning_effort=${effort}`)] : [])
       ].join(' ')}`;
     case 'opencode':
       return `${command} ${['--prompt', q(instruction), ...(model ? ['-m', q(model)] : [])].join(' ')}`;
@@ -592,6 +614,9 @@ export function explainCommand(options: ExplainOptions): string {
   const args = [q(instruction), '--permission-mode', 'default', '--add-dir', q(allowDir)];
   if (model) {
     args.push('--model', q(model));
+  }
+  if (effort) {
+    args.push('--effort', q(effort));
   }
 
   return `${command} ${args.join(' ')}`;

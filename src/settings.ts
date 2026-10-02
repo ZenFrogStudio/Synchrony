@@ -62,7 +62,7 @@ export const GROUPS: { title: string; note?: string; keys: string[] }[] = [
   {
     title: 'Effort',
     note: 'How hard each engine thinks. A scheduled plan can pick its own level, which wins over these.',
-    keys: ['effortClaude', 'effortOpencode', 'effortCodex']
+    keys: ['effortClaude', 'effortOpencode', 'effortCodex', 'ultracode']
   },
   { title: 'Engines', keys: ['claudePath', 'opencodePath', 'codexPath'] },
   { title: 'Locations', keys: ['libraryPath', 'resultsPath'] },

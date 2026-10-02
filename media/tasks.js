@@ -10,6 +10,8 @@
   const agentEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-agent'));
   const selectEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-model'));
   const effortEl = /** @type {HTMLSelectElement} */ (document.getElementById('plan-effort'));
+  const ultracodeRowEl = /** @type {HTMLElement} */ (document.getElementById('ultracode-row'));
+  const ultracodeEl = /** @type {HTMLInputElement} */ (document.getElementById('plan-ultracode'));
   const generateEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-plan'));
   const seriesEl = /** @type {HTMLButtonElement} */ (document.getElementById('generate-series'));
   const runEl = /** @type {HTMLButtonElement} */ (document.getElementById('run-task'));
@@ -21,9 +23,21 @@
    *  models: {value: string, label: string}[],
    *  model: string,
    *  efforts: {value: string, label: string}[],
-   *  effort: string
+   *  effort: string,
+   *  ultracode: boolean,
+   *  ultracodeAvailable: boolean
    * }} */
-  let state = { tasks: [], agents: [], agent: '', models: [], model: '', efforts: [], effort: '' };
+  let state = {
+    tasks: [],
+    agents: [],
+    agent: '',
+    models: [],
+    model: '',
+    efforts: [],
+    effort: '',
+    ultracode: false,
+    ultracodeAvailable: false
+  };
 
   let renderedAgents = '';
   let renderedModels = '';
@@ -51,6 +65,9 @@
     renderAgents();
     renderModels();
     renderEfforts();
+    // Claude Code only, so the whole row goes for any other engine.
+    ultracodeRowEl.hidden = !state.ultracodeAvailable;
+    ultracodeEl.checked = state.ultracode;
 
     // Read before the rebuild throws the focused element away: focus only
     // returns to the list if it was already there, so a redraw never steals it
@@ -377,6 +394,9 @@
   agentEl.addEventListener('change', () => send({ type: 'setPlanAgent', value: agentEl.value }));
   selectEl.addEventListener('change', () => send({ type: 'setPlanModel', value: selectEl.value }));
   effortEl.addEventListener('change', () => send({ type: 'setPlanEffort', value: effortEl.value }));
+  ultracodeEl.addEventListener('change', () =>
+    send({ type: 'setPlanUltracode', value: ultracodeEl.checked })
+  );
 
   // ---------- host ----------
 
@@ -393,7 +413,9 @@
       models: Array.isArray(message.models) ? message.models : [],
       model: typeof message.model === 'string' ? message.model : '',
       efforts: Array.isArray(message.efforts) ? message.efforts : [],
-      effort: typeof message.effort === 'string' ? message.effort : ''
+      effort: typeof message.effort === 'string' ? message.effort : '',
+      ultracode: message.ultracode === true,
+      ultracodeAvailable: message.ultracodeAvailable === true
     };
 
     // A task that has gone — planned, or deleted from another window — must not

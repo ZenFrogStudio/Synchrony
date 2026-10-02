@@ -2,7 +2,15 @@ import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { AGENTS, agentFor, DEFAULT_AGENT, isAgentId, planChoice, resolveEffort } from './agents';
+import {
+  AGENTS,
+  agentFor,
+  DEFAULT_AGENT,
+  isAgentId,
+  planChoice,
+  resolveEffort,
+  usesUltracode
+} from './agents';
 import { chainPatches } from './chain';
 import { jobState } from './history';
 import {
@@ -111,7 +119,8 @@ type Inbound =
   | { type: 'runTask'; name: string }
   | { type: 'setPlanAgent'; value: string }
   | { type: 'setPlanModel'; value: string }
-  | { type: 'setPlanEffort'; value: string };
+  | { type: 'setPlanEffort'; value: string }
+  | { type: 'setPlanUltracode'; value: boolean };
 
 /** A planning session in flight: its staging folder and the task that asked. */
 interface PendingPlan {
@@ -184,6 +193,7 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
   private readonly config = vscode.workspace.onDidChangeConfiguration((e) => {
     if (
       e.affectsConfiguration('synchrony.planAgent') ||
+      e.affectsConfiguration('synchrony.ultracode') ||
       AGENTS.some(
         (agent) =>
           e.affectsConfiguration(`synchrony.${agent.planModelSetting}`) ||
@@ -219,7 +229,9 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
     private readonly paths: () => SynchronyPaths,
     private readonly store: Store,
     private readonly scheduler: Scheduler,
-    private readonly manager: Manager
+    private readonly manager: Manager,
+    /** The settings file that switches ultracode on. See `usesUltracode`. */
+    private readonly ultracodeSettings: string
   ) {
     // Every change, not just a settled one: the running dot reads from the
     // store now, and a run started from the phone arrives as a store reload.
@@ -314,6 +326,9 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       model,
       efforts: agent.efforts,
       effort,
+      ultracode: config.get('ultracode') === true,
+      // Claude Code is the only engine with the mode, so the row hides otherwise.
+      ultracodeAvailable: agent.id === 'claude',
       tasks: this.list().map((task) => ({
         name: task.name,
         label: task.label,
@@ -406,6 +421,20 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
           return;
         }
         await config.update(agent.effortSetting, message.value, vscode.ConfigurationTarget.Global);
+        return;
+      }
+
+      case 'setPlanUltracode': {
+        // Only a real boolean is saved; a stray value redraws the box as it was.
+        // Read as unknown, since the type above is a promise the webview made.
+        const value: unknown = message.value;
+        if (typeof value !== 'boolean') {
+          log.warn(`setPlanUltracode: refused ${JSON.stringify(value)}`);
+          this.post();
+          return;
+        }
+        const config = vscode.workspace.getConfiguration('synchrony');
+        await config.update('ultracode', value, vscode.ConfigurationTarget.Global);
         return;
       }
 
@@ -667,6 +696,10 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       allowDir: paths.root,
       model: model || undefined,
       effort: effort || undefined,
+      // A routed session is Claude too, so the same rule covers both.
+      ultracodeSettings: usesUltracode(agent, config.get('ultracode'))
+        ? this.ultracodeSettings
+        : undefined,
       shell: shellKind(vscode.env.shell, process.platform),
       // What the plan is asked to do once the work itself is done, so an
       // overnight run does not finish with an untracked working tree.
@@ -1123,6 +1156,9 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
       // at — rather than a scheduled run.
       model: model || undefined,
       effort: effort || undefined,
+      ultracodeSettings: usesUltracode(agent, config.get('ultracode'))
+        ? this.ultracodeSettings
+        : undefined,
       shell: shellKind(vscode.env.shell, process.platform)
     });
 
@@ -1190,6 +1226,8 @@ export class TaskView implements vscode.WebviewViewProvider, vscode.Disposable {
         permissionMode: 'auto',
         agent: agent.id,
         model: model || undefined,
+        // Copied onto the series, because a run reads only the plan's own switch.
+        ultracode: usesUltracode(agent, config.get('ultracode')) || undefined,
         // `createSeries` dates a new series an hour out. Without this the job
         // would run now *and* again in an hour, from a plan nobody scheduled.
         spent: true,

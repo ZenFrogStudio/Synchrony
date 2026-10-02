@@ -645,6 +645,13 @@ select.field-input {
   gap: 8px;
 }
 
+/* In the Schedule grid the dropdowns have their label above them, so a checkbox
+   there sits at the bottom of its cell, padded like a dropdown to sit level. */
+.field-check.is-in-grid {
+  align-self: end;
+  padding: 5px 0;
+}
+
 /* --- The chain builder ---
    An ordered list you can drag: the number is the order it runs in, the grip is
    both the drag handle and the keyboard's way to move a row. */

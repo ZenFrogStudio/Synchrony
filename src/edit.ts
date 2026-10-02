@@ -176,6 +176,19 @@ export function seriesEdit(raw: unknown): SeriesEdit {
         break;
       }
 
+      case 'ultracode': {
+        // Off is stored as absent, so a plan that never had it and one that had
+        // it switched off look the same on disk.
+        if (value === true) {
+          patch.ultracode = true;
+        } else if (value === false || value === null || value === undefined) {
+          patch.ultracode = undefined;
+        } else {
+          rejected.push(key);
+        }
+        break;
+      }
+
       case 'cwd': {
         if (typeof value === 'string' && value.trim()) {
           patch.cwd = value;

@@ -24,18 +24,24 @@ const OPENCODE_AUTO_MODES: readonly PermissionMode[] = [
   'dontAsk'
 ];
 
-export function buildArgs(series: Runnable): string[] {
+/**
+ * `ultracodeSettings` is the path of a settings file that switches ultracode on.
+ * Claude takes it through `--settings`; Codex and opencode have no such mode and
+ * never see it. A file rather than inline JSON, because `quoteForCmd` in
+ * `runner.ts` strips double quotes on Windows.
+ */
+export function buildArgs(series: Runnable, ultracodeSettings?: string): string[] {
   switch (series.agent) {
     case 'opencode':
       return opencodeArgs(series);
     case 'codex':
       return codexArgs(series);
     default:
-      return claudeArgs(series);
+      return claudeArgs(series, ultracodeSettings);
   }
 }
 
-function claudeArgs(series: Runnable): string[] {
+function claudeArgs(series: Runnable, ultracodeSettings?: string): string[] {
   const args = [
     '-p',
     '--output-format',
@@ -55,6 +61,9 @@ function claudeArgs(series: Runnable): string[] {
   }
   if (series.effort) {
     args.push('--effort', series.effort);
+  }
+  if (ultracodeSettings) {
+    args.push('--settings', ultracodeSettings);
   }
   return args;
 }
@@ -249,6 +258,8 @@ export interface GenerateOptions {
   model?: string;
   /** A level from the engine's `efforts` list. opencode's sessions have no flag for it. */
   effort?: string;
+  /** The settings file that switches ultracode on. Claude only; ignored elsewhere. */
+  ultracodeSettings?: string;
   shell: Shell;
   /**
    * The steps the plan should end with. Omitted or empty means no closing
@@ -475,8 +486,18 @@ function routedInstruction(sourcePath: string, steps: PlanStepId[]): string {
  * changes what it may call, not what it may change.
  */
 export function generateCommand(options: GenerateOptions): string {
-  const { exe, sourcePath, destDir, allowDir, model, effort, shell, steps = [], askConfigPath } =
-    options;
+  const {
+    exe,
+    sourcePath,
+    destDir,
+    allowDir,
+    model,
+    effort,
+    ultracodeSettings,
+    shell,
+    steps = [],
+    askConfigPath
+  } = options;
   const q = (value: string) => quote(shell, value);
 
   // A series needs somewhere to write several files, so without a staging folder
@@ -541,6 +562,9 @@ export function generateCommand(options: GenerateOptions): string {
   if (effort) {
     args.push('--effort', q(effort));
   }
+  if (ultracodeSettings) {
+    args.push('--settings', q(ultracodeSettings));
+  }
 
   return `${command} ${args.join(' ')}`;
 }
@@ -554,6 +578,8 @@ export interface ExplainOptions {
   model?: string;
   /** As for a planning session: ignored on opencode. */
   effort?: string;
+  /** As for a planning session: Claude only. */
+  ultracodeSettings?: string;
   shell: Shell;
   /** The engine the session opens in. Absent means Claude. */
   agent?: AgentId;
@@ -573,7 +599,7 @@ export interface ExplainOptions {
  * swallow it.
  */
 export function explainCommand(options: ExplainOptions): string {
-  const { exe, sourcePath, allowDir, model, effort, shell } = options;
+  const { exe, sourcePath, allowDir, model, effort, ultracodeSettings, shell } = options;
   const q = (value: string) => quote(shell, value);
 
   const instruction =
@@ -617,6 +643,9 @@ export function explainCommand(options: ExplainOptions): string {
   }
   if (effort) {
     args.push('--effort', q(effort));
+  }
+  if (ultracodeSettings) {
+    args.push('--settings', q(ultracodeSettings));
   }
 
   return `${command} ${args.join(' ')}`;

@@ -81,6 +81,12 @@ export interface TaskSeries {
    * needs no migration and no SCHEMA_VERSION bump.
    */
   effort?: string;
+  /**
+   * Run this plan in Claude Code's ultracode mode. Claude only; absent or false
+   * means off. Optional and additive, like `effort` above, so it needs no
+   * migration and no SCHEMA_VERSION bump.
+   */
+  ultracode?: boolean;
   /** null = one-shot. */
   recurrence: Recurrence | null;
   /** ISO 8601 UTC. The only field the scheduler tick reads. */

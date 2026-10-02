@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { agentFor, isEffort, parseCodexModels, planChoice, resolveEffort } from '../src/agents';
+import {
+  agentFor,
+  isEffort,
+  parseCodexModels,
+  planChoice,
+  resolveEffort,
+  usesUltracode
+} from '../src/agents';
 
 /** A trimmed `codex debug models` payload: only the fields the parser reads. */
 function catalog(models: object[]): string {
@@ -108,5 +115,23 @@ describe('planChoice — effort', () => {
 
   it('should_return_empty_when_the_engine_is_left_at_its_default', () => {
     assert.equal(planChoice(() => undefined).effort, '');
+  });
+});
+
+describe('usesUltracode', () => {
+  it('should_be_on_only_for_claude_with_a_real_true', () => {
+    assert.equal(usesUltracode(agentFor('claude'), true), true);
+  });
+
+  it('should_stay_off_for_codex_and_opencode_even_when_asked', () => {
+    assert.equal(usesUltracode(agentFor('codex'), true), false);
+    assert.equal(usesUltracode(agentFor('opencode'), true), false);
+  });
+
+  it('should_stay_off_for_anything_that_is_not_true', () => {
+    const claude = agentFor('claude');
+    for (const value of [false, undefined, null, 'true', 1, {}]) {
+      assert.equal(usesUltracode(claude, value), false, JSON.stringify(value));
+    }
   });
 });

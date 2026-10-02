@@ -58,7 +58,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   seedIfNew(paths(), fresh);
 
   const store = await Store.create(paths().state);
-  const runner = new Runner(store, () => paths().logs, () => paths().results);
+  // Handed to Claude as `--settings` when ultracode is on. A file, because
+  // inline JSON would lose its quotes on the way through cmd.exe.
+  const ultracodeSettings = path.join(context.extensionPath, 'media', 'ultracode.json');
+  const runner = new Runner(
+    store,
+    () => paths().logs,
+    () => paths().results,
+    ultracodeSettings
+  );
   // Picks up schedules written by anything that is not this window — the MCP
   // server an agent spawned, or a second editor window on the same folder.
   const stateWatcher = new StateWatcher(paths, store);
@@ -188,7 +196,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     paths,
     switchFolder,
     context.globalState,
-    context.extension.packageJSON.contributes.configuration.properties
+    context.extension.packageJSON.contributes.configuration.properties,
+    ultracodeSettings
   );
   const status = new StatusItem(store);
 
@@ -196,7 +205,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // in-body buttons and coloured rows, none of which the TreeView API can draw.
   // The view opens the manager itself, since resolving is the only signal an
   // activity-bar click produces.
-  const taskView = new TaskView(context.extensionUri, paths, store, scheduler, manager);
+  const taskView = new TaskView(
+    context.extensionUri,
+    paths,
+    store,
+    scheduler,
+    manager,
+    ultracodeSettings
+  );
 
   // Cancel and settings commands from outside a window — the hub, a remote
   // board — landing in this folder's `.synchrony/control/`. See `control.ts`.

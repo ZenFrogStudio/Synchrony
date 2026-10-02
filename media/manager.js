@@ -95,6 +95,8 @@
   let chainAgent = 'claude';
   let chainModel = '';
   let chainEffort = '';
+  /** Claude only: reset whenever the chain's engine moves off Claude. */
+  let chainUltracode = false;
   let chainPermission = 'auto';
   /** Which row is being dragged, or -1. */
   let chainDragFrom = -1;
@@ -307,6 +309,7 @@
     agent: chainAgent,
     model: chainModel,
     effort: chainEffort,
+    ultracode: chainUltracode,
     permissionMode: chainPermission
   });
 
@@ -689,6 +692,7 @@
           ${engineField(chainSetup())}
           ${modelField(chainSetup())}
           ${effortField(chainSetup())}
+          ${ultracodeField(chainSetup())}
         </div>
         <p class="field-help">Every plan in the chain runs on this — whatever each one was set
           to before.</p>
@@ -916,6 +920,7 @@
         ${engineField(s)}
         ${modelField(s)}
         ${effortField(s)}
+        ${ultracodeField(s)}
       </div>
       ${dayToggles}
 
@@ -1195,6 +1200,18 @@
           )
           .join('')}
       </select>
+    </label>`;
+  }
+
+  /** Claude Code is the only engine with ultracode, so the box is not drawn
+   *  for any other. */
+  function ultracodeField(s) {
+    if (agentIdOf(s) !== 'claude') return '';
+    return `<label class="field-check is-in-grid"
+      title="Claude runs a team of helper agents on every task. Uses far more tokens.">
+      <input type="checkbox" data-field="ultracode" data-focus-key="ultracode"
+        ${s.ultracode ? 'checked' : ''} />
+      <span class="field-label">Ultracode</span>
     </label>`;
   }
 
@@ -1757,6 +1774,7 @@
         agent: chainAgent,
         model: chainModel,
         effort: chainEffort,
+        ultracode: chainUltracode,
         permissionMode: chainPermission
       });
       // Straight to the plan that starts it, which is where the schedule now is.
@@ -1890,6 +1908,7 @@
         chainAgent = el.value;
         if (!next || !next.models.some((m) => m.value === chainModel)) chainModel = '';
         if (!next || !(next.efforts || []).some((e) => e.value === chainEffort)) chainEffort = '';
+        if (chainAgent !== 'claude') chainUltracode = false;
         if (!(PERMISSION_MODES[chainAgent] || PERMISSION_MODES.claude).includes(chainPermission)) {
           chainPermission = 'auto';
         }
@@ -1915,6 +1934,11 @@
 
       if (field === 'effort') {
         chainEffort = el.value;
+        return;
+      }
+
+      if (field === 'ultracode') {
+        chainUltracode = /** @type {HTMLInputElement} */ (el).checked;
         return;
       }
 
@@ -1978,11 +2002,18 @@
       return patch(series.id, {
         agent: el.value,
         model: keeps ? series.model : undefined,
-        effort: keepsEffort ? series.effort : undefined
+        effort: keepsEffort ? series.effort : undefined,
+        // A real false rather than undefined: the message travels as JSON, which
+        // drops an undefined key, and the host only clears a key it receives.
+        ultracode: el.value === 'claude' && series.ultracode === true
       });
     }
 
     if (field === 'effort') return patch(series.id, { effort: el.value || undefined });
+    // false, not undefined, for the same reason; the host stores false as absent.
+    if (field === 'ultracode') {
+      return patch(series.id, { ultracode: /** @type {HTMLInputElement} */ (el).checked });
+    }
 
     if (field === 'model') {
       // Custom… is a UI state, not a value: it reveals the box below, and the

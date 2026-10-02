@@ -40,6 +40,8 @@ export interface TranscriptContext {
   model?: string;
   /** The level the run was given, already resolved. '' or absent means none was passed. */
   effort?: string;
+  /** True when the run was started in ultracode. Absent or false adds no row. */
+  ultracode?: boolean;
   startedAt: Date;
   attempt: number;
 }
@@ -354,6 +356,9 @@ export function transcriptHeader(context: TranscriptContext): string {
     ['Model', context.model || 'default'],
     ['Effort', context.effort || 'default']
   ];
+  if (context.ultracode) {
+    rows.push(['Ultracode', 'on']);
+  }
   if (context.attempt > 1) {
     rows.push(['Attempt', `retry ${context.attempt - 1}`]);
   }

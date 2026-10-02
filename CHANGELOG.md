@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-01
+
+### Added
+
+- **Each scheduled plan and chain can run in ultracode.** An Ultracode
+  checkbox sits next to Effort. When it is ticked, Claude runs a team of
+  helper agents on every task in that plan's runs. An unattended run follows
+  only its own plan's box.
+- **The Tasks sidebar and the Settings page have an Ultracode switch.** It
+  sits under Effort, and covers everything the Tasks panel starts: Generate
+  plan, Series, Revise, Explain and Run. Run copies it onto the plan it
+  creates.
+- **Ultracode is Claude Code only, and uses far more tokens.** The switch is
+  hidden for Codex and opencode, and switching a plan to another engine turns
+  it off.
+- **Run transcripts record ultracode.** The header has an Ultracode row under
+  Effort when the run used it.
+
 ## [0.17.0] - 2026-09-30
 
 ### Added

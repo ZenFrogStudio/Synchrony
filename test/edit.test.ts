@@ -130,6 +130,26 @@ describe('edit — the effort level', () => {
   });
 });
 
+describe('edit — ultracode', () => {
+  it('should_accept_true', () => {
+    assert.deepEqual(seriesEdit({ ultracode: true }), { patch: { ultracode: true }, rejected: [] });
+  });
+
+  it('should_clear_on_false_and_null', () => {
+    // Off is stored as absent, the same as a plan that never had it.
+    assert.deepEqual(seriesEdit({ ultracode: false }), { patch: { ultracode: undefined }, rejected: [] });
+    assert.deepEqual(seriesEdit({ ultracode: null }), { patch: { ultracode: undefined }, rejected: [] });
+  });
+
+  it('should_reject_anything_that_is_not_a_real_boolean', () => {
+    for (const hostile of ['true', 1, [true], {}]) {
+      const { patch, rejected } = seriesEdit({ ultracode: hostile });
+      assert.deepEqual(patch, {}, `should have rejected ${JSON.stringify(hostile)}`);
+      assert.deepEqual(rejected, ['ultracode']);
+    }
+  });
+});
+
 describe('edit — the model argument', () => {
   it('should_accept_a_pinned_model_id', () => {
     assert.deepEqual(seriesEdit({ model: 'claude-opus-5' }).patch, { model: 'claude-opus-5' });

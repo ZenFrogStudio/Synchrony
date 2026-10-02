@@ -2,7 +2,7 @@ import { ChildProcess, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Agent, agentFor, resolveEffort } from './agents';
+import { Agent, agentFor, resolveEffort, usesUltracode } from './agents';
 import { buildArgs, preflightError } from './launch';
 import { log } from './log';
 import {
@@ -67,7 +67,9 @@ export class Runner implements vscode.Disposable {
     /** Resolved per run, like `resultsDir`: it moves when the folder does. */
     private readonly logDir: () => string,
     /** Resolved per run: the setting can change without an editor restart. */
-    private readonly resultsDir: () => string
+    private readonly resultsDir: () => string,
+    /** The settings file that switches ultracode on, shipped in `media/`. */
+    private readonly ultracodeSettings: string
   ) {}
 
   dispose(): void {
@@ -219,7 +221,9 @@ export class Runner implements vscode.Disposable {
     const effort = resolveEffort(agent, series.effort, (key) =>
       vscode.workspace.getConfiguration('synchrony').get(key)
     );
-    const args = buildArgs({ ...series, effort });
+    // The plan's own switch only: an unattended run never reads the setting.
+    const ultracode = usesUltracode(agent, series.ultracode);
+    const args = buildArgs({ ...series, effort }, ultracode ? this.ultracodeSettings : undefined);
     const exe = agentExe(agent);
 
     log.info(`run ${run.id}: ${exe} ${args.join(' ')} (cwd ${series.cwd})`);
@@ -253,7 +257,7 @@ export class Runner implements vscode.Disposable {
       pending: '',
       logStream: fs.createWriteStream(logPath, { flags: 'a' }),
       resultPath,
-      resultStream: openTranscript(resultPath, series, run, startedAt, effort),
+      resultStream: openTranscript(resultPath, series, run, startedAt, effort, ultracode),
       writer: new vscode.EventEmitter<string>(),
       closer: new vscode.EventEmitter<number>()
     };
@@ -514,9 +518,10 @@ export function readCodexCatalog(timeoutMs = 15_000): Promise<string | undefined
  * executable, not the arguments — so both are quoted here.
  *
  * The prompt still travels on stdin, never the command line. Everything in
- * `args` is a fixed flag, a validated enum value, or the working directory,
- * which is the one entry that can contain a space and is the reason quoting the
- * arguments matters rather than only the executable.
+ * `args` is a fixed flag, a validated enum value, the working directory or the
+ * ultracode settings file inside the extension folder. Those last two can
+ * contain a space, which is why the arguments are quoted and not only the
+ * executable.
  */
 function spawnAgent(exe: string, args: string[], cwd: string): ChildProcess {
   const isWindows = process.platform === 'win32';
@@ -561,7 +566,8 @@ function openTranscript(
   series: TaskSeries,
   run: TaskRun,
   startedAt: Date,
-  effort: string
+  effort: string,
+  ultracode: boolean
 ): fs.WriteStream | undefined {
   if (!resultPath) {
     return undefined;
@@ -577,6 +583,7 @@ function openTranscript(
         permissionMode: series.permissionMode,
         model: series.model,
         effort,
+        ultracode,
         startedAt,
         attempt: run.attempt
       })

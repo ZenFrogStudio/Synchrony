@@ -236,6 +236,15 @@ export function resolveEffort(
   return listed(setting) ? setting : '';
 }
 
+/**
+ * Whether a session or run on `agent` uses ultracode. Claude Code is the only
+ * engine that has it, and only a real `true` switches it on, so a stray value
+ * from a screen or an old state file can never reach a command line.
+ */
+export function usesUltracode(agent: Agent, on: unknown): boolean {
+  return agent.id === 'claude' && on === true;
+}
+
 /** The engine, model and effort the Tasks panel (and Revise) use. `read` is a settings getter. */
 export function planChoice(read: (key: string) => unknown): {
   agent: Agent;

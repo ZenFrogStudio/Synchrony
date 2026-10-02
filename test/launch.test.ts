@@ -244,6 +244,29 @@ describe('buildArgs — effort', () => {
   });
 });
 
+/** With a space in it, as the real extension folder under a user profile has. */
+const ULTRACODE = 'C:\\Users\\Some One\\.vscode\\extensions\\synchrony\\media\\ultracode.json';
+
+describe('buildArgs — ultracode', () => {
+  it('should_end_claudes_arguments_with_the_settings_file_when_given_one', () => {
+    const args = buildArgs({ ...onEngine('claude'), effort: 'high' }, ULTRACODE);
+
+    assert.deepEqual(args.slice(-2), ['--settings', ULTRACODE]);
+  });
+
+  it('should_pass_no_settings_flag_to_claude_without_a_file', () => {
+    assert.ok(!buildArgs(onEngine('claude')).includes('--settings'));
+  });
+
+  it('should_never_pass_the_settings_file_to_codex_or_opencode', () => {
+    for (const agent of ['codex', 'opencode'] as const) {
+      const args = buildArgs(onEngine(agent), ULTRACODE);
+      assert.ok(!args.includes('--settings'), agent);
+      assert.ok(!args.includes(ULTRACODE), agent);
+    }
+  });
+});
+
 const LIBRARY = 'D:\\plans';
 const STAGING = 'D:\\plans\\.pending\\ab12cd';
 
@@ -830,6 +853,38 @@ describe('generateCommand and explainCommand — effort', () => {
       for (const agent of ['claude', 'codex', 'opencode'] as const) {
         assert.ok(!/--effort|model_reasoning_effort|--variant/.test(command({ agent })));
       }
+    });
+  }
+});
+
+describe('generateCommand and explainCommand — ultracode', () => {
+  const build = [
+    ['generateCommand', (o: { agent: AgentId; ultracodeSettings?: string }) =>
+      generateCommand(generatable({ sourcePath: TASK, destDir: STAGING, exe: o.agent, ...o }))],
+    ['explainCommand', (o: { agent: AgentId; ultracodeSettings?: string }) =>
+      explainCommand(explainable({ exe: o.agent, ...o }))]
+  ] as const;
+
+  for (const [name, command] of build) {
+    it(`${name}_should_pass_the_settings_file_to_claude`, () => {
+      const line = command({ agent: 'claude', ultracodeSettings: ULTRACODE });
+      assert.ok(line.endsWith(` --settings '${ULTRACODE}'`), line);
+    });
+
+    it(`${name}_should_keep_the_instruction_first_with_ultracode_on`, () => {
+      const line = command({ agent: 'claude', ultracodeSettings: ULTRACODE });
+      assert.ok(line.startsWith(`'claude' 'Read the file at`), line);
+    });
+
+    it(`${name}_should_pass_nothing_to_codex_or_opencode`, () => {
+      for (const agent of ['codex', 'opencode'] as const) {
+        const line = command({ agent, ultracodeSettings: ULTRACODE });
+        assert.ok(!line.includes('--settings') && !line.includes('ultracode.json'), line);
+      }
+    });
+
+    it(`${name}_should_pass_no_settings_flag_without_a_file`, () => {
+      assert.ok(!command({ agent: 'claude' }).includes('--settings'));
     });
   }
 });

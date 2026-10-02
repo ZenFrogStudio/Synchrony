@@ -414,8 +414,19 @@ body.vscode-high-contrast #run-task.button:hover {
   gap: 6px;
 }
 
+/* `display: flex` above would otherwise beat the hidden attribute. */
+.action-model[hidden] {
+  display: none;
+}
+
+/* No default margin, so the box starts where the dropdowns above it start. */
+#plan-ultracode {
+  margin: 0;
+}
+
 .model-label {
-  min-width: 3.5em;
+  /* Wide enough for "Ultracode", so its checkbox lines up with the dropdowns. */
+  min-width: 4.5em;
   color: var(--muted);
 }
 

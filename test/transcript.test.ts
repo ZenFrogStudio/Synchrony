@@ -347,6 +347,14 @@ describe('transcriptHeader', () => {
     assert.ok(transcriptHeader({ ...CONTEXT, effort: 'xhigh' }).includes('| Effort | xhigh |'));
   });
 
+  it('should_record_ultracode_under_the_effort_only_when_it_was_on', () => {
+    assert.ok(!transcriptHeader(CONTEXT).includes('Ultracode'));
+    assert.ok(!transcriptHeader({ ...CONTEXT, ultracode: false }).includes('Ultracode'));
+    assert.ok(
+      transcriptHeader({ ...CONTEXT, ultracode: true }).includes('| Effort | default |\n| Ultracode | on |')
+    );
+  });
+
   it('should_name_the_engine_the_run_went_through', () => {
     // Two engines mean "Sonnet 5" and "opencode default" are no longer enough
     // on their own to say what actually ran.

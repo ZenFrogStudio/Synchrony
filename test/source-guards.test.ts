@@ -240,6 +240,21 @@ describe('source guards', () => {
     }
   });
 
+  it('should_ship_the_ultracode_settings_file_the_extension_points_at', () => {
+    // Claude reads this through `--settings`, and nothing errors if it goes
+    // missing or loses its key: the run simply goes ahead without ultracode,
+    // and the transcript still says it was on.
+    const file = path.join(MEDIA, 'ultracode.json');
+    assert.ok(fs.existsSync(file), 'media/ultracode.json is missing');
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), { ultracode: true });
+
+    const extension = fs.readFileSync(path.join(SRC, 'extension.ts'), 'utf8');
+    assert.ok(
+      extension.includes(`path.join(context.extensionPath, 'media', 'ultracode.json')`),
+      'src/extension.ts no longer points at media/ultracode.json'
+    );
+  });
+
   it('should_keep_the_saved_pane_sizes_channel_in_step', () => {
     // The host writes the remembered sash sizes into a meta tag at render time
     // and the webview reads them back before first paint. The token and the

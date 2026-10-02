@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { buildActivity } from './activity';
-import { AGENTS, DEFAULT_AGENT, planChoice } from './agents';
+import { AGENTS, DEFAULT_AGENT, planChoice, usesUltracode } from './agents';
 import { appendPatch, chainPatches, chainTail, isInChain, spliceForRechain } from './chain';
 import { consolidate } from './consolidate';
 import { seriesEdit } from './edit';
@@ -40,6 +40,7 @@ type Inbound =
       agent?: string;
       model?: string;
       effort?: string;
+      ultracode?: boolean;
       permissionMode?: string;
     }
   /** `id` is any member of the chain; the plan goes on behind its tail. */
@@ -123,7 +124,9 @@ export class Manager implements vscode.Disposable {
     /** `contributes.configuration.properties`, straight from the manifest. The
      *  Settings page is generated from it rather than from a second table, so a
      *  setting cannot exist without a control. */
-    configProperties: Record<string, unknown>
+    configProperties: Record<string, unknown>,
+    /** The settings file that switches ultracode on, for the Revise session. */
+    private readonly ultracodeSettings: string
   ) {
     this.settingGroups = settingGroups(configProperties);
     this.storeListener = store.onDidChange(() => this.post());
@@ -717,6 +720,7 @@ export class Manager implements vscode.Disposable {
       agent: message.agent,
       model: message.model,
       effort: message.effort,
+      ultracode: message.ultracode,
       permissionMode: message.permissionMode
     });
     if (rejected.length) {
@@ -906,6 +910,10 @@ export class Manager implements vscode.Disposable {
       allowDir: path.dirname(series.filePath),
       model: model || undefined,
       effort: effort || undefined,
+      // The same rule as the Tasks panel's sessions: the setting, Claude only.
+      ultracodeSettings: usesUltracode(agent, config.get('ultracode'))
+        ? this.ultracodeSettings
+        : undefined,
       shell: shellKind(vscode.env.shell, process.platform),
       steps: enabledPlanSteps((key, fallback) => config.get<boolean>(key, fallback))
     });

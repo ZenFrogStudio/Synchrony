@@ -2,7 +2,7 @@
   "name": "synchrony",
   "displayName": "Synchrony",
   "description": "Schedule coding-agent tasks from Markdown plan files.",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "publisher": "ZenFrog",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -294,6 +294,11 @@
             "Ultra"
           ],
           "markdownDescription": "How hard Codex thinks. Used by every session and run on Codex, unless a scheduled plan picks its own level. Engine default leaves Codex's own config in charge. Some models do not offer every level, and Synchrony passes the level as it is."
+        },
+        "synchrony.ultracode": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Use ultracode in the sessions and runs the Tasks panel starts on Claude Code. Claude runs a team of helper agents on every task, which uses far more tokens."
         },
         "synchrony.planStep.tests": {
           "type": "boolean",
